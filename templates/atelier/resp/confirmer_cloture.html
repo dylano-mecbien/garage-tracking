@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Clôturer OR{% endblock %}
+{% block page_title %}✅ Clôturer l'OR{% endblock %}
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_or' %}" class="active"><span class="icon">📋</span> Ordres de réparation</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Clôturer — {{ or_obj.numero }}</h1></div>
+  <a href="{% url 'detail_or' or_obj.id %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<div class="card" style="max-width:600px;">
+  <div style="text-align:center;padding:20px 0 16px;">
+    <div style="font-size:52px;margin-bottom:8px;">✅</div>
+    <h2>Confirmer la clôture</h2>
+    <p class="text-muted mt-1">OR <strong>{{ or_obj.numero }}</strong> — {{ or_obj.vehicule.immatriculation }}</p>
+  </div>
+
+  <div style="background:#f8fafc;border-radius:8px;padding:14px;margin-bottom:16px;">
+    <div class="form-row">
+      <div><span class="text-muted text-small">Tâches totales</span><div class="font-bold">{{ or_obj.taches.count }}</div></div>
+      <div><span class="text-muted text-small">Tâches terminées</span><div class="font-bold text-success">{{ or_obj.taches.filter.count }}</div></div>
+    </div>
+  </div>
+
+  {% with not_done=or_obj.taches.exclude %}
+  {% if or_obj.taches.exclude %}
+  <div class="alert alert-warning">⚠️ Certaines tâches ne sont pas encore terminées. Clôturer quand même ?</div>
+  {% endif %}
+  {% endwith %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button type="submit" class="btn btn-success" style="font-size:15px;padding:10px 28px;">✅ Confirmer la clôture</button>
+      <a href="{% url 'detail_or' or_obj.id %}" class="btn btn-outline" style="padding:10px 28px;">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

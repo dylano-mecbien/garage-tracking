@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}{{ v.immatriculation }} — Détails{% endblock %}
+{% block page_title %}🚗 Fiche véhicule{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+    <li>
+        <a href="{% url 'dashboard_reception' %}">
+            <span class="icon">📊</span> Tableau de bord
+        </a>
+    </li>
+
+    <li>
+        <a href="{% url 'liste_receptions' %}">
+            <span class="icon">📋</span> Historique des Réceptions
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'vehicules_presents_rec' %}">
+            <span class="icon">🚗</span> Véhicules présents
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'historique_entrees_rec' %}">
+            <span class="icon">📋</span> Historique des mouvements
+        </a>
+    </li>
+     <li>
+        <a href="{% url 'liste_bons_sortie' %}">
+            <span class="icon">📄</span> Bons de sortie
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .info-bloc { background:var(--surface2); border-radius:8px; padding:14px 16px; border:1px solid var(--border); }
+  .stat-chip  { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+  .hist-row   { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .hist-row:last-child { border-bottom:none; }
+  .hist-icon  { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ v.immatriculation }}</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'dashboard_reception' %}">Réception</a> › Fiche véhicule
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+    {% if entree_active %}
+    <a href="{% url 'creer_reception' %}?entree_id={{ entree_active.id }}" class="btn btn-primary">
+      ➕ Créer réception
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Statut en cours -->
+{% if entree_active %}
+<div style="background:linear-gradient(135deg,var(--accent),var(--accent-light));border-radius:var(--radius);padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+  <div style="display:flex;align-items:center;gap:10px;color:#fff;">
+    <span style="font-size:24px;">🔴</span>
+    <div>
+      <div style="font-weight:700;font-size:15px;">Véhicule actuellement dans le garage</div>
+      <div style="opacity:.85;font-size:13px;">Entré le {{ entree_active.date_entree|date:"d/m/Y à H:i" }} — {{ entree_active.get_motif_display }} — {{ entree_active.duree_sejour }}</div>
+    </div>
+  </div>
+  {% if not entree_active.reception %}
+  <a href="{% url 'creer_reception' %}?entree_id={{ entree_active.id }}" class="btn" style="background:#fff;color:var(--accent);font-weight:700;">➕ Créer réception</a>
+  {% else %}
+  <a href="{% url 'detail_reception' entree_active.reception.id %}" class="btn" style="background:#fff;color:var(--accent);font-weight:700;">📋 Voir réception</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="grid-2">
+
+  <!-- ═══ Informations véhicule ═══ -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🚗 Informations véhicule</div>
+      {% if v.en_atelier %}
+      <span class="badge badge-en-cours">En atelier</span>
+      {% else %}
+      <span class="badge badge-success">à la reception</span>
+      {% endif %}
+    </div>
+
+    {% if v.photo %}
+    <img src="{{ v.photo.url }}" alt="{{ v.immatriculation }}"
+         style="width:100%;height:170px;object-fit:cover;border-radius:8px;margin-bottom:14px;">
+    {% endif %}
+
+    <table>
+      <tr>
+        <td class="text-muted" style="width:40%;">Immatriculation</td>
+        <td><strong style="font-size:16px;letter-spacing:.5px;">{{ v.immatriculation }}</strong></td>
+      </tr>
+      <tr><td class="text-muted">Marque</td><td><strong>{{ v.marque }}</strong></td></tr>
+      <tr><td class="text-muted">Modèle</td><td>{{ v.modele }}</td></tr>
+      <tr><td class="text-muted">Année</td><td>{{ v.annee }}</td></tr>
+      <tr><td class="text-muted">Couleur</td><td>{{ v.couleur|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Carburant</td><td>{{ v.get_type_carburant_display }}</td></tr>
+      <tr><td class="text-muted">Transmission</td><td>{{ v.get_transmission_display }}</td></tr>
+      {% if v.numero_chassis %}
+      <tr><td class="text-muted">N° Châssis</td><td class="text-small text-muted">{{ v.numero_chassis }}</td></tr>
+      {% endif %}
+      {% if v.num_assurance %}
+      <tr>
+        <td class="text-muted">Assurance</td>
+        <td>
+          {{ v.num_assurance }}
+          {% if v.expiry_assurance %}
+          <span class="text-small text-muted">(exp. {{ v.expiry_assurance|date:"d/m/Y" }})</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endif %}
+    </table>
+  </div>
+
+  <!-- ═══ Informations propriétaire ═══ -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">👤 Propriétaire</div></div>
+    <div class="info-bloc" style="margin-bottom:14px;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px;">{{ v.client }}</div>
+      <div class="text-small text-muted">{{ v.client.get_type_client_display }}</div>
+    </div>
+    <table>
+      <tr><td class="text-muted">N° Client</td><td class="text-muted">{{ v.client.numero_client }}</td></tr>
+      <tr>
+        <td class="text-muted">Téléphone</td>
+        <td>
+          <a href="tel:{{ v.client.telephone }}" style="color:var(--primary);font-weight:600;">
+            📞 {{ v.client.telephone }}
+          </a>
+        </td>
+      </tr>
+      {% if v.client.telephone2 %}
+      <tr>
+        <td class="text-muted">Tél. 2</td>
+        <td><a href="tel:{{ v.client.telephone2 }}" style="color:var(--primary);">{{ v.client.telephone2 }}</a></td>
+      </tr>
+      {% endif %}
+      {% if v.client.email %}
+      <tr>
+        <td class="text-muted">Email</td>
+        <td><a href="mailto:{{ v.client.email }}" style="color:var(--primary);">{{ v.client.email }}</a></td>
+      </tr>
+      {% endif %}
+      {% if v.client.adresse %}
+      <tr><td class="text-muted">Adresse</td><td>{{ v.client.adresse }}{% if v.client.ville %}, {{ v.client.ville }}{% endif %}</td></tr>
+      {% endif %}
+      {% if v.client.ninea %}
+      <tr><td class="text-muted">NINEA / RC</td><td class="text-muted">{{ v.client.ninea }}</td></tr>
+      {% endif %}
+    </table>
+
+    <!-- Stats rapides -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <div class="text-muted text-small" style="margin-bottom:8px;font-weight:600;">HISTORIQUE RAPIDE</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <span class="stat-chip" style="background:var(--surface);border:1px solid var(--border);">
+          🚗 {{ entrees|length }} passage{{ entrees|length|pluralize }}
+        </span>
+        <span class="stat-chip" style="background:var(--surface);border:1px solid var(--border);">
+          🔧 {{ or_list|length }} réparation{{ or_list|length|pluralize }}
+        </span>
+        <span class="stat-chip" style="background:var(--surface);border:1px solid var(--border);">
+          📋 {{ rec_list|length }} réception{{ rec_list|length|pluralize }}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Historique des réceptions ═══ -->
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">📋 Historique des réceptions</div>
+  </div>
+
+  {% if rec_list %}
+  {% for r in rec_list %}
+  <div class="hist-row">
+    <div class="hist-icon" style="background:{% if r.statut == 'SORTI' %}var(--success){% elif r.statut == 'TRAVAUX_TERMINES' %}var(--info){% else %}var(--accent){% endif %}15;">
+      {% if r.statut == 'SORTI' %}✅{% elif r.statut == 'TRAVAUX_TERMINES' %}🔧{% elif r.statut == 'EN_ATELIER' or r.statut == 'PRESENT_ATELIER' %}🏭{% else %}📥{% endif %}
+    </div>
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <a href="{% url 'detail_reception' r.id %}" style="font-weight:700;color:var(--primary);">{{ r.numero }}</a>
+        {% if r.statut == 'EN_COURS' %}<span class="badge badge-a-faire">En cours</span>
+        {% elif r.statut == 'RAPPORT_FAIT' %}<span class="badge badge-info">Rapport fait</span>
+        {% elif r.statut == 'EN_ATELIER' %}<span class="badge badge-en-cours">En atelier</span>
+        {% elif r.statut == 'PRESENT_ATELIER' %}<span class="badge badge-ouvert">Présent atelier</span>
+        {% elif r.statut == 'TRAVAUX_TERMINES' %}<span class="badge badge-success">Terminé</span>
+        {% elif r.statut == 'BON_SORTIE_FAIT' %}<span class="badge badge-cloture">Bon créé</span>
+        {% elif r.statut == 'SORTI' %}<span class="badge badge-secondary">Sorti</span>
+        {% else %}<span class="badge badge-secondary">{{ r.get_statut_display }}</span>{% endif %}
+      </div>
+      <div class="text-small text-muted">{{ r.created_at|date:"d/m/Y H:i" }}</div>
+      {% if r.rapport %}
+      <div class="text-small" style="margin-top:2px;color:var(--text-muted);">
+        {{ r.rapport.get_decision_display }} — {{ r.rapport.probleme_declare|truncatechars:70 }}
+      </div>
+      {% endif %}
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+      <div class="text-small font-bold" style="color:var(--primary);">{{ r.progression_pct }}%</div>
+      <div class="progress-bar" style="width:80px;">
+        <div class="progress-fill" style="width:{{ r.progression_pct }}%;{% if r.progression_pct == 100 %}background:var(--success);{% endif %}"></div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div style="text-align:center;padding:24px;color:var(--text-muted);">
+    Aucune réception enregistrée pour ce véhicule
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══ Historique OR ═══ -->
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">🔧 Historique des ordres de réparation</div>
+  </div>
+
+  {% if or_list %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>N° OR</th>
+          <th>Type</th>
+          <th>Atelier</th>
+          <th>Statut</th>
+          <th>Durée</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in or_list %}
+        <tr>
+          <td><a href="{% url 'detail_or' o.id %}"><strong>{{ o.numero }}</strong></a></td>
+          <td>
+            {% if o.type_or == 'RETOUR' %}
+            <span class="badge badge-danger">🔄 Retour</span>
+            {% else %}
+            <span class="badge badge-info">Normal</span>
+            {% endif %}
+          </td>
+          <td class="text-small">{{ o.atelier.nom }}</td>
+          <td>
+            {% if o.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
+            {% elif o.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+            {% elif o.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
+            {% elif o.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>
+            {% elif o.statut == 'ANNULE' %}<span class="badge badge-annule">Annulé</span>
+            {% endif %}
+          </td>
+          <td class="text-small text-muted">
+            {% if o.duree_totale_minutes %}{{ o.duree_heures }}{% else %}—{% endif %}
+          </td>
+          <td class="text-small text-muted">{{ o.date_creation|date:"d/m/Y" }}</td>
+          <td>
+            <a href="{% url 'detail_or' o.id %}" class="btn btn-info btn-sm">👁 Voir</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:24px;color:var(--text-muted);">
+    Aucun ordre de réparation pour ce véhicule
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══ Historique entrées ═══ -->
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">🚪 Historique des passages guérite</div>
+  </div>
+
+  {% if entrees %}
+  {% for e in entrees %}
+  <div class="hist-row">
+    <div class="hist-icon" style="background:{% if e.statut == 'SORTI' %}#d1fae510{% else %}#fef3c710{% endif %};">
+      {% if e.statut == 'SORTI' %}🚪{% else %}🔴{% endif %}
+    </div>
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a href="{% url 'detail_entree_rec' e.id %}" style="font-weight:600;color:var(--primary);">{{ e.numero }}</a>
+        {% if e.motif == 'REPARATION' %}<span class="badge badge-reparation">🔧 Réparation</span>
+        {% elif e.motif == 'VISITE' %}<span class="badge badge-visite">👁 Visite</span>
+        {% else %}<span class="badge badge-secondary">{{ e.get_motif_display }}</span>{% endif %}
+        {% if e.statut == 'EN_COURS' %}<span class="badge badge-warning">En cours</span>{% endif %}
+      </div>
+      <div class="text-small text-muted">
+        Entré {{ e.date_entree|date:"d/m/Y H:i" }}
+        {% if e.date_sortie %} — Sorti {{ e.date_sortie|date:"d/m/Y H:i" }}{% endif %}
+        — Durée: {{ e.duree_sejour }}
+      </div>
+      {% if e.conducteur %}
+      <div class="text-small text-muted">Conducteur: {{ e.conducteur }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div style="text-align:center;padding:24px;color:var(--text-muted);">
+    Aucun passage enregistré
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

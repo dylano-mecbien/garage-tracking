@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Véhicules{% endblock %}
+{% block page_title %}🚗 Véhicules{% endblock %}
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{{ request.user.get_dashboard_url }}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_vehicules' %}" class="active"><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Tous les véhicules</h1><div class="breadcrumb">{{ vehicules|length }} véhicule{{ vehicules|length|pluralize }}</div></div>
+</div>
+<div class="card mb-2">
+  <form method="get" style="display:flex;gap:8px;">
+    <input type="text" name="q" value="{{ q }}" class="form-input" placeholder="Immatriculation, marque, modèle, client..." style="flex:1;" autofocus>
+    <button class="btn btn-primary">🔍 Chercher</button>
+    {% if q %}<a href="{% url 'liste_vehicules' %}" class="btn btn-outline">✕</a>{% endif %}
+  </form>
+</div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Immatriculation</th><th>Marque / Modèle</th><th>Année</th><th>Carburant</th><th>Propriétaire</th><th>Statut</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for v in vehicules %}
+        <tr>
+          <td><a href="{% url 'detail_vehicule' v.id %}"><strong>{{ v.immatriculation }}</strong></a></td>
+          <td>{{ v.marque }} {{ v.modele }}<br><span class="text-small text-muted">{{ v.couleur|default:"" }}</span></td>
+          <td>{{ v.annee }}</td>
+          <td><span class="badge badge-secondary">{{ v.get_type_carburant_display }}</span></td>
+          <td><strong>{{ v.client }}</strong><br><span class="text-small text-muted">{{ v.client.telephone }}</span></td>
+          <td>{% if v.en_atelier %}<span class="badge badge-en-cours">En atelier</span>{% else %}<span class="badge badge-success">Disponible</span>{% endif %}</td>
+          <td><a href="{% url 'detail_vehicule' v.id %}" class="btn btn-info btn-sm">👁 Voir</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted" style="padding:30px;">Aucun véhicule trouvé</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

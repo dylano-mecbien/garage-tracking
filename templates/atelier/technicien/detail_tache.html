@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Tâche {{ tache.libelle }}{% endblock %}
+{% block page_title %}📌 Détail tâche{% endblock %}
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_technicien' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'mes_taches' %}" class="active"><span class="icon">📌</span> Mes tâches</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ tache.libelle }}</h1>
+    <div class="breadcrumb"><a href="{% url 'mes_taches' %}">Mes tâches</a> › {{ tache.ordre_reparation.numero }}</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'mes_taches' %}" class="btn btn-outline">← Retour</a>
+    {% if tache.statut == 'A_FAIRE' %}
+    <form method="post" action="{% url 'demarrer_tache' tache.id %}">{% csrf_token %}<button class="btn btn-primary">▶ Démarrer</button></form>
+    {% elif tache.statut == 'EN_COURS' %}
+    <a href="{% url 'saisir_compte_rendu' tache.id %}" class="btn btn-accent">✍️ Saisir compte rendu</a>
+    <form method="post" action="{% url 'terminer_tache' tache.id %}" onsubmit="return confirm('Marquer cette tâche comme terminée ?')">{% csrf_token %}<button class="btn btn-success">✅ Marquer terminée</button></form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📋 Informations tâche</div>
+      {% if tache.statut == 'A_FAIRE' %}<span class="badge badge-a-faire">À faire</span>
+      {% elif tache.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+      {% elif tache.statut == 'TERMINEE' %}<span class="badge badge-terminee">✓ Terminée</span>{% endif %}
+    </div>
+    <table>
+      <tr><td class="text-muted">Libellé</td><td><strong>{{ tache.libelle }}</strong></td></tr>
+      <tr><td class="text-muted">OR</td><td>{{ tache.ordre_reparation.numero }}</td></tr>
+      <tr><td class="text-muted">Véhicule</td><td><strong>{{ tache.ordre_reparation.vehicule.immatriculation }}</strong> — {{ tache.ordre_reparation.vehicule.marque }} {{ tache.ordre_reparation.vehicule.modele }}</td></tr>
+      <tr><td class="text-muted">Priorité</td><td>
+        {% if tache.priorite == 'URGENTE' %}<span class="badge badge-danger">🔴 Urgente</span>
+        {% elif tache.priorite == 'HAUTE' %}<span class="badge badge-warning">🟠 Haute</span>
+        {% else %}<span class="badge badge-info">{{ tache.get_priorite_display }}</span>{% endif %}
+      </td></tr>
+      <tr><td class="text-muted">Durée estimée</td><td>{{ tache.duree_estimee_minutes }} min</td></tr>
+      <tr><td class="text-muted">Durée réelle</td><td><strong>{{ tache.duree_reelle_minutes }} min</strong></td></tr>
+      {% if tache.date_debut %}<tr><td class="text-muted">Démarré le</td><td>{{ tache.date_debut|date:"d/m/Y H:i" }}</td></tr>{% endif %}
+      {% if tache.date_fin %}<tr><td class="text-muted">Terminé le</td><td>{{ tache.date_fin|date:"d/m/Y H:i" }}</td></tr>{% endif %}
+      {% if tache.description %}<tr><td class="text-muted">Description</td><td>{{ tache.description }}</td></tr>{% endif %}
+      {% if tache.est_copiee %}<tr><td colspan="2"><span class="badge badge-warning">🔄 Tâche issue d'un retour</span></td></tr>{% endif %}
+    </table>
+  </div>
+
+  <!-- Comptes rendus -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">✍️ Comptes rendus ({{ comptes_rendus.count }})</div>
+      {% if tache.statut == 'EN_COURS' %}
+      <a href="{% url 'saisir_compte_rendu' tache.id %}" class="btn btn-primary btn-sm">+ Ajouter</a>
+      {% endif %}
+    </div>
+    {% for cr in comptes_rendus %}
+    <div style="background:#f8fafc;border-radius:8px;padding:12px;margin-bottom:8px;border-left:3px solid var(--primary-light);">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <strong class="text-small">{{ cr.date_saisie|date:"d/m/Y H:i" }}</strong>
+        <span class="badge badge-info">{{ cr.duree_minutes }} min</span>
+      </div>
+      <div class="text-small" style="margin-bottom:4px;">{{ cr.description }}</div>
+      {% if cr.pieces_utilisees %}<div class="text-small text-muted">🔩 {{ cr.pieces_utilisees }}</div>{% endif %}
+      {% if cr.photos.exists %}
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        {% for photo in cr.photos.all %}
+        <a href="{{ photo.photo.url }}" target="_blank">
+          <img src="{{ photo.photo.url }}" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;">
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="text-center text-muted" style="padding:20px;">Aucun compte rendu</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

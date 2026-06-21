@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Enregistrer une entrée{% endblock %}
+{% block page_title %}📥 Enregistrer une entrée{% endblock %}
+
+{% block sidebar_nav %}
+
+
+<div class="sidebar-section">Guérite</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_guerite' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'vehicules_presents' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+    <li><a href="{% url 'nouvelle_entree' %}" class="active"><span class="icon">➕</span> Nouvelle entrée</a></li>
+
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Enregistrer une entrée</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'dashboard_guerite' %}">Guérite</a> › Nouvelle entrée
+    </div>
+  </div>
+  <a href="{% url 'dashboard_guerite' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<!-- Véhicule sélectionné -->
+{% if vehicule %}
+<div class="card mb-2" style="border-left:4px solid var(--success);max-width:600px;">
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div style="font-size:30px;">🚗</div>
+    <div style="flex:1;">
+      <div class="font-bold" style="font-size:18px;">{{ vehicule.immatriculation }}</div>
+      <div>{{ vehicule.marque }} {{ vehicule.modele }} {{ vehicule.annee }}{% if vehicule.couleur %} — {{ vehicule.couleur }}{% endif %}</div>
+      <div class="text-muted text-small">Propriétaire : <strong>{{ vehicule.client }}</strong> — {{ vehicule.client.telephone }}</div>
+    </div>
+    <a href="{% url 'recherche_vehicule' %}" class="btn btn-outline btn-sm">Changer</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="max-width:600px;">
+  <div class="card-header"><div class="card-title">📋 Informations de l'entrée</div></div>
+
+  <form method="post" id="entree-form">
+    {% csrf_token %}
+
+    <!-- Véhicule -->
+    {% if vehicule %}
+    <input type="hidden" name="vehicule" value="{{ vehicule.id }}">
+    {% else %}
+    <div class="form-group">
+      <label class="form-label">Véhicule *</label>
+      {{ form.vehicule }}
+    </div>
+    {% endif %}
+
+    <!-- ══ Conducteur avec recherche ══ -->
+    <div class="form-group">
+      <label class="form-label">🪪 Conducteur</label>
+      <div class="search-wrap">
+        <input type="text" id="cond-search" class="form-input"
+               placeholder="Nom, CNI ou numéro de permis..."
+               autocomplete="off">
+        <div class="search-results" id="cond-results"></div>
+      </div>
+
+      <!-- Conducteur sélectionné -->
+      <div class="cond-selected" id="cond-box">
+        <span style="font-size:20px;"></span>
+        <div style="flex:1;">
+          <div class="font-bold" id="cond-name"></div>
+          <div class="text-small text-muted" id="cond-sub"></div>
+        </div>
+        <button type="button" onclick="clearCond()" class="btn btn-outline btn-sm">✕ Changer</button>
+      </div>
+
+      <input type="hidden" name="conducteur" id="cond-id">
+      <div class="text-small text-muted mt-1">
+        Laissez vide si le conducteur est le propriétaire
+      </div>
+    </div>
+
+    <!-- ══ Formulaire inline création conducteur ══ -->
+    <div class="inline-form" id="inline-cond" style="position:relative;">
+      <div class="spinner-overlay" id="cond-spin">
+        <div class="spinner"></div>
+        <div style="font-size:13px;color:var(--text-muted);">Création...</div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <strong>➕ Nouveau conducteur</strong>
+        <button type="button" onclick="closeInline()" class="btn btn-outline btn-sm">✕ Fermer</button>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nom *</label>
+          <input type="text" id="cn-nom" class="form-input" placeholder="Nom de famille">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prénom </label>
+          <input type="text" id="cn-prenom" class="form-input" placeholder="Prénom">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Téléphone *</label>
+          <input type="tel" id="cn-tel" class="form-input" placeholder="6XX XXX XXX">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Téléphone 2</label>
+          <input type="tel" id="cn-tel2" class="form-input" placeholder="Optionnel">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">N° CNI</label>
+          <input type="text" id="cn-cni" class="form-input" placeholder="Ex: CM001122334">
+        </div>
+        <div class="form-group">
+          <label class="form-label">N° Permis</label>
+          <input type="text" id="cn-permis" class="form-input" placeholder="Ex: DLA-2020-001">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Catégorie permis</label>
+        <input type="text" id="cn-cat" class="form-input" placeholder="A, B, C, D...">
+      </div>
+
+      <button type="button" onclick="saveConducteur()"
+              class="btn btn-primary w-full" style="margin-top:4px;">
+        💾 Enregistrer le conducteur
+      </button>
+    </div>
+
+    <!-- Motif -->
+    <div class="form-group" style="margin-top:16px;">
+      <label class="form-label">🎯 Motif d'entrée *</label>
+      {{ form.motif }}
+      <div class="text-small text-muted mt-1">
+        ⚠️ Réparation = bon de sortie obligatoire à la sortie
+      </div>
+    </div>
+
+    <!-- Observations -->
+    <div class="form-group">
+      <label class="form-label">💬 Observations</label>
+      {{ form.observations }}
+    </div>
+
+    <hr>
+    <div style="display:flex;gap:12px;">
+      <button type="submit" class="btn btn-accent" style="font-size:15px;padding:12px 24px;">
+        ✅ Enregistrer l'entrée
+      </button>
+      <a href="{% url 'dashboard_guerite' %}" class="btn btn-outline">Annuler</a>
+    </div>
+  </form>
+</div>
+
+<!-- Actions rapides si pas de véhicule -->
+{% if not vehicule %}
+<div class="card mt-2" style="max-width:600px;background:var(--surface2);">
+  <div class="text-small text-muted" style="margin-bottom:10px;">Véhicule non trouvé ?</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% url 'creer_client_guerite' %}?next={% url 'creer_vehicule_guerite' %}" class="btn btn-outline btn-sm">👤 Nouveau client + véhicule</a>
+    <a href="{% url 'creer_vehicule_guerite' %}" class="btn btn-outline btn-sm">🚗 Nouveau véhicule</a>
+    <a href="{% url 'recherche_vehicule' %}" class="btn btn-outline btn-sm">🔍 Rechercher</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let dbt;
+
+// ── Recherche conducteur ──────────────────────────────────────
+document.getElementById('cond-search').addEventListener('input', function() {
+  clearTimeout(dbt);
+  const q = this.value.trim();
+  if (q.length < 2) { closeRes(); return; }
+  dbt = setTimeout(() => doSearch(q), 300);
+});
+
+async function doSearch(q) {
+  try {
+    const r    = await fetch(`{% url 'autocomplete_conducteurs' %}?q=${encodeURIComponent(q)}`);
+    const data = await r.json();
+    renderRes(data.results || [], q);
+  } catch(e) { console.error(e); }
+}
+
+function renderRes(results, q) {
+  const box = document.getElementById('cond-results');
+  box.innerHTML = '';
+
+  if (!results.length) {
+    // Aucun résultat → proposer directement la création
+    const none = document.createElement('div');
+    none.className = 'sr-item';
+    none.style.color = 'var(--text-muted)';
+    none.textContent = 'Aucun conducteur trouvé';
+    box.appendChild(none);
+  } else {
+    results.forEach(r => {
+      const d = document.createElement('div');
+      d.className = 'sr-item';
+      d.innerHTML = `<div class="sr-name">${r.nom}</div><div class="sr-sub">${r.detail || ''}</div>`;
+      d.onclick = () => selectCond(r);
+      box.appendChild(d);
+    });
+  }
+
+  // Option "Créer nouveau conducteur"
+  const c = document.createElement('div');
+  c.className = 'sr-item create-new';
+  c.innerHTML = `<span>➕</span> Créer "${q}" comme nouveau conducteur`;
+  c.onclick = () => { closeRes(); openInline(q); };
+  box.appendChild(c);
+  box.classList.add('open');
+}
+
+function selectCond(r) {
+  document.getElementById('cond-id').value   = r.id;
+  document.getElementById('cond-name').textContent = r.nom;
+  document.getElementById('cond-sub').textContent  = r.detail || '';
+  document.getElementById('cond-box').classList.add('show');
+  document.getElementById('cond-search').style.display = 'none';
+  closeRes();
+  closeInline();
+}
+
+function clearCond() {
+  document.getElementById('cond-id').value = '';
+  document.getElementById('cond-box').classList.remove('show');
+  document.getElementById('cond-search').style.display = '';
+  document.getElementById('cond-search').value = '';
+  closeRes();
+}
+
+function closeRes() {
+  document.getElementById('cond-results').classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) closeRes();
+});
+
+// ── Formulaire inline ─────────────────────────────────────────
+function openInline(prefill) {
+  const form = document.getElementById('inline-cond');
+  form.classList.add('open');
+  if (prefill) {
+    // Mettre le texte saisi dans le champ Nom
+    const parts = prefill.trim().split(' ');
+    document.getElementById('cn-nom').value    = parts[0] || '';
+    document.getElementById('cn-prenom').value = parts.slice(1).join(' ') || '';
+  }
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeInline() {
+  document.getElementById('inline-cond').classList.remove('open');
+}
+
+async function saveConducteur() {
+  const spin = document.getElementById('cond-spin');
+  spin.classList.add('show');
+
+  const nom    = document.getElementById('cn-nom').value.trim();
+  const prenom = document.getElementById('cn-prenom').value.trim();
+  const tel    = document.getElementById('cn-tel').value.trim();
+
+  if (!nom || !tel) {
+    spin.classList.remove('show');
+    alert('Le nom et le téléphone sont obligatoires.');
+    return;
+  }
+
+  const payload = {
+    nom, prenom, telephone: tel,
+    telephone2:      document.getElementById('cn-tel2').value.trim(),
+    cni:             document.getElementById('cn-cni').value.trim(),
+    permis:          document.getElementById('cn-permis').value.trim(),
+    categorie_permis:document.getElementById('cn-cat').value.trim(),
+  };
+
+  try {
+    const res  = await fetch("{% url 'creer_conducteur_ajax' %}", {
+      method: 'POST',
+      headers: {
+        'Content-Type':     'application/json',
+        'X-CSRFToken':      '{{ csrf_token }}',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.success) {
+      selectCond({ id: data.id, nom: data.nom, detail: data.detail });
+      closeInline();
+    } else {
+      alert(data.error || 'Erreur lors de la création.');
+    }
+  } catch(e) {
+    alert('Erreur réseau.');
+  } finally {
+    spin.classList.remove('show');
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Transférer à l'atelier{% endblock %}
+{% block page_title %}🏭 Transférer à l'atelier{% endblock %}
+{% block sidebar_nav %}
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+    <li>
+        <a href="{% url 'dashboard_reception' %}">
+            <span class="icon">📊</span> Tableau de bord
+        </a>
+    </li>
+
+    <li>
+        <a href="{% url 'liste_receptions' %}">
+            <span class="icon">📋</span> Historique des Réceptions
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'vehicules_presents_rec' %}">
+            <span class="icon">🚗</span> Véhicules présents
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'historique_entrees_rec' %}">
+            <span class="icon">📋</span> Historique des mouvements
+        </a>
+    </li>
+     <li>
+        <a href="{% url 'liste_bons_sortie' %}">
+            <span class="icon">📄</span> Bons de sortie
+        </a>
+    </li>
+</ul>
+
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Transfert atelier</h1><div class="breadcrumb"><a href="{% url 'detail_reception' reception.id %}">{{ reception.numero }}</a> › Transfert</div></div>
+  <a href="{% url 'detail_reception' reception.id %}" class="btn btn-outline">← Retour</a>
+</div>
+<div class="card" style="max-width:500px;">
+  <div style="background:#f0f9ff;border-radius:8px;padding:14px;margin-bottom:16px;border:1px solid #bae6fd;">
+    <div class="font-bold">🚗 {{ reception.vehicule.immatriculation }}</div>
+    <div class="text-small">{{ reception.vehicule.marque }} {{ reception.vehicule.modele }} — {{ reception.vehicule.client }}</div>
+    <div class="text-small text-muted mt-1">{{ reception.description_probleme|truncatechars:100 }}</div>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label class="form-label">🏭 Atelier de destination *</label>
+      {{ form.atelier }}
+      {% if form.atelier.errors %}<div class="form-error">{{ form.atelier.errors.0 }}</div>{% endif %}
+    </div>
+    <div class="form-group">
+      <label class="form-label">📝 Notes de transfert</label>
+      {{ form.notes_transfert }}
+    </div>
+    <hr>
+    <button type="submit" class="btn btn-accent" style="font-size:15px;padding:10px 24px;">🚀 Transférer à l'atelier</button>
+  </form>
+</div>
+{% endblock %}

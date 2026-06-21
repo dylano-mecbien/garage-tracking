@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{{ titre }}{% endblock %}
+{% block page_title %}{{ titre }}{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'admin_dashboard' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_utilisateurs' %}" class="active"><span class="icon">👥</span> Utilisateurs</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ titre }}</h1>
+    <div class="breadcrumb"><a href="{% url 'admin_dashboard' %}">Admin</a> › <a href="{% url 'liste_utilisateurs' %}">Utilisateurs</a> › {{ titre }}</div>
+  </div>
+  <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<div class="card" style="max-width:680px;">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nom *</label>
+        {{ form.nom }}
+        {% if form.nom.errors %}<div class="form-error">{{ form.nom.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Prénom </label>
+        {{ form.prenom }}
+      </div>
+      
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email *</label>
+      {{ form.email }}
+      {% if form.email.errors %}<div class="form-error">{{ form.email.errors.0 }}</div>{% endif %}
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Téléphone</label>
+        {{ form.telephone }}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Matricule</label>
+        {{ form.matricule }}
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Rôle *</label>
+        {{ form.role }}
+        {% if form.role.errors %}<div class="form-error">{{ form.role.errors.0 }}</div>{% endif %}
+        <div class="text-small text-muted" style="margin-top:4px;">Détermine l'interface et les accès</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Atelier assigné</label>
+        {{ form.atelier }}
+        <div class="text-small text-muted" style="margin-top:4px;">Requis pour Resp. Atelier et Technicien</div>
+      </div>
+    </div>
+
+
+
+
+<p style="margin-bottom: 20px;">
+  🔒 Le mot de passe par défaut est <strong>Garage2026</strong>. L'utilisateur devra le changer à la première connexion.
+</p>
+
+    {% if form.is_active %}
+    <div class="form-group">
+      <label class="form-check">
+        {{ form.is_active }}
+        <span style="font-size:13px;">Compte actif</span>
+      </label>
+    </div>
+    {% endif %}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors.0 }}</div>
+    {% endif %}
+
+    <hr>
+    <div style="display:flex;gap:12px;">
+      <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+      <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

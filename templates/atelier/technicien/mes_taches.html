@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Mes tâches{% endblock %}
+{% block page_title %}📌 Mes tâches{% endblock %}
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_technicien' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'mes_taches' %}" class="active"><span class="icon">📌</span> Mes tâches</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Mes tâches</h1></div>
+
+{% regroup taches by get_statut_display as grouped %}
+{% for group in grouped %}
+<div class="card mb-2">
+  <div class="card-header">
+    <div class="card-title">
+      {% if group.grouper == 'À faire' %}📌 {% elif group.grouper == 'En cours' %}⚙️ {% else %}✅ {% endif %}
+      {{ group.grouper }} ({{ group.list|length }})
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tâche</th><th>OR / Véhicule</th><th>Priorité</th><th>Durée est.</th><th>Durée réelle</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for t in group.list %}
+        <tr>
+          <td>
+            <strong>{{ t.libelle }}</strong>
+            {% if t.est_copiee %}<span class="badge badge-warning" style="font-size:10px;margin-left:4px;">Retour</span>{% endif %}
+            {% if t.description %}<br><span class="text-small text-muted">{{ t.description|truncatechars:50 }}</span>{% endif %}
+          </td>
+          <td>
+            <strong>{{ t.ordre_reparation.vehicule.immatriculation }}</strong><br>
+            <span class="text-small text-muted">{{ t.ordre_reparation.numero }}</span>
+          </td>
+          <td>
+            {% if t.priorite == 'URGENTE' %}<span class="badge badge-danger">🔴 Urgente</span>
+            {% elif t.priorite == 'HAUTE' %}<span class="badge badge-warning">🟠 Haute</span>
+            {% elif t.priorite == 'NORMALE' %}<span class="badge badge-info">Normale</span>
+            {% else %}<span class="badge badge-secondary">Basse</span>{% endif %}
+          </td>
+          <td class="text-muted">{{ t.duree_estimee_minutes }} min</td>
+          <td>{% if t.duree_reelle_minutes %}<strong>{{ t.duree_reelle_minutes }} min</strong>{% else %}—{% endif %}</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              <a href="{% url 'detail_tache' t.id %}" class="btn btn-info btn-sm">👁</a>
+              {% if t.statut == 'A_FAIRE' %}
+              <form method="post" action="{% url 'demarrer_tache' t.id %}">{% csrf_token %}<button class="btn btn-primary btn-sm">▶ Démarrer</button></form>
+              {% elif t.statut == 'EN_COURS' %}
+              <a href="{% url 'saisir_compte_rendu' t.id %}" class="btn btn-accent btn-sm">✍️ CR</a>
+              <form method="post" action="{% url 'terminer_tache' t.id %}" onsubmit="return confirm('Terminer cette tâche ?')">{% csrf_token %}<button class="btn btn-success btn-sm">✅ Fin</button></form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% empty %}
+<div class="card" style="text-align:center;padding:40px;">
+  <div style="font-size:50px;margin-bottom:12px;">✅</div>
+  <h3>Aucune tâche assignée</h3>
+  <p class="text-muted">Votre responsable atelier vous assignera des tâches.</p>
+</div>
+{% endfor %}
+{% endblock %}

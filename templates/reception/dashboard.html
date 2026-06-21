@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}Réception — Dashboard{% endblock %}
+{% block page_title %}📥 Réception{% endblock %}
+
+{% block sidebar_nav %}
+<!-- SECTION RÉCEPTION -->
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+    <li>
+        <a href="{% url 'dashboard_reception' %}" class="active">
+            <span class="icon">📊</span> Tableau de bord
+        </a>
+    </li>
+
+    <li>
+        <a href="{% url 'liste_receptions' %}">
+            <span class="icon">📋</span> Historique des Réceptions
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'vehicules_presents_rec' %}">
+            <span class="icon">🚗</span> Véhicules présents
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'historique_entrees_rec' %}">
+            <span class="icon">📋</span> Historique des mouvements
+        </a>
+    </li>
+     <li>
+        <a href="{% url 'liste_bons_sortie' %}">
+            <span class="icon">📄</span> Bons de sortie
+        </a>
+    </li>
+</ul>
+
+{% endblock %}
+
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Tableau de bord Réception</h1>
+    <div class="breadcrumb">Gestion des véhicules entrants pour réparation</div>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <!-- Cloche notif -->
+    <div class="notif-bell">
+      <button onclick="togglePanel()" style="width:40px;height:40px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">🔔</button>
+      {% if nb_notifs %}<span class="notif-badge">{{ nb_notifs }}</span>{% endif %}
+    </div>
+    <a href="{% url 'creer_reception' %}" class="btn btn-accent">➕ Nouvelle réception</a>
+  </div>
+</div>
+
+<!-- Panneau notifs -->
+<div class="notif-panel" id="notif-panel">
+  <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-weight:700;">
+    🔔 Notifications ({{ nb_notifs }})
+    <button onclick="marquerLues()" class="btn btn-outline btn-sm">✓ Tout lu</button>
+  </div>
+  {% for n in notifs %}
+  <div style="padding:12px 16px;border-bottom:1px solid var(--border);{% if not n.lue %}background:var(--surface2);{% endif %}">
+    <div class="font-bold text-small">{{ n.get_type_notif_display }} — {{ n.titre }}</div>
+    <div class="text-small text-muted">{{ n.message }}</div>
+    <div class="text-small text-muted">{{ n.created_at|timesince }}</div>
+    {% if n.reception %}<a href="{% url 'detail_reception' n.reception.id %}" class="text-small" style="color:var(--primary);">Voir →</a>{% endif %}
+  </div>
+  {% empty %}
+  <div style="padding:24px;text-align:center;color:var(--text-muted);">Aucune notification</div>
+  {% endfor %}
+</div>
+
+
+<!-- KPI -->
+<div class="kpi-grid">
+  <div class="kpi-card accent">
+    <div class="kpi-label">⚠️ À traiter</div>
+    <div class="kpi-value">{{ nb_a_traiter }}</div>
+    <div class="kpi-sub">Sans réception</div>
+  </div>
+  <div class="kpi-card info">
+    <div class="kpi-label">🏭 En attente atelier</div>
+    <div class="kpi-value">{{ nb_en_atelier }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">📋 Présents atelier</div>
+    <div class="kpi-value">{{ nb_presents }}</div>
+    <div class="kpi-sub">Fiche contrôle faite</div>
+  </div>
+  <div class="kpi-card success">
+    <div class="kpi-label">✅ Travaux terminés</div>
+    <div class="kpi-value">{{ nb_termines }}</div>
+    <div class="kpi-sub">Bon de sortie à créer</div>
+  </div>
+</div>
+
+
+
+
+<div class="grid-2" style="margin-top:20px;">
+  <!-- Véhicules présents -->
+  <div class="card">
+    <div class="card-header"> 
+      <div class="card-title">🚗 Véhicules dans le local</div>
+      <a href="{% url 'vehicules_presents' %}" class="btn btn-outline btn-sm">Voir tout</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Immatriculation</th><th>Client</th><th>Motif</th><th>Durée</th><th>Action</th></tr></thead>
+        <tbody>
+         {% for entree in vehicules_presents %}
+<tr
+    onclick="window.location='{% url 'detail_entree_rec' entree.id %}'"
+    style="cursor:pointer;"
+    class="clickable-row"
+>
+
+    <td>
+        <strong>{{ entree.vehicule.immatriculation }}</strong><br>
+        <span class="text-small text-muted">
+            {{ entree.vehicule.marque }} {{ entree.vehicule.modele }}
+        </span>
+    </td>
+
+    <td>{{ entree.vehicule.client }}</td>
+
+    <td>
+        {% if entree.motif == 'REPARATION' %}
+            <span class="badge badge-reparation">🔧 Réparation</span>
+        {% elif entree.motif == 'VISITE' %}
+            <span class="badge badge-visite">👁 Visite</span>
+        {% else %}
+            <span class="badge badge-secondary">{{ entree.get_motif_display }}</span>
+        {% endif %}
+    </td>
+
+    <td class="text-muted">{{ entree.duree_sejour }}</td>
+
+    <td onclick="event.stopPropagation();">
+        {% if entree.motif == 'REPARATION' %}
+            {% if entree.statut != 'BON_SORTIE_FAIT' %}
+                <a href="{% url 'creer_bon_sortie_rec' entree.id %}"
+                   class="btn btn-warning btn-sm">
+                    📤 Bon de sortie
+                </a>
+            {% endif %}
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Entrées récentes du jour -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📋 Historique des mouvements</div>
+            <a href="{% url 'historique_entrees' %}" class="btn btn-outline btn-sm">Voir tout</a>
+
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Véhicule</th><th>Client</th><th>Heure</th><th>Statut</th></tr></thead>
+        <tbody>
+          {% for entree in entrees_recentes %}
+          <tr>
+            <td><a href="{% url 'detail_entree_rec' entree.id %}">{{ entree.vehicule.immatriculation  }}</a></td>
+            <td>{{ entree.vehicule.client  }}</td>
+            <td>{{ entree.date_entree|date:"H:i" }}</td>
+           
+
+          <td>{% if entree.statut != 'SORTI' %}<span class="badge badge-en-cours">Présent</span>{% else %}<span class="badge badge-cloture">Sorti</span>{% endif %}</td>
+
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-center text-muted" style="padding:20px;">Aucune entrée aujourd'hui</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+</div>
+ 
+
+
+
+
+
+  <div class="grid-2" style="margin-top:20px;"> 
+
+  <!-- ═══ Véhicules présents ═══ -->
+  
+
+  <!-- ═══ OR actifs ═══ -->
+  <div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">
+      🔧 Suivi des OR actifs
+    </div>
+
+    {% for o in or_actifs %}
+    <div class="vcard" style="border-left:4px solid {% if o.statut == 'EN_COURS' %}var(--warning){% else %}var(--info){% endif %};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:3px;">
+            <a href="{% url 'detail_or' o.id %}" style="font-weight:700;color:var(--primary);">{{ o.numero }}</a>
+            {% if o.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
+            {% elif o.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+            {% elif o.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>{% endif %}
+          </div>
+          <div class="text-small"><strong>{{ o.vehicule.immatriculation }}</strong> — {{ o.atelier.nom }}</div>
+          {% with nb=o.taches.count term=o.taches.filter %}
+          {% if nb %}<div class="text-small text-muted">{{ nb }} tâche{{ nb|pluralize }}</div>{% endif %}
+          {% endwith %}
+          <div class="text-small text-muted">{{ o.date_creation|date:"d/m/Y" }}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <a href="{% url 'detail_reception' o.reception_id %}" class="btn btn-info btn-sm">📋</a>
+          <form method="post" action="{% url 'cloture_or_rec' o.id %}" onsubmit="return confirm('Clôturer OR ?')">
+            {% csrf_token %}<button class="btn btn-success btn-sm">✅ Clôturer</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:30px;color:var(--text-muted);background:var(--surface);border-radius:var(--radius);border:2px dashed var(--border);">
+      <div style="font-size:36px;">🔧</div>
+      Aucun OR actif
+    </div>
+    {% endfor %}
+
+    <!-- Véhicules avec travaux terminés en attente de bon de sortie -->
+    {% for r in receptions %}
+    {% if r.statut == 'TRAVAUX_TERMINES' %}
+    <div class="vcard termines">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="display:flex;gap:6px;align-items:center;font-size:16px;">
+            ✅ <strong>{{ r.vehicule.immatriculation }}</strong>
+            <span class="badge badge-success">Travaux terminés</span>
+          </div>
+          <div class="text-small text-muted">{{ r.vehicule.marque }} {{ r.vehicule.modele }} — {{ r.vehicule.client }}</div>
+        </div>
+        <a href="{% url 'creer_bon_sortie_rec' r.id %}" class="btn btn-success">📄 Bon de sortie</a>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePanel(){
+  const p=document.getElementById('notif-panel');
+  p.style.display=p.style.display==='none'||p.style.display===''?'block':'none';
+}
+document.addEventListener('click',function(e){
+  const p=document.getElementById('notif-panel');
+  if(!p.contains(e.target)&&!e.target.closest('.notif-bell'))p.style.display='none';
+});
+function marquerLues(){
+  fetch("{% url 'marquer_lues_rec' %}",{method:'POST',headers:{'X-CSRFToken':'{{ csrf_token }}','X-Requested-With':'XMLHttpRequest'}})
+  .then(()=>location.reload());
+}
+// Polling 30s
+setInterval(()=>{
+  fetch("{% url 'notifs_json_rec' %}").then(r=>r.json()).then(d=>{
+    const b=document.querySelector('.notif-badge');
+    if(d.count>0){
+      if(!b){const bell=document.querySelector('.notif-bell');const n=document.createElement('span');n.className='notif-badge';n.textContent=d.count;bell.appendChild(n);}
+      else b.textContent=d.count;
+    } else if(b) b.remove();
+  });
+},30000);
+</script>
+{% endblock %}

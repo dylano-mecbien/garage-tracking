@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Entrée {{ entree.numero }}{% endblock %}
+{% block page_title %}📋 Détail entrée{% endblock %}
+
+{% block sidebar_nav %}
+
+<div class="sidebar-section">Guérite</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_guerite' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'vehicules_presents' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+
+</ul>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>Entrée {{ entree.numero }}</h1>
+    <div class="breadcrumb">
+      Enregistrée le {{ entree.date_entree|date:"d/m/Y à H:i" }}
+    </div>
+  </div>
+</div>
+
+{% if entree.statut != 'SORTI' %}
+<div style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);border-radius:12px;padding:24px;margin-bottom:20px;border-left:5px solid var(--success);max-width:700px;">
+  <div style="font-size:28px;font-weight:700;color:#065f46;margin-bottom:4px;">
+    ✅ Entrée enregistrée avec succès
+  </div>
+  <div style="color:#047857;font-size:15px;">
+    N° <strong>{{ entree.numero }}</strong> — {{ entree.date_entree|date:"d/m/Y H:i" }}
+  </div>
+</div>
+{% endif %}
+
+<div class="grid-2" style="max-width:800px;">
+  <!-- VEHICULE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🚗 Véhicule</div>
+    </div>
+    <table style="width:100%;">
+      <tr>
+        <td class="text-muted">Immatriculation</td>
+        <td><strong style="font-size:16px;">{{ entree.vehicule.immatriculation }}</strong></td>
+      </tr>
+      <tr>
+        <td class="text-muted">Marque / Modèle</td>
+        <td>{{ entree.vehicule.marque }} {{ entree.vehicule.modele }}</td>
+      </tr>
+      <tr>
+        <td class="text-muted">Couleur</td>
+        <td>{{ entree.vehicule.couleur|default:"—" }}</td>
+      </tr>
+      <tr>
+        <td class="text-muted">Propriétaire</td>
+        <td><strong>{{ entree.vehicule.client }}</strong></td>
+      </tr>
+      <tr>
+        <td class="text-muted">Tél.</td>
+        <td>{{ entree.vehicule.client.telephone }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- INFOS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📋 Informations entrée</div>
+    </div>
+    <table style="width:100%;">
+      <tr>
+        <td class="text-muted">N° Entrée</td>
+        <td><strong>{{ entree.numero }}</strong></td>
+      </tr>
+      <tr>
+        <td class="text-muted">Motif</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            {% if entree.motif == 'REPARATION' %}
+              <span class="badge badge-reparation">🔧 Réparation</span>
+            {% elif entree.motif == 'VISITE' %}
+              <span class="badge badge-visite">👁 Visite</span>
+            {% else %}
+              <span class="badge badge-secondary">{{ entree.get_motif_display }}</span>
+            {% endif %}
+            {% if entree.statut != 'SORTI' %}
+            <button class="btn btn-outline btn-sm"
+                    onclick="document.getElementById('motifModal').style.display='flex'">
+              ✏️ Modifier
+            </button>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="text-muted">Statut</td>
+        <td>
+          {% if entree.statut != 'SORTI' %}
+            <span class="badge badge-en-cours">Dans le local</span>
+          {% else %}
+            <span class="badge badge-cloture">Sorti</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td class="text-muted">Conducteur</td>
+        <td>{{ entree.conducteur|default:"—" }}</td>
+      </tr>
+      <tr>
+        <td class="text-muted">Agent</td>
+        <td>{{ entree.agent_entree.full_name|default:"—" }}</td>
+      </tr>
+      {% if entree.observations %}
+      <tr>
+        <td class="text-muted">Observations</td>
+        <td>{{ entree.observations }}</td>
+      </tr>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+<!-- ALERTE REPARATION -->
+{% if entree.statut != 'SORTI' and entree.motif == 'REPARATION' %}
+<div class="card mt-2" style="max-width:800px;border-left:4px solid var(--warning);">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span style="font-size:28px;">⚠️</span>
+    <div>
+      <div class="font-bold">Véhicule en réparation</div>
+      <div class="text-muted text-small">
+        Ce véhicule nécessite un bon de SORTI valide pour quitter le local.
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- MODAL MODIFICATION MOTIF (uniquement si non sorti) -->
+{% if entree.statut != 'SORTI' %}
+<div id="motifModal"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;">
+  <div class="card" style="width:400px;">
+    <div class="card-header">
+      <div class="card-title">✏️ Modifier le motif</div>
+    </div>
+    <form method="post" action="{% url 'modifier_motif_entree' entree.id %}">
+      {% csrf_token %}
+      <div style="padding:20px;">
+        <select name="motif" class="form-input">
+          <option value="REPARATION" {% if entree.motif == 'REPARATION' %}selected{% endif %}>
+            🔧 Réparation
+          </option>
+          <option value="VISITE" {% if entree.motif == 'VISITE' %}selected{% endif %}>
+            👁 Visite
+          </option>
+        </select>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding:15px;">
+        <button type="button" class="btn btn-outline"
+                onclick="document.getElementById('motifModal').style.display='none'">
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-primary">
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- BOUTONS TOUJOURS VISIBLES -->
+<div style="display:flex;gap:8px; margin-top:20px;">
+  <a href="{% url 'dashboard_guerite' %}" class="btn btn-outline">← Retour</a>
+  {% if entree.statut == 'EN_COURS' %}
+    <a href="{% url 'enregistrer_sortie' entree.id %}" class="btn btn-warning">
+      📤 Enregistrer SORTI
+    </a>
+  {% endif %}
+</div>
+
+{% endblock %}

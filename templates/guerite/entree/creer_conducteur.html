@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Nouveau conducteur{% endblock %}
+{% block page_title %}🪪 Créer un conducteur{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Guérite</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_guerite' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'nouvelle_entree' %}" class="active"><span class="icon">➕</span> Nouvelle entrée</a></li>
+  <li><a href="{% url 'recherche_vehicule' %}"><span class="icon">🔍</span> Rechercher</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Nouveau conducteur</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'dashboard_guerite' %}">Guérite</a> ›
+      <a href="{% url 'nouvelle_entree' %}">Nouvelle entrée</a> ›
+      Créer conducteur
+    </div>
+  </div>
+  <a href="{% url 'nouvelle_entree' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<div class="card" style="max-width:640px;">
+  <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;border-left:3px solid var(--info);">
+    <span style="font-size:20px;">ℹ️</span>
+    <span class="text-small">Le conducteur est la personne qui conduit le véhicule — il peut être différent du propriétaire.</span>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nom *</label>
+        {{ form.nom }}
+        {% if form.nom.errors %}<div class="form-error">{{ form.nom.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prénom *</label>
+        {{ form.prenom }}
+        {% if form.prenom.errors %}<div class="form-error">{{ form.prenom.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Téléphone *</label>
+        {{ form.telephone }}
+        {% if form.telephone.errors %}<div class="form-error">{{ form.telephone.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Téléphone 2</label>
+        {{ form.telephone2 }}
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">N° CNI / Pièce d'identité</label>
+        {{ form.cni }}
+      </div>
+      <div class="form-group">
+        <label class="form-label">N° Permis de conduire</label>
+        {{ form.permis }}
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Catégorie permis</label>
+      {{ form.categorie_permis }}
+      <div class="text-small text-muted" style="margin-top:4px;">Ex: A, B, C, D, E...</div>
+    </div>
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors.0 }}</div>
+    {% endif %}
+
+    <hr>
+
+    <div style="display:flex;gap:10px;">
+      <button type="submit" class="btn btn-primary" style="font-size:15px;padding:10px 24px;">
+        💾 Enregistrer le conducteur
+      </button>
+      <a href="{% url 'nouvelle_entree' %}" class="btn btn-outline">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Recherche véhicule{% endblock %}
+{% block page_title %}🔍 Recherche véhicule{% endblock %}
+{% block sidebar_nav %}
+<div class="sidebar-section">Guérite</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_guerite' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'vehicules_presents' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+    <li><a href="{% url 'nouvelle_entree' %}" class="active"><span class="icon">➕</span> Nouvelle entrée</a></li>
+
+</ul>
+
+
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Recherche de véhicule</h1>
+</div>
+<div class="card mb-2" style="max-width:600px;">
+  <form method="get">
+    <div style="display:flex;gap:8px;">
+      <input type="text" name="q" value="{{ query }}" class="form-input" placeholder="Immatriculation, marque, modèle, client..." autofocus style="flex:1;">
+      <button type="submit" class="btn btn-primary">🔍 Rechercher</button>
+    </div>
+    <div class="text-small text-muted mt-1">Ex: AA-123-BB, Toyota, Dupont...</div>
+  </form>
+</div>
+
+{% if query %}
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">{{ vehicules|length }} résultat{{ vehicules|length|pluralize }} pour "{{ query }}"</div>
+  </div>
+  {% if vehicules %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Immatriculation</th><th>Marque / Modèle</th><th>Année</th><th>Propriétaire</th><th>Tél.</th><th>Statut</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for v in vehicules %}
+        <tr>
+          <td><strong style="font-size:15px;">{{ v.immatriculation }}</strong></td>
+          <td>{{ v.marque }} {{ v.modele }}<br><span class="text-small text-muted">{{ v.get_type_carburant_display }} — {{ v.couleur }}</span></td>
+          <td>{{ v.annee }}</td>
+          <td><strong>{{ v.client }}</strong></td>
+          <td>{{ v.client.telephone }}</td>
+          
+  {% if v.en_local %}
+
+
+    <td> <span class="badge badge-success">{{ v.statut_presence }}</span> </td>
+  {% else %}
+
+   <td>  <span class="badge badge-secondary">Hors garage</span></td>
+   
+
+    <td> <a href="{% url 'entre_vehicule' %}?vehicule_id={{ v.id }}" class="btn btn-primary btn-sm">📥 Enregistrer entrée</a> </td>
+
+  {% endif %}
+ 
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:30px;">
+    <div style="font-size:40px;margin-bottom:8px;">🔍</div>
+    <div class="text-muted">Aucun véhicule trouvé pour "{{ query }}"</div>
+    <div class="mt-2">
+      <a href="{% url 'creer_vehicule_guerite' %}" class="btn btn-accent">+ Créer ce véhicule</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

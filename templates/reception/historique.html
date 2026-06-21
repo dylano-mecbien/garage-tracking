@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Historique entrées{% endblock %}
+{% block page_title %}📋 Historique des entrées{% endblock %}
+{% block sidebar_nav %}
+
+
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+    <li>
+        <a href="{% url 'dashboard_reception' %}" >
+            <span class="icon">📊</span> Tableau de bord
+        </a>
+    </li>
+
+    <li>
+        <a href="{% url 'liste_receptions' %}">
+            <span class="icon">📋</span> Historique des Réceptions
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'vehicules_presents_rec' %}">
+            <span class="icon">🚗</span> Véhicules présents
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'historique_entrees_rec' %}" class="active">
+            <span class="icon">📋</span> Historique des mouvements
+        </a>
+    </li>
+     <li>
+        <a href="{% url 'liste_bons_sortie' %}">
+            <span class="icon">📄</span> Bons de sortie
+        </a>
+    </li>
+</ul>
+
+
+{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Historique des mouvements </h1></div>
+<div class="card mb-2">
+  <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+    <div><label class="form-label">Recherche</label><input type="text" name="q" value="{{ request.GET.q }}" class="form-input" placeholder="Immat., client, n°..." style="width:200px;"></div>
+    <div><label class="form-label">Statut</label>
+      <select name="statut" class="form-select" style="width:150px;">
+        <option value="">Tous</option>
+        {% for v,l in statuts %}<option value="{{ v }}" {% if request.GET.statut == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </div>
+    <div><label class="form-label">Motif</label>
+      <select name="motif" class="form-select" style="width:150px;">
+        <option value="">Tous</option>
+        {% for v,l in motifs %}<option value="{{ v }}" {% if request.GET.motif == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </div>
+    <div><label class="form-label">Du</label><input type="date" name="date_debut" value="{{ request.GET.date_debut }}" class="form-input" style="width:140px;"></div>
+    <div><label class="form-label">Au</label><input type="date" name="date_fin" value="{{ request.GET.date_fin }}" class="form-input" style="width:140px;"></div>
+   <div>
+      <button class="btn btn-primary">🔍 Filtrer</button>
+      <a href="{% url 'historique_entrees' %}" class="btn btn-outline">✕</a>
+    </div>
+      <div style="margin-left:auto; display:flex; gap:8px;">
+      <a href="{% url 'export_entrees_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">📊 Exporter Excel</a>
+      <a href="{% url 'export_entrees_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger">📄 Exporter PDF</a>
+    </div>
+  </form>
+</div>
+
+
+
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Immatriculation°</th><th>Marque</th><th>Client</th><th>Motif</th><th>Statut</th><th>Entrée</th><th>Sortie</th><th>Agent</th></tr></thead>
+      <tbody>
+        {% for e in entrees %}
+        <tr>
+          <td><a href="{% url 'detail_entree_rec' e.id %}">{{ e.vehicule.immatriculation  }}</a></td>
+          <td><strong>{{ e.vehicule.marque }}</strong></td>
+          <td>{{ e.vehicule.client }}</td>
+          <td>{% if e.motif == 'REPARATION' %}<span class="badge badge-reparation">Répar.</span>{% else %}<span class="badge badge-visite">{{ e.get_motif_display }}</span>{% endif %}</td>
+          <td>{% if e.statut != 'SORTI' %}<span class="badge badge-en-cours">Présent</span>{% else %}<span class="badge badge-cloture">Sorti</span>{% endif %}</td>
+          <td class="text-small">{{ e.date_entree|date:"d/m/Y H:i" }}</td>
+          <td class="text-small text-muted">{{ e.date_sortie|date:"d/m/Y H:i"|default:"—" }}</td>
+          <td class="text-small text-muted">{{ e.agent_entree.full_name|default:"—" }}</td>
+        </tr> 
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted" style="padding:30px;">Aucun résultat</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

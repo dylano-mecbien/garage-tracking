@@ -1,0 +1,65 @@
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+develop-eggs/
+downloads/
+eggs/
+parts/
+var/
+*.sdist/
+*.manifest
+*.spec
+
+# Django
+*.log
+*.pot
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/media/
+/static/
+/staticfiles/
+/collectstatic/
+.env
+venv/
+env/
+ENV/
+.venv
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# Migrations : ignorer tous les fichiers .py dans migrations sauf __init__.py
+**/migrations/*.py
+!**/migrations/__init__.py
+**/migrations/*.pyc
+
+# Fichiers de base de données
+*.sqlite3
+*.db
+
+# Fichiers de log
+*.log
+
+# Fichiers de cache / tests
+*.cache
+*.cached
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ vehicule.immatriculation }}{% endblock %}
+{% block page_title %}🚗 Fiche véhicule{% endblock %}
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{{ request.user.get_dashboard_url }}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_vehicules' %}" class="active"><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ vehicule.immatriculation }}</h1>
+    <div class="breadcrumb"><a href="{% url 'liste_vehicules' %}">Véhicules</a> › {{ vehicule.marque }} {{ vehicule.modele }}</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'liste_vehicules' %}" class="btn btn-outline">← Retour</a>
+    {% if request.user.is_guerite or request.user.is_admin %}
+    <a href="{% url 'enregistrer_entree' %}?vehicule_id={{ vehicule.id }}" class="btn btn-primary">📥 Enregistrer entrée</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🚗 Informations véhicule</div>
+      {% if vehicule.en_atelier %}<span class="badge badge-en-cours">En atelier</span>{% else %}<span class="badge badge-success">Disponible</span>{% endif %}
+    </div>
+    {% if vehicule.photo %}
+    <img src="{{ vehicule.photo.url }}" alt="{{ vehicule.immatriculation }}" style="width:100%;height:160px;object-fit:cover;border-radius:8px;margin-bottom:12px;">
+    {% endif %}
+    <table>
+      <tr><td class="text-muted">Immatriculation</td><td><strong style="font-size:16px;">{{ vehicule.immatriculation }}</strong></td></tr>
+      <tr><td class="text-muted">Marque</td><td>{{ vehicule.marque }}</td></tr>
+      <tr><td class="text-muted">Modèle</td><td>{{ vehicule.modele }}</td></tr>
+      <tr><td class="text-muted">Année</td><td>{{ vehicule.annee }}</td></tr>
+      <tr><td class="text-muted">Couleur</td><td>{{ vehicule.couleur|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Carburant</td><td>{{ vehicule.get_type_carburant_display }}</td></tr>
+      <tr><td class="text-muted">Transmission</td><td>{{ vehicule.get_transmission_display }}</td></tr>
+      <tr><td class="text-muted">N° Châssis</td><td class="text-muted">{{ vehicule.numero_chassis|default:"—" }}</td></tr>
+      {% if vehicule.num_assurance %}<tr><td class="text-muted">Assurance</td><td>{{ vehicule.num_assurance }} (exp. {{ vehicule.expiry_assurance }})</td></tr>{% endif %}
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">👤 Propriétaire</div></div>
+    <table>
+      <tr><td class="text-muted">Nom</td><td><strong>{{ vehicule.client }}</strong></td></tr>
+      <tr><td class="text-muted">Type</td><td>{{ vehicule.client.get_type_client_display }}</td></tr>
+      <tr><td class="text-muted">Téléphone</td><td>{{ vehicule.client.telephone }}</td></tr>
+      {% if vehicule.client.telephone2 %}<tr><td class="text-muted">Tél. 2</td><td>{{ vehicule.client.telephone2 }}</td></tr>{% endif %}
+      <tr><td class="text-muted">Email</td><td>{{ vehicule.client.email|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Adresse</td><td>{{ vehicule.client.adresse|default:"—" }}, {{ vehicule.client.ville|default:"" }}</td></tr>
+      <tr><td class="text-muted">N° Client</td><td class="text-muted">{{ vehicule.client.numero_client }}</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Historique entrées -->
+<div class="card mt-2">
+  <div class="card-header"><div class="card-title">📋 Historique des passages</div></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>N°</th><th>Motif</th><th>Statut</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Agent</th></tr></thead>
+      <tbody>
+        {% for e in historique_entrees %}
+        <tr>
+          <td><a href="{% url 'detail_entree' e.id %}">{{ e.numero }}</a></td>
+          <td>{% if e.motif == 'REPARATION' %}<span class="badge badge-reparation">🔧 Répar.</span>{% else %}<span class="badge badge-visite">{{ e.get_motif_display }}</span>{% endif %}</td>
+          <td>{% if e.statut == 'EN_COURS' %}<span class="badge badge-en-cours">Présent</span>{% else %}<span class="badge badge-secondary">Sorti</span>{% endif %}</td>
+          <td class="text-small">{{ e.date_entree|date:"d/m/Y H:i" }}</td>
+          <td class="text-small text-muted">{{ e.date_sortie|date:"d/m/Y H:i"|default:"—" }}</td>
+          <td>{{ e.duree_sejour }}</td>
+          <td class="text-small text-muted">{{ e.agent_entree.full_name|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted" style="padding:20px;">Aucun passage enregistré</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Historique OR -->
+{% if historique_or %}
+<div class="card mt-2">
+  <div class="card-header"><div class="card-title">🔧 Historique des réparations</div></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>N° OR</th><th>Type</th><th>Statut</th><th>Atelier</th><th>Durée</th><th>Date</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for o in historique_or %}
+        <tr>
+          <td><a href="{% url 'detail_or' o.id %}"><strong>{{ o.numero }}</strong></a></td>
+          <td>{% if o.type_or == 'RETOUR' %}<span class="badge badge-danger">Retour</span>{% else %}<span class="badge badge-info">Normal</span>{% endif %}</td>
+          <td>
+            {% if o.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
+            {% elif o.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+            {% else %}<span class="badge badge-secondary">{{ o.get_statut_display }}</span>{% endif %}
+          </td>
+          <td>{{ o.atelier.nom }}</td>
+          <td>{% if o.duree_totale_minutes %}{{ o.duree_heures }}{% else %}—{% endif %}</td>
+          <td class="text-small text-muted">{{ o.date_creation|date:"d/m/Y" }}</td>
+          <td><a href="{% url 'detail_or' o.id %}" class="btn btn-info btn-sm">👁</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

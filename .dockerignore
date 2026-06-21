@@ -1,0 +1,25 @@
+# .dockerignore
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.sqlite3
+.DS_Store
+.git/
+.gitignore
+.gitattributes
+README.md
+.dockerignore
+Dockerfile*
+docker-compose*.yml
+.env
+*.log
+media/
+staticfiles/
+certbot_certs/
+certbot_www/
+letsencrypt/

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}OR Retour{% endblock %}
+{% block page_title %}🔁 Créer un OR Retour / Malfaçon{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_or' %}" class="active"><span class="icon">🔧</span> Ordres de réparation</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>OR Retour / Malfaçon</h1>
+    <div class="breadcrumb"><a href="{% url 'detail_or' or_origine.id %}">OR {{ or_origine.numero }}</a> › Créer retour</div>
+  </div>
+  <a href="{% url 'detail_or' or_origine.id %}" class="btn btn-outline">← Retour OR</a>
+</div>
+
+<!-- OR origine -->
+<div class="card mb-2" style="border-left:4px solid var(--danger);">
+  <div class="card-header"><div class="card-title">🔁 OR d'origine (clôturé)</div></div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;">
+    <div><span class="text-muted text-small">N° OR</span><div class="font-bold">{{ or_origine.numero }}</div></div>
+    <div><span class="text-muted text-small">Véhicule</span><div class="font-bold">{{ or_origine.vehicule.immatriculation }}</div></div>
+    <div><span class="text-muted text-small">Clôturé le</span><div>{{ or_origine.date_cloture|date:"d/m/Y" }}</div></div>
+    <div><span class="text-muted text-small">Durée totale</span><div>{{ or_origine.duree_heures }}</div></div>
+  </div>
+</div>
+
+<div class="card" style="max-width:700px;">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label class="form-label">Motif du retour / Malfaçon *</label>
+      {{ form.motif_retour }}
+    </div>
+
+    {% if taches %}
+    <div class="form-group">
+      <label class="form-label">Tâches à reprendre de l'OR précédent</label>
+      <div style="background:var(--bg);border-radius:8px;padding:14px;max-height:300px;overflow-y:auto;">
+        {% for tache in taches %}
+        <label style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);cursor:pointer;">
+          <input type="checkbox" name="taches_a_copier" value="{{ tache.id }}" style="width:16px;height:16px;accent-color:var(--primary);">
+          <div>
+            <div class="font-bold" style="font-size:13px;">{{ tache.libelle }}</div>
+            <div class="text-small text-muted">
+              {{ tache.get_statut_display }} | Estimé: {{ tache.duree_estimee_minutes }}min | Réel: {{ tache.duree_reelle_minutes }}min
+            </div>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="text-small text-muted mt-1">Laissez tout décoché pour créer un OR retour vide</div>
+    </div>
+    {% endif %}
+
+    <div style="background:#fff7ed;border:2px solid var(--accent);border-radius:8px;padding:14px;margin:16px 0;">
+      <div class="font-bold">ℹ️ Ce qui sera copié automatiquement</div>
+      <ul style="list-style:disc;padding-left:20px;margin-top:8px;font-size:13px;">
+        <li>La fiche technique de l'OR d'origine</li>
+        <li>Les tâches sélectionnées ci-dessus</li>
+        <li>Le lien vers la réception d'origine</li>
+      </ul>
+    </div>
+
+    <hr>
+    <div style="display:flex;gap:12px;">
+      <button type="submit" class="btn btn-danger" style="font-size:15px;">🔁 Créer l'OR Retour</button>
+      <a href="{% url 'detail_or' or_origine.id %}" class="btn btn-outline">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

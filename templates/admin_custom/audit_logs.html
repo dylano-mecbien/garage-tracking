@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Logs d'audit{% endblock %}
+{% block page_title %}📋 Logs d'audit{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'admin_dashboard' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+  <li><a href="{% url 'audit_logs' %}" class="active"><span class="icon">📋</span> Logs d'audit</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div><h1>Logs d'audit</h1><div class="breadcrumb">Traçabilité complète des actions</div></div>
+</div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date/Heure</th><th>Utilisateur</th><th>Action</th><th>Module</th><th>Objet</th><th>IP</th></tr></thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td class="text-small">{{ log.timestamp|date:"d/m/Y H:i:s" }}</td>
+          <td>{{ log.user|default:"—" }}</td>
+          <td>
+            {% if log.action == 'CONNEXION' %}<span class="badge badge-success">Connexion</span>
+            {% elif log.action == 'CREATION' %}<span class="badge badge-info">Création</span>
+            {% elif log.action == 'MODIFICATION' %}<span class="badge badge-warning">Modification</span>
+            {% elif log.action == 'SUPPRESSION' %}<span class="badge badge-danger">Suppression</span>
+            {% elif log.action == 'CHANGEMENT_STATUT' %}<span class="badge badge-ouvert">Statut</span>
+            {% elif log.action == 'TELECHARGEMENT' %}<span class="badge badge-secondary">Télécharg.</span>
+            {% else %}<span class="badge badge-secondary">{{ log.action }}</span>{% endif %}
+          </td>
+          <td>{{ log.module }}</td>
+          <td class="text-small">{{ log.objet_repr|truncatechars:40|default:"—" }}</td>
+          <td class="text-small text-muted">{{ log.ip_address|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted" style="padding:30px;">Aucun log d'audit</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

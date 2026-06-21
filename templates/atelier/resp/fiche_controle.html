@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Fiche de contrôle{% endblock %}
+{% block page_title %}📋 Fiche de contrôle véhicule{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_or' %}" class="active"><span class="icon">🔧</span> Ordres de réparation</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .check-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .check-section { background:var(--bg); border-radius:8px; padding:14px; }
+  .check-section h4 { margin-bottom:10px; color:var(--primary); font-size:13px; text-transform:uppercase; letter-spacing:.5px; }
+  .check-item { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); }
+  .check-item:last-child { border-bottom:none; }
+  .check-item label { font-size:13px; }
+  .check-bool { display:flex; gap:8px; }
+  .check-bool input[type=checkbox] { width:16px;height:16px;accent-color:var(--success); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Fiche de contrôle</h1>
+    <div class="breadcrumb"><a href="{% url 'detail_or' or_obj.id %}">OR {{ or_obj.numero }}</a> › Fiche de contrôle</div>
+  </div>
+  <a href="{% url 'detail_or' or_obj.id %}" class="btn btn-outline">← Retour OR</a>
+</div>
+
+<!-- Véhicule info -->
+<div class="card mb-2" style="border-left:4px solid var(--primary);">
+  <div style="display:flex;gap:20px;flex-wrap:wrap;">
+    <div><span class="text-muted text-small">Véhicule</span><div class="font-bold">{{ or_obj.vehicule.immatriculation }}</div></div>
+    <div><span class="text-muted text-small">Marque/Modèle</span><div>{{ or_obj.vehicule.marque }} {{ or_obj.vehicule.modele }}</div></div>
+    <div><span class="text-muted text-small">Client</span><div>{{ or_obj.vehicule.client }}</div></div>
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="signature_data" id="signature-data">
+
+  <div class="grid-2 mb-2">
+    <!-- État général -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">🚗 État général</div></div>
+      <div class="form-group">
+        <label class="form-label">État général</label>
+        {{ form.etat_general }}
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Niveau carburant (%)</label>
+          {{ form.niveau_carburant }}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kilométrage</label>
+          {{ form.kilometrage }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Feux -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">💡 Feux</div></div>
+      {% for field in form %}
+        {% if field.name in 'feux_avant,feux_arriere,feux_stop,clignotants' %}
+        <div class="check-item">
+          <label>{{ field.label }}</label>
+          <div class="check-bool">{{ field }}</div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="grid-2 mb-2">
+    <!-- Carrosserie -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">🚘 Carrosserie</div></div>
+      <div class="form-group"><label class="form-label">Avant</label>{{ form.carrosserie_avant }}</div>
+      <div class="form-group"><label class="form-label">Arrière</label>{{ form.carrosserie_arriere }}</div>
+      <div class="form-group"><label class="form-label">Gauche</label>{{ form.carrosserie_gauche }}</div>
+      <div class="form-group"><label class="form-label">Droite</label>{{ form.carrosserie_droite }}</div>
+    </div>
+
+    <!-- Pneus -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">🛞 Pneus</div></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">AV Gauche</label>{{ form.pneu_avant_gauche }}</div>
+        <div class="form-group"><label class="form-label">AV Droit</label>{{ form.pneu_avant_droit }}</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">AR Gauche</label>{{ form.pneu_arriere_gauche }}</div>
+        <div class="form-group"><label class="form-label">AR Droit</label>{{ form.pneu_arriere_droit }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2 mb-2">
+    <!-- Intérieur -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">🪑 Intérieur</div></div>
+      <div class="check-item"><label>Tableau de bord</label>{{ form.tableau_bord }}</div>
+      <div class="check-item"><label>Radio</label>{{ form.radio }}</div>
+      <div class="check-item"><label>Climatisation</label>{{ form.climatisation }}</div>
+      <div class="check-item"><label>Tapis</label>{{ form.tapis }}</div>
+      <div class="form-group mt-1"><label class="form-label">Siège conducteur</label>{{ form.siege_conducteur }}</div>
+    </div>
+
+    <!-- Accessoires -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">🧰 Accessoires</div></div>
+      <div class="check-item"><label>Roue de secours</label>{{ form.roue_secours }}</div>
+      <div class="check-item"><label>Cric</label>{{ form.cric }}</div>
+      <div class="check-item"><label>Triangle</label>{{ form.triangle }}</div>
+      <div class="check-item"><label>Extincteur</label>{{ form.extincteur }}</div>
+    </div>
+  </div>
+
+  <!-- Défauts -->
+  <div class="card mb-2">
+    <div class="card-header"><div class="card-title">⚠️ Défauts observés</div></div>
+    {{ form.defauts_observes }}
+  </div>
+
+  <!-- Signature numérique -->
+  <div class="card mb-2">
+    <div class="card-header"><div class="card-title">✍️ Signature de l'inspecteur</div></div>
+    <canvas id="signature-pad" width="500" height="150"></canvas>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button type="button" onclick="clearSignature()" class="btn btn-outline btn-sm">🗑 Effacer</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;">
+    <button type="submit" class="btn btn-primary">💾 Enregistrer la fiche de contrôle</button>
+    <a href="{% url 'detail_or' or_obj.id %}" class="btn btn-outline">Annuler</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const canvas = document.getElementById('signature-pad');
+const ctx = canvas.getContext('2d');
+let drawing = false, lastX = 0, lastY = 0;
+ctx.strokeStyle = '#1a3a5c'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+
+function getPos(e) {
+  const r = canvas.getBoundingClientRect();
+  if (e.touches) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+canvas.addEventListener('mousedown', e => { drawing = true; const p = getPos(e); [lastX, lastY] = [p.x, p.y]; });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; const p = getPos(e); [lastX, lastY] = [p.x, p.y]; });
+canvas.addEventListener('mousemove', e => { if (!drawing) return; const p = getPos(e); ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke(); [lastX, lastY] = [p.x, p.y]; });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!drawing) return; const p = getPos(e); ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke(); [lastX, lastY] = [p.x, p.y]; });
+canvas.addEventListener('mouseup', () => { drawing = false; document.getElementById('signature-data').value = canvas.toDataURL(); });
+canvas.addEventListener('touchend', () => { drawing = false; document.getElementById('signature-data').value = canvas.toDataURL(); });
+
+function clearSignature() { ctx.clearRect(0, 0, canvas.width, canvas.height); document.getElementById('signature-data').value = ''; }
+</script>
+{% endblock %}

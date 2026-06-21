@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Utilisateurs{% endblock %}
+{% block page_title %}👥 Gestion des Utilisateurs{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'admin_dashboard' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_utilisateurs' %}" class="active"><span class="icon">👥</span> Utilisateurs</a></li>
+  <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Utilisateurs</h1>
+    <div class="breadcrumb">Gestion des comptes et rôles</div>
+  </div>
+  <a href="{% url 'creer_utilisateur' %}" class="btn btn-primary">+ Nouvel utilisateur</a>
+</div>
+
+<!-- Filtres -->
+<div class="card mb-2">
+  <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+    <div>
+      <label class="form-label">Filtrer par rôle</label>
+      <select name="role" class="form-select" style="width:200px;" onchange="this.form.submit()">
+        <option value="">— Tous les rôles —</option>
+        {% for val, lbl in roles %}<option value="{{ val }}" {% if role_filter == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-outline">🔍 Filtrer</button>
+    <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">✕ Effacer</a>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nom complet</th><th>Email</th><th>Rôle</th><th>Atelier</th>
+          <th>Matricule</th><th>Statut</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="avatar" style="width:30px;height:30px;font-size:11px;">{{ u.prenom|first|upper }}{{ u.nom|first|upper }}</div>
+              <div>
+                <div class="font-bold">{{ u.full_name }}</div>
+                <div class="text-small text-muted">{{ u.telephone|default:"—" }}</div>
+              </div>
+            </div>
+          </td>
+          <td>{{ u.email }}</td>
+          <td><span class="role-badge role-{{ u.role }}">{{ u.get_role_display }}</span></td>
+          <td>{{ u.atelier.nom|default:"—" }}</td>
+          <td class="text-muted">{{ u.matricule|default:"—" }}</td>
+          <td>
+            {% if u.is_active %}
+            <span class="badge badge-success">✓ Actif</span>
+            {% else %}
+            <span class="badge badge-danger">✗ Inactif</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <a href="{% url 'editer_utilisateur' u.id %}" class="btn btn-info btn-sm">✏️ Modifier</a>
+              <form method="post" action="{% url 'toggle_utilisateur' u.id %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-sm {% if u.is_active %}btn-warning{% else %}btn-success{% endif %}">
+                  {% if u.is_active %}⏸ Désactiver{% else %}▶ Activer{% endif %}
+                </button>
+              </form>
+              <form method="post" action="{% url 'reset_password_utilisateur' u.id %}" onsubmit="return confirm('Réinitialiser le mot de passe ?')" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="new_password" value="Garage@2024">
+                <button class="btn btn-outline btn-sm">🔑 Reset MDP</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted" style="padding:30px;">
+            Aucun utilisateur trouvé. <a href="{% url 'creer_utilisateur' %}">Créer le premier</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

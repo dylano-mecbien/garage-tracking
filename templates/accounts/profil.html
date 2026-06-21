@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Mon profil{% endblock %}
+{% block page_title %}⚙️ Mon profil{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Style pour le bouton œil */
+  .password-wrapper {
+    position: relative;
+  }
+  .password-wrapper .form-input {
+    padding-right: 48px;
+  }
+  .toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    color: var(--text-muted);
+    padding: 4px;
+    line-height: 1;
+    transition: color .2s;
+  }
+  .toggle-password:hover {
+    color: var(--primary-light);
+  }
+</style>
+{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{{ request.user.get_dashboard_url }}"><span class="icon">📊</span> Mon tableau de bord</a></li>
+  <li><a href="{% url 'profil' %}" class="active"><span class="icon">⚙️</span> Mon profil</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header"><h1>Mon profil</h1></div>
+<div class="grid-2" style="max-width:800px;">
+  <div class="card">
+    <div class="card-header"><div class="card-title">👤 Informations</div></div>
+    <div style="text-align:center;padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:16px;">
+      <div class="avatar" style="width:64px;height:64px;font-size:22px;margin:0 auto 8px;">{{ request.user.prenom|first|upper }}{{ request.user.nom|first|upper }}</div>
+      <div style="font-size:18px;font-weight:700;">{{ request.user.full_name }}</div>
+      <span class="role-badge role-{{ request.user.role }}">{{ request.user.get_role_display }}</span>
+    </div>
+    <table>
+      <tr><td class="text-muted">Email</td><td>{{ request.user.email }}</td></tr>
+      <tr><td class="text-muted">Matricule</td><td>{{ request.user.matricule|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Téléphone</td><td>{{ request.user.telephone|default:"—" }}</td></tr>
+
+
+      {% if request.user.atelier and request.user.atelier.nom %}
+      <tr>
+        <td class="text-muted">Atelier</td>
+        <td>{{ request.user.atelier.nom }}</td>
+      </tr>
+      {% endif %}
+
+      <tr><td class="text-muted">Dernière connexion</td><td>{{ request.user.last_login|date:"d/m/Y H:i"|default:"—" }}</td></tr>
+      <tr><td class="text-muted">IP dernière connexion</td><td>{{ request.user.last_login_ip|default:"—" }}</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">🔒 Changer le mot de passe</div></div>
+    <form method="post">
+      {% csrf_token %}
+
+
+{% if force_change_password %}
+
+<div style="border-left:4px solid #e67e22; margin-bottom:16px;">
+  <strong>⚠️ Première connexion</strong> — Vous devez modifier votre mot de passe pour continuer.
+</div>
+{% endif %}
+
+
+
+      <div class="form-group">
+        <label class="form-label">Nouveau mot de passe *</label>
+        <div class="password-wrapper">
+          {{ form.new_password1 }}
+          <button type="button" class="toggle-password" data-target="id_new_password1" aria-label="Afficher/masquer le mot de passe">👁️</button>
+        </div>
+        {% if form.new_password1.errors %}<div class="form-error">{{ form.new_password1.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirmer *</label>
+        <div class="password-wrapper">
+          {{ form.new_password2 }}
+          <button type="button" class="toggle-password" data-target="id_new_password2" aria-label="Afficher/masquer le mot de passe">👁️</button>
+        </div>
+        {% if form.new_password2.errors %}<div class="form-error">{{ form.new_password2.errors.0 }}</div>{% endif %}
+      </div>
+      {% if form.non_field_errors %}<div class="alert alert-error">{{ form.non_field_errors.0 }}</div>{% endif %}
+      <div class="text-small text-muted mb-2">⚠️ Vous serez déconnecté après le changement.</div>
+      <button type="submit" class="btn btn-primary">🔒 Changer le mot de passe</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // Récupère tous les boutons toggle
+    const toggleButtons = document.querySelectorAll('.toggle-password');
+    toggleButtons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const targetId = this.getAttribute('data-target');
+        const passwordField = document.getElementById(targetId);
+        if (passwordField) {
+          const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+          passwordField.setAttribute('type', type);
+          this.textContent = type === 'password' ? '👁️' : '🙈';
+        }
+      });
+    });
+  })();
+
+
+</script>
+{% endblock %}

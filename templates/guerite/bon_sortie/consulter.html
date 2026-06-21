@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Bon de sortie{% endblock %}
+{% block page_title %}📄 Consulter bon de sortie{% endblock %}
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_guerite' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'consulter_bon_sortie' %}" class="active"><span class="icon">📄</span> Bon de sortie</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Consulter un bon de sortie</h1></div>
+<div class="card mb-2" style="max-width:500px;">
+  <form method="get" style="display:flex;gap:8px;">
+    <input type="text" name="numero" value="{{ numero }}" class="form-input" placeholder="Ex: BS-202506-0001" autofocus style="flex:1;">
+    <button class="btn btn-primary">🔍 Chercher</button>
+  </form>
+</div>
+
+{% if numero and not bon %}
+<div class="alert alert-error">Aucun bon de sortie trouvé pour le numéro "{{ numero }}".</div>
+{% endif %}
+
+{% if bon %}
+<div class="card" style="max-width:600px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div>
+      <div style="font-size:20px;font-weight:700;">{{ bon.numero }}</div>
+      <div class="text-muted text-small">Créé le {{ bon.created_at|date:"d/m/Y H:i" }}</div>
+    </div>
+    {% if bon.est_valide %}
+    <span class="badge badge-success" style="font-size:13px;padding:6px 14px;">✅ VALIDE</span>
+    {% else %}
+    <span class="badge badge-warning" style="font-size:13px;padding:6px 14px;">⏳ En attente</span>
+    {% endif %}
+  </div>
+  <table>
+    <tr><td class="text-muted">Véhicule</td><td><strong>{{ bon.vehicule.immatriculation }}</strong> — {{ bon.vehicule.marque }} {{ bon.vehicule.modele }}</td></tr>
+    <tr><td class="text-muted">Client</td><td>{{ bon.vehicule.client }} — {{ bon.vehicule.client.telephone }}</td></tr>
+    <tr><td class="text-muted">Montant facture</td><td><strong>{{ bon.montant_facture|floatformat:0 }} FCFA</strong></td></tr>
+    <tr><td class="text-muted">Montant payé</td><td>{{ bon.montant_paye|floatformat:0 }} FCFA</td></tr>
+    {% if bon.solde_restant > 0 %}
+    <tr><td class="text-muted">Solde restant</td><td class="text-danger"><strong>{{ bon.solde_restant|floatformat:0 }} FCFA</strong></td></tr>
+    {% endif %}
+    <tr><td class="text-muted">Mode paiement</td><td>{{ bon.get_mode_paiement_display|default:"—" }}</td></tr>
+    {% if bon.observations %}<tr><td class="text-muted">Observations</td><td>{{ bon.observations }}</td></tr>{% endif %}
+  </table>
+  {% if bon.est_valide %}
+  <div style="background:#d1fae5;border-radius:8px;padding:12px;margin-top:12px;text-align:center;">
+    ✅ <strong>Ce bon de sortie est valide. Le véhicule peut quitter le garage.</strong>
+  </div>
+  {% else %}
+  <div style="background:#fee2e2;border-radius:8px;padding:12px;margin-top:12px;text-align:center;">
+    ⚠️ <strong>Ce bon n'est pas encore validé. Contactez la réception.</strong>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

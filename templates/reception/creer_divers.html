@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+{% block title %}Nouveau bon de sortie divers{% endblock %}
+{% block page_title %}📦 Bon de sortie — Divers (simplifié){% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+    <li>
+        <a href="{% url 'dashboard_reception' %}">
+            <span class="icon">📊</span> Tableau de bord
+        </a>
+    </li>
+
+    <li>
+        <a href="{% url 'liste_receptions' %}">
+            <span class="icon">📋</span> Historique des Réceptions
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'vehicules_presents_rec' %}">
+            <span class="icon">🚗</span> Véhicules présents
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'historique_entrees_rec' %}">
+            <span class="icon">📋</span> Historique des mouvements
+        </a>
+    </li>
+     <li>
+        <a href="{% url 'liste_bons_sortie' %}">
+            <span class="icon">📄</span> Bons de sortie
+        </a>
+    </li>
+</ul>
+<!-- SECTION ACTIONS -->
+<div class="sidebar-section">Actions</div>
+<ul class="sidebar-nav">
+    <li>
+ <a href="{% url 'creer_bon_sortie_direct' %}">
+            <span class="icon">🚚</span> Bon de sortie véhicule </a> </li>
+    <li>
+        <a href="{% url 'creer_bon_sortie_divers' %}" class="active">
+            <span class="icon">📦</span> Bon de sortie divers
+        </a></li>
+</ul>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Style pour la sélection employé (inchangé) */
+.emp-search-wrap { position: relative; }
+.emp-results {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface); border: 1.5px solid var(--primary-light);
+  border-radius: 8px; box-shadow: var(--shadow-md); z-index: 300;
+  max-height: 280px; overflow-y: auto; display: none;
+}
+.emp-results.open { display: block; }
+.emp-item {
+  padding: 10px 14px; cursor: pointer;
+  border-bottom: 1px solid var(--border); transition: background .15s;
+  display: flex; align-items: center; gap: 12px;
+}
+.emp-item:last-child { border-bottom: none; }
+.emp-item:hover { background: var(--surface2); }
+.emp-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.emp-selected {
+  display: none; background: var(--surface2);
+  border: 1.5px solid var(--success); border-radius: 8px;
+  padding: 12px 16px; align-items: center; gap: 12px;
+}
+.emp-selected.show { display: flex; }
+
+/* Récapitulatif */
+.recap-card {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  color: #fff; border-radius: var(--radius); padding: 20px;
+  margin-top: 16px;
+}
+.recap-line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.recap-line strong { color: #fff; }
+.articles-list-recap {
+  margin-top: 10px;
+  padding-left: 20px;
+  list-style-type: disc;
+  font-size: 13px;
+}
+.articles-list-recap li { margin: 4px 0; }
+
+
+  .ligne-item {
+    display: flex;
+    align-items: baseline;
+    padding: 4px 8px;
+    border-bottom: 1px dashed #e5e7eb;
+    font-size: 14px;
+  }
+  .ligne-item:last-child {
+    border-bottom: none;
+  }
+  .ligne-number {
+    display: inline-block;
+    width: 24px;
+    font-weight: 600;
+    color: #6b7280;
+    font-size: 12px;
+  }
+  .ligne-text {
+    flex: 1;
+    word-break: break-word;
+  }
+  .ligne-item:hover {
+    background-color: #f3f4f6;
+    border-radius: 4px;
+  }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Bon de sortie — Divers (simplifié)</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'liste_bons_sortie' %}">Bons de sortie</a> › Nouvelle sortie divers
+    </div>
+  </div>
+  <a href="{% url 'liste_bons_sortie' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<form method="post" id="bon-form">
+  {% csrf_token %}
+  <div class="card" style="max-width:800px;">
+    <div class="card-header">
+      <div class="card-title">📝 Informations du bon</div>
+    </div>
+
+    <!-- ① Demandeur -->
+    <div class="form-group">
+      <label class="form-label">👤 Demandeur *</label>
+      <div class="emp-search-wrap">
+        <input type="text" id="emp-search" class="form-input"
+               placeholder="Tapez le nom, rôle ou matricule..."
+               autocomplete="off">
+        <div class="emp-results" id="emp-results"></div>
+      </div>
+
+      <div class="emp-selected" id="emp-box">
+        <div class="emp-avatar" id="emp-avatar" style="background:var(--primary);">??</div>
+        <div style="flex:1;">
+          <div class="font-bold" id="emp-name">—</div>
+          <div class="text-small text-muted" id="emp-role">—</div>
+          <div class="text-small text-muted" id="emp-mat">—</div>
+        </div>
+        <button type="button" onclick="clearEmp()" class="btn btn-outline btn-sm">✕</button>
+      </div>
+      <input type="hidden" name="nom_demandeur" id="nom-dem-hidden">
+      <input type="hidden" name="demandeur_id"  id="dem-id-hidden">
+    </div>
+
+
+
+
+    <div class="form-group">
+  <label class="form-label">📝 Articles / Lignes</label>
+  
+  <!-- Zone de saisie -->
+  <textarea name="observations" id="obs-textarea" class="form-textarea" rows="6"
+            placeholder="Saisissez chaque article/ligne sur une nouvelle ligne ou séparez par des points-virgules (;).&#10;Exemple :&#10;Pince multiprise;Tournevis cruciforme;Clé à molette 13mm"></textarea>
+  
+  <!-- Aperçu en temps réel (cahier) -->
+  <div id="cahier-preview" style="margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fafbfc; min-height: 50px;">
+    <div style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">📋 Aperçu des lignes :</div>
+    <div id="lignes-container" style="display: flex; flex-direction: column; gap: 4px;">
+      <!-- Les lignes apparaîtront ici dynamiquement -->
+    </div>
+    <div id="empty-message" style="color: #9ca3af; font-style: italic; text-align: center; padding: 8px 0;">
+      Aucune ligne saisie
+    </div>
+  </div>
+  
+  <div class="text-small text-muted mt-1">
+    Séparez chaque article par un point‑virgule <code>;</code> ou par un saut de ligne.
+  </div>
+</div>
+
+
+
+    <!-- ③ Récapitulatif dynamique -->
+    <div class="recap-card" id="recap-card">
+      <div style="font-size:13px;opacity:.7;margin-bottom:10px;text-transform:uppercase;">Récapitulatif</div>
+      <div class="recap-line">
+        <span>Demandeur</span>
+        <strong id="recap-dem">—</strong>
+      </div>
+      <div class="recap-line" style="align-items:flex-start;">
+        <span>Articles</span>
+        <div id="recap-articles-list" style="flex:1; text-align:right;">
+          <ul class="articles-list-recap" id="articles-list-recap">
+            <li>Aucun</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top:20px;display:flex;gap:10px;">
+        <button type="submit" class="btn btn-success" style="flex:1;font-size:15px;padding:12px;">
+          📄 Créer le bon de sortie
+        </button>
+        <a href="{% url 'liste_bons_sortie' %}" class="btn btn-outline" style="padding:12px 16px;">
+          Annuler
+        </a>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+
+
+document.addEventListener('DOMContentLoaded', function() {
+  const textarea = document.getElementById('obs-textarea');
+  const container = document.getElementById('lignes-container');
+  const emptyMsg = document.getElementById('empty-message');
+
+  function updatePreview() {
+    const raw = textarea.value;
+    // Séparer par ; ou par saut de ligne, enlever les espaces superflus, filtrer les vides
+    const lines = raw.split(/[;\n]+/).map(s => s.trim()).filter(s => s.length > 0);
+    
+    // Vider le conteneur
+    container.innerHTML = '';
+    
+    if (lines.length === 0) {
+      emptyMsg.style.display = 'block';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+    
+    // Ajouter chaque ligne
+    lines.forEach((text, index) => {
+      const div = document.createElement('div');
+      div.className = 'ligne-item';
+      div.innerHTML = `
+        <span class="ligne-number">${index + 1}.</span>
+        <span class="ligne-text">${escapeHtml(text)}</span>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  // Échapper les caractères HTML pour éviter les failles XSS
+  function escapeHtml(unsafe) {
+    return unsafe.replace(/[&<>"]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      if (m === '"') return '&quot;';
+      return m;
+    });
+  }
+
+  // Mise à jour à chaque frappe
+  textarea.addEventListener('input', updatePreview);
+  
+  // Initialisation
+  updatePreview();
+});
+
+
+// ── Données employés (inchangé) ──────────────────────────────────────────────
+const EMPLOYES = [
+  {% for emp in employes %}
+  {
+    id:       "{{ emp.id }}",
+    nom:      "{{ emp.full_name|escapejs }}",
+    role:     "{{ emp.get_role_display|escapejs }}",
+    matricule:"{{ emp.matricule|default:''|escapejs }}",
+    initiales:"{{ emp.prenom|first|upper }}{{ emp.nom|first|upper }}",
+    couleur:  "{% if emp.role == 'ADMIN' %}#8e44ad{% elif emp.role == 'RESP_ATELIER' %}#e67e22{% elif emp.role == 'TECHNICIEN' %}#c0392b{% elif emp.role == 'RECEPTIONNISTE' %}#2980b9{% else %}#27ae60{% endif %}"
+  }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+];
+
+// ── Sélection employé ────────────────────────────────────────────────────────
+let dbt;
+const empSearch = document.getElementById('emp-search');
+const empResults = document.getElementById('emp-results');
+const empBox = document.getElementById('emp-box');
+const empNameSpan = document.getElementById('emp-name');
+const empRoleSpan = document.getElementById('emp-role');
+const empMatSpan = document.getElementById('emp-mat');
+const empAvatar = document.getElementById('emp-avatar');
+const nomDemHidden = document.getElementById('nom-dem-hidden');
+const demIdHidden = document.getElementById('dem-id-hidden');
+
+function renderEmps(q) {
+  if (!q || q.length < 1) { closeEmpRes(); return; }
+  const results = EMPLOYES.filter(e =>
+    e.nom.toLowerCase().includes(q) ||
+    e.role.toLowerCase().includes(q) ||
+    e.matricule.toLowerCase().includes(q)
+  ).slice(0, 8);
+
+  empResults.innerHTML = '';
+  if (!results.length) {
+    empResults.innerHTML = '<div style="padding:12px 14px;color:var(--text-muted);font-size:13px;">Aucun employé trouvé</div>';
+    empResults.classList.add('open');
+    return;
+  }
+
+  results.forEach(e => {
+    const div = document.createElement('div');
+    div.className = 'emp-item';
+    div.innerHTML = `
+      <div class="emp-avatar" style="background:${e.couleur};">${e.initiales}</div>
+      <div>
+        <div style="font-weight:700;font-size:13px;">${e.nom}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${e.role}${e.matricule ? ' · ' + e.matricule : ''}</div>
+      </div>`;
+    div.onclick = () => selectEmp(e);
+    empResults.appendChild(div);
+  });
+  empResults.classList.add('open');
+}
+
+function selectEmp(e) {
+  nomDemHidden.value = e.nom;
+  demIdHidden.value  = e.id;
+  empNameSpan.textContent = e.nom;
+  empRoleSpan.textContent = e.role;
+  empMatSpan.textContent = e.matricule ? `Matricule: ${e.matricule}` : '';
+  empAvatar.textContent = e.initiales;
+  empAvatar.style.background = e.couleur;
+  empBox.classList.add('show');
+  empSearch.style.display = 'none';
+  closeEmpRes();
+  updateRecap();
+}
+
+function clearEmp() {
+  nomDemHidden.value = '';
+  demIdHidden.value  = '';
+  empBox.classList.remove('show');
+  empSearch.style.display = '';
+  empSearch.value = '';
+  updateRecap();
+}
+
+function closeEmpRes() {
+  empResults.classList.remove('open');
+}
+
+empSearch.addEventListener('input', function() {
+  clearTimeout(dbt);
+  const q = this.value.trim().toLowerCase();
+  dbt = setTimeout(() => renderEmps(q), 200);
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.emp-search-wrap')) closeEmpRes();
+});
+
+// ── Mise à jour du récapitulatif des articles ───────────────────────────────
+const obsTextarea = document.getElementById('obs-textarea');
+const recapDemSpan = document.getElementById('recap-dem');
+const articlesListRecap = document.getElementById('articles-list-recap');
+
+function splitObservations(text) {
+  // Sépare par ; ou par saut de ligne
+  let items = text.split(/[;\n]/).filter(s => s.trim().length > 0);
+  // Nettoie chaque item
+  items = items.map(s => s.trim());
+  return items;
+}
+
+function updateRecap() {
+  // Demandeur
+  const dem = nomDemHidden.value || '—';
+  recapDemSpan.textContent = dem;
+
+  // Observations
+  const raw = obsTextarea.value;
+  const articles = splitObservations(raw);
+  articlesListRecap.innerHTML = '';
+  if (articles.length === 0) {
+    articlesListRecap.innerHTML = '<li>Aucun article saisi</li>';
+  } else {
+    articles.forEach(art => {
+      const li = document.createElement('li');
+      li.textContent = art;
+      articlesListRecap.appendChild(li);
+    });
+  }
+}
+
+obsTextarea.addEventListener('input', updateRecap);
+nomDemHidden.addEventListener('change', updateRecap);
+document.getElementById('emp-box').addEventListener('DOMSubtreeModified', updateRecap); // fallback
+updateRecap();
+
+// ── Validation avant soumission ──────────────────────────────────────────────
+document.getElementById('bon-form').addEventListener('submit', function(e) {
+  const dem = nomDemHidden.value;
+  const obs = obsTextarea.value.trim();
+  if (!dem) {
+    e.preventDefault();
+    alert('⚠️ Veuillez sélectionner un demandeur.');
+    return;
+  }
+  if (!obs) {
+    e.preventDefault();
+    alert('⚠️ Veuillez saisir au moins un article (dans le champ observations).');
+    return;
+  }
+  // Pas de vérification supplémentaire – tout est accepté
+});
+</script>
+{% endblock %}

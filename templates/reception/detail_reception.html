@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}{{ rec.numero }}{% endblock %}
+{% block page_title %}📋 Réception {{ rec.numero }}{% endblock %}
+{% block sidebar_nav %}
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+    <li>
+        <a href="{% url 'dashboard_reception' %}">
+            <span class="icon">📊</span> Tableau de bord
+        </a>
+    </li>
+
+    <li>
+        <a href="{% url 'liste_receptions' %}">
+            <span class="icon">📋</span> Historique des Réceptions
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'vehicules_presents_rec' %}">
+            <span class="icon">🚗</span> Véhicules présents
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'historique_entrees_rec' %}">
+            <span class="icon">📋</span> Historique des mouvements
+        </a>
+    </li>
+     <li>
+        <a href="{% url 'liste_bons_sortie' %}">
+            <span class="icon">📄</span> Bons de sortie
+        </a>
+    </li>
+</ul>
+{% endblock %}
+{% block extra_css %}
+<style>
+.timeline{display:flex;flex-direction:column;gap:0;}
+.tl-item{display:flex;gap:12px;padding-bottom:16px;position:relative;}
+.tl-item:not(:last-child)::before{content:'';position:absolute;left:15px;top:32px;bottom:0;width:2px;background:var(--border);}
+.tl-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:2px solid var(--border);}
+.tl-dot.done{background:var(--success);border-color:var(--success);color:#fff;}
+.tl-dot.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 4px rgba(230,126,34,.2);}
+.tl-dot.wait{background:var(--surface2);color:var(--text-muted);}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ rec.numero }}</h1>
+    <div class="breadcrumb"><a href="{% url 'dashboard_reception' %}">Réception</a> › {{ rec.vehicule.immatriculation }}</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% url 'dashboard_reception' %}" class="btn btn-outline">← Retour</a>
+    <a href="{% url 'detail_vehicule_rec' rec.vehicule.id %}" class="btn btn-info">👁 Détails véhicule</a>
+    {% if not rapport %}<a href="{% url 'creer_rapport' rec.id %}" class="btn btn-primary">📝 Faire le rapport</a>{% endif %}
+    {% if rec.statut != 'EN_COURS' and rec.statut != 'SORTI' %}
+    <a href="{% url 'choisir_ateliers' rec.id %}" class="btn btn-accent">🏭 + Atelier</a>
+    <a href="{% url 'creer_or_rec' rec.id %}" class="btn btn-primary">🔧 Créer OR</a>
+    {% endif %}
+    {% if rec.statut == 'TRAVAUX_TERMINES' %}
+    <a href="{% url 'creer_bon_sortie_rec' rec.id %}" class="btn btn-success">📄 Bon de sortie</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Barre progression -->
+<div class="card mb-2">
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+    <strong>{{ rec.get_statut_display }}</strong>
+    <span class="font-bold" style="color:var(--primary);">{{ rec.progression_pct }}%</span>
+  </div>
+  <div class="progress-bar" style="height:14px;border-radius:7px;">
+    <div class="progress-fill" style="width:{{ rec.progression_pct }}%;border-radius:7px;{% if rec.progression_pct == 100 %}background:var(--success);{% endif %}"></div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- Infos véhicule -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">🚗 Véhicule &amp; Client</div></div>
+    <table>
+      <tr><td class="text-muted">Immat.</td><td><strong style="font-size:15px;">{{ rec.vehicule.immatriculation }}</strong></td></tr>
+      <tr><td class="text-muted">Véhicule</td><td>{{ rec.vehicule.marque }} {{ rec.vehicule.modele }} ({{ rec.vehicule.annee }})</td></tr>
+      <tr><td class="text-muted">Couleur</td><td>{{ rec.vehicule.couleur|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Carburant</td><td>{{ rec.vehicule.get_type_carburant_display }}</td></tr>
+      <tr><td colspan="2"><hr></td></tr>
+      <tr><td class="text-muted">Client</td><td><strong>{{ rec.vehicule.client }}</strong></td></tr>
+      <tr><td class="text-muted">Tél.</td><td>{{ rec.vehicule.client.telephone }}</td></tr>
+      <tr><td class="text-muted">Email</td><td>{{ rec.vehicule.client.email|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Entrée guérite</td><td>{{ rec.entree.date_entree|date:"d/m/Y H:i" }}</td></tr>
+    </table>
+  </div>
+
+  <!-- Timeline -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">📅 Chronologie</div></div>
+    <div class="timeline">
+      {% with s=rec.statut %}
+      <div class="tl-item">
+        <div class="tl-dot done">✓</div>
+        <div><div class="font-bold text-small">Entrée enregistrée</div><div class="text-small text-muted">{{ rec.entree.date_entree|date:"d/m/Y H:i" }}</div></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot {% if s != 'EN_COURS' %}done{% else %}active{% endif %}">{% if s == 'EN_COURS' %}✍{% else %}✓{% endif %}</div>
+        <div>
+          <div class="font-bold text-small">Rapport réception</div>
+          {% if rapport %}<div class="text-small text-muted">{{ rapport.created_at|date:"d/m/Y H:i" }} — {{ rapport.get_decision_display }}</div>
+          {% else %}<div class="text-small text-muted" style="color:var(--accent);">À compléter</div>{% endif %}
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot {% if s in 'EN_ATELIER,PRESENT_ATELIER,TRAVAUX_EN_COURS,TRAVAUX_TERMINES,BON_SORTIE_FAIT,SORTI' %}done{% elif s == 'RAPPORT_FAIT' %}active{% else %}wait{% endif %}">{% if s in 'EN_ATELIER,PRESENT_ATELIER,TRAVAUX_EN_COURS,TRAVAUX_TERMINES,BON_SORTIE_FAIT,SORTI' %}✓{% else %}🏭{% endif %}</div>
+        <div>
+          <div class="font-bold text-small">Transfert atelier(s)</div>
+          {% if rec.transferts.exists %}<div class="text-small text-muted">{% for t in rec.transferts.all %}{{ t.atelier.nom }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+          {% else %}<div class="text-small text-muted">Pas encore transféré</div>{% endif %}
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot {% if s in 'PRESENT_ATELIER,TRAVAUX_EN_COURS,TRAVAUX_TERMINES,BON_SORTIE_FAIT,SORTI' %}done{% elif s == 'EN_ATELIER' %}active{% else %}wait{% endif %}">{% if s in 'PRESENT_ATELIER,TRAVAUX_EN_COURS,TRAVAUX_TERMINES,BON_SORTIE_FAIT,SORTI' %}✓{% else %}📋{% endif %}</div>
+        <div> 
+          <div class="font-bold text-small">Fiche de contrôle atelier</div>
+          {% if fiche_controle %}<div class="text-small text-muted">Faite le {{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}</div>
+          {% elif s == 'EN_ATELIER' %}<div class="text-small" style="color:var(--accent);">En attente à l'atelier</div>
+          {% else %}<div class="text-small text-muted">—</div>{% endif %}
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot {% if s in 'TRAVAUX_TERMINES,BON_SORTIE_FAIT,SORTI' %}done{% elif s in 'PRESENT_ATELIER,TRAVAUX_EN_COURS' %}active{% else %}wait{% endif %}">{% if s in 'TRAVAUX_TERMINES,BON_SORTIE_FAIT,SORTI' %}✓{% else %}🔧{% endif %}</div>
+        <div><div class="font-bold text-small">Travaux</div><div class="text-small text-muted">{% if s in 'TRAVAUX_TERMINES,BON_SORTIE_FAIT,SORTI' %}Terminés ✅{% elif s in 'PRESENT_ATELIER,TRAVAUX_EN_COURS' %}En cours...{% else %}En attente{% endif %}</div></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot {% if s in 'BON_SORTIE_FAIT,SORTI' %}done{% elif s == 'TRAVAUX_TERMINES' %}active{% else %}wait{% endif %}">{% if s in 'BON_SORTIE_FAIT,SORTI' %}✓{% else %}📄{% endif %}</div>
+        <div><div class="font-bold text-small">Bon de sortie</div><div class="text-small text-muted">{% if bon_sortie %}{{ bon_sortie.numero }}{% elif s == 'TRAVAUX_TERMINES' %}<span style="color:var(--accent);">À créer maintenant</span>{% else %}—{% endif %}</div></div>
+      </div>
+      {% endwith %}
+    </div>
+  </div>
+</div>
+
+<!-- Rapport -->
+{% if rapport %}
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">📝 Rapport de réception</div>
+    <span class="badge {% if rapport.decision == 'SORTIE_DIRECTE' %}badge-info{% else %}badge-en-cours{% endif %}">{{ rapport.get_decision_display }}</span>
+  </div>
+  <div class="grid-2">
+    <div><div class="form-label">Constat visuel</div><div style="background:var(--surface2);border-radius:7px;padding:10px;font-size:13px;">{{ rapport.constat }}</div></div>
+    <div><div class="form-label">Problème déclaré</div><div style="background:var(--surface2);border-radius:7px;padding:10px;font-size:13px;">{{ rapport.probleme_declare }}</div></div>
+  </div>
+  <div style="display:flex;gap:20px;margin-top:10px;flex-wrap:wrap;">
+    <div><span class="text-muted text-small">Kilométrage:</span> <strong>{{ rapport.kilometrage }} km</strong></div>
+    <div><span class="text-muted text-small">Carburant:</span>
+      <strong>{{ rapport.niveau_carburant }}%</strong>
+      <span style="display:inline-block;width:60px;height:8px;background:var(--border);border-radius:4px;vertical-align:middle;margin-left:4px;overflow:hidden;">
+        <span style="display:block;height:100%;width:{{ rapport.niveau_carburant }}%;background:{% if rapport.niveau_carburant < 25 %}var(--danger){% elif rapport.niveau_carburant < 50 %}var(--warning){% else %}var(--success){% endif %};"></span>
+      </span>
+    </div>
+    {% if rapport.observations %}<div class="text-muted text-small">{{ rapport.observations }}</div>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Ateliers -->
+{% if rec.transferts.exists %}
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">🏭 Ateliers assignés ({{ rec.transferts.count }})</div>
+    <a href="{% url 'choisir_ateliers' rec.id %}" class="btn btn-outline btn-sm">+ Ajouter</a>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;">
+    {% for t in rec.transferts.all %}
+    <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;border:1px solid var(--border);">
+      <div class="font-bold">🏭 {{ t.atelier.nom }}</div>
+      <div class="text-small text-muted">{{ t.date_transfert|date:"d/m/Y H:i" }}</div>
+      <div class="text-small">{{ t.motif|truncatechars:80 }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Fiche contrôle -->
+{% if fiche_controle %}
+<div class="card mt-2" style="border-left:4px solid var(--success);">
+  <div class="card-header"><div class="card-title">📋 Fiche de contrôle (remplie par l'atelier)</div><span class="badge badge-success">✅ Présent atelier</span></div>
+  <div class="grid-2">
+    <table>
+      <tr><td class="text-muted">État général</td><td>{{ fiche_controle.get_etat_general_display }}</td></tr>
+      <tr><td class="text-muted">Kilométrage</td><td>{{ fiche_controle.kilometrage }} km</td></tr>
+      <tr><td class="text-muted">Carburant</td><td>{{ fiche_controle.niveau_carburant }}%</td></tr>
+      <tr><td class="text-muted">Inspecteur</td><td>{{ fiche_controle.inspecte_par }}</td></tr>
+      <tr><td class="text-muted">Date inspection</td><td>{{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}</td></tr>
+    </table>
+    <div>{% if fiche_controle.defauts_observes %}<div class="form-label">Défauts observés</div><div style="background:var(--surface2);padding:8px;border-radius:6px;font-size:13px;">{{ fiche_controle.defauts_observes }}</div>{% endif %}</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- OR -->
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">🔧 Ordres de réparation ({{ or_list|length }})</div>
+    <a href="{% url 'creer_or_rec' rec.id %}" class="btn btn-primary btn-sm">+ Créer OR</a>
+  </div>
+  {% if or_list %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>N° OR</th><th>Type</th><th>Atelier</th><th>Statut</th><th>Tâches</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for o in or_list %}
+        <tr>
+          <td><a href="{% url 'detail_or' o.id %}"><strong>{{ o.numero }}</strong></a></td>
+          <td>{% if o.type_or == 'RETOUR' %}<span class="badge badge-danger">Retour</span>{% else %}<span class="badge badge-info">Normal</span>{% endif %}</td>
+          <td>{{ o.atelier.nom }}</td>
+          <td>
+            {% if o.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
+            {% elif o.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+            {% elif o.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
+            {% elif o.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>{% endif %}
+          </td>
+          <td class="text-center">{{ o.taches.count }}</td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <a href="{% url 'detail_or' o.id %}" class="btn btn-info btn-sm">👁</a>
+              {% if o.statut != 'CLOTURE' %}
+              <form method="post" action="{% url 'cloture_or_rec' o.id %}" onsubmit="return confirm('Clôturer ?')">
+                {% csrf_token %}<button class="btn btn-success btn-sm">✅</button>
+              </form>
+              {% else %}
+              <button onclick="reouvrirOR('{{ o.id }}')" class="btn btn-warning btn-sm">🔓</button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center text-muted" style="padding:20px;">Aucun OR — <a href="{% url 'creer_or_rec' rec.id %}">Créer</a></div>
+  {% endif %}
+</div>
+
+<!-- Bon de sortie -->
+{% if bon_sortie %}
+<div class="card mt-2" style="border-left:4px solid var(--success);">
+  <div class="card-header">
+    <div class="card-title">📄 Bon de sortie — {{ bon_sortie.numero }}</div>
+    {% if bon_sortie.est_valide %}<span class="badge badge-success">✅ Validé</span>{% else %}<span class="badge badge-warning">⏳ Non signé</span>{% endif %}
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div class="text-small">Montant: <strong>{{ bon_sortie.montant_facture|floatformat:0 }} FCFA</strong></div>
+      <div class="text-small">Payé: {{ bon_sortie.montant_paye|floatformat:0 }} FCFA</div>
+      {% if bon_sortie.solde_restant > 0 %}<div class="text-small text-danger">Reste: {{ bon_sortie.solde_restant|floatformat:0 }} FCFA</div>{% endif %}
+    </div>
+    <div style="display:flex;gap:6px;">
+      <a href="{% url 'detail_bon_sortie_rec' bon_sortie.id %}" class="btn btn-info btn-sm">👁 Voir</a>
+      <a href="{% url 'pdf_bon_sortie_rec' bon_sortie.id %}" class="btn btn-outline btn-sm">📥 PDF</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Formulaire réouverture OR (modal inline) -->
+<form id="form-reouverture" method="post" style="display:none;">
+  {% csrf_token %}
+  <input type="text" name="raison" id="raison-input">
+</form>
+{% endblock %}
+{% block extra_js %}
+<script>
+function reouvrirOR(orId){
+  const raison = prompt('Raison de la réouverture :');
+  if(!raison) return;
+  const form = document.getElementById('form-reouverture');
+  form.action = '/reception/or/' + orId + '/reouverture/';
+  document.getElementById('raison-input').value = raison;
+  form.style.display = 'block';
+  form.submit();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Nouvel OR{% endblock %}
+{% block page_title %}➕ Nouvel Ordre de Réparation{% endblock %}
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_or' %}" class="active"><span class="icon">📋</span> Ordres de réparation</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Nouvel Ordre de Réparation</h1></div>
+  <a href="{% url 'liste_or' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+{% if reception %}
+<div class="card mb-2" style="border-left:4px solid var(--success);max-width:700px;">
+  <div class="card-header"><div class="card-title">📥 Réception associée: {{ reception.numero }}</div></div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;">
+    <div><div class="text-muted text-small">Véhicule</div><strong>{{ reception.vehicule.immatriculation }}</strong></div>
+    <div><div class="text-muted text-small">Client</div>{{ reception.vehicule.client }}</div>
+    <div><div class="text-muted text-small">Problème</div>{{ reception.description_probleme|truncatechars:80 }}</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="max-width:700px;">
+  <form method="post">
+    {% csrf_token %}
+    {% if not reception %}
+    <div class="form-group">
+      <label class="form-label">🚗 Véhicule *</label>
+      <select name="vehicule_id" class="form-select" required>
+        <option value="">— Sélectionner un véhicule —</option>
+        {% for v in vehicules %}
+        <option value="{{ v.id }}">{{ v.immatriculation }} — {{ v.marque }} {{ v.modele }} — {{ v.client }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="form-group">
+      <label class="form-label">🏭 Atelier *</label>
+      {{ form.atelier }}
+      {% if form.atelier.errors %}<div class="form-error">{{ form.atelier.errors.0 }}</div>{% endif %}
+    </div>
+    <div class="form-group">
+      <label class="form-label">🔬 Diagnostic initial</label>
+      {{ form.diagnostic }}
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">📅 Date de fin prévue</label>
+        {{ form.date_fin_prevue }}
+      </div>
+      <div class="form-group">
+        <label class="form-label">💬 Observations</label>
+        {{ form.observations }}
+      </div>
+    </div>
+    <hr>
+    <button type="submit" class="btn btn-primary" style="font-size:15px;padding:10px 24px;">✅ Créer l'OR</button>
+  </form>
+</div>
+{% endblock %}

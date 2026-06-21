@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Créer bon de sortie{% endblock %}
+{% block page_title %}📄 Créer bon de sortie{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+    <li>
+        <a href="{% url 'dashboard_reception' %}">
+            <span class="icon">📊</span> Tableau de bord
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'liste_receptions' %}">
+            <span class="icon">📋</span> Historique des Réceptions
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'vehicules_presents_rec' %}">
+            <span class="icon">🚗</span> Véhicules présents
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'historique_entrees_rec' %}">
+            <span class="icon">📋</span> Historique des mouvements
+        </a>
+    </li>
+     <li>
+        <a href="{% url 'liste_bons_sortie' %}">
+            <span class="icon">📄</span> Bons de sortie
+        </a>
+    </li>
+</ul>
+<!-- SECTION ACTIONS -->
+<div class="sidebar-section">Actions</div>
+<ul class="sidebar-nav">
+    <li>
+        <a href="{% url 'creer_bon_sortie_direct' %}" class="active">
+            <span class="icon">🚚</span> Bon de sortie véhicule
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'creer_bon_sortie_divers' %}">
+            <span class="icon">📦</span> Bon de sortie divers
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>Bon de sortie</h1>
+        {% if reception %}
+        <div class="breadcrumb">
+            <a href="{% url 'detail_vehicule_rec' reception.id %}">
+                {{ reception.numero }}
+            </a>
+            › {{ reception.vehicule.immatriculation }}
+        </div> 
+        {% endif %}
+    </div>
+    {% if reception %}
+    <a href="{% url 'dashboard_reception' %}" class="btn btn-outline">
+        ← Retour
+    </a>
+    {% endif %}
+</div>
+
+
+
+    <!-- Affichage des erreurs globales du formulaire -->
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger" role="alert">
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+
+    {% if form.errors %}
+    <div class="alert alert-danger">
+        <strong>⚠️ Le formulaire contient des erreurs :</strong>
+        <ul>
+            {% for field, errors in form.errors.items %}
+                <li><strong>{{ field|capfirst }}</strong> : {{ errors|join:", " }}</li>
+            {% endfor %}
+            {% if form.non_field_errors %}
+                <li>{{ form.non_field_errors|join:", " }}</li>
+            {% endif %}
+        </ul>
+    </div>
+{% endif %}
+
+<div class="card" style="max-width:800px; margin:auto;">
+
+
+
+
+    <form method="post">
+        {% csrf_token %}
+
+        <!-- ===================== -->
+        <!-- SÉLECTION VÉHICULE (AUTOCOMPLÉTION) -->
+        <!-- ===================== -->
+
+        <div class="form-group">
+            <label class="form-label">🚘 Immatriculation du véhicule</label>
+            <div class="search-wrap">
+                <input type="text" id="vehicule-search" class="form-input"
+                       placeholder="Tapez l'immatriculation..." autocomplete="off">
+                <div class="search-results" id="vehicule-results"></div>
+            </div>
+            <input type="hidden" name="vehicule_id" id="vehicule-id">
+            <div id="vehicule-info" style="margin-top:6px; font-size:14px; color:var(--text-muted);"></div>
+            <!-- Affichage des erreurs du champ vehicule_id (si le formulaire l'utilise) -->
+            {% if form.vehicule_id.errors %}
+                <div class="form-error">{{ form.vehicule_id.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <!-- ===================== -->
+        <!-- DEMANDEUR (prérempli) -->
+        <!-- ===================== -->
+
+        <div class="form-group">
+            <label class="form-label">👤 Nom du demandeur</label>
+            <select name="nom_demandeur" id="demandeur-select" class="form-input" required>
+                <option value="">-- Sélectionner d'abord un véhicule --</option>
+            </select>
+            {% if form.nom_demandeur.errors %}
+                <div class="form-error">{{ form.nom_demandeur.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <!-- ===================== -->
+        <!-- OBSERVATIONS -->
+        <!-- ===================== -->
+
+        <div class="form-group">
+            <label class="form-label">💬 Observations</label>
+            {{ form.observations }}
+            {% if form.observations.errors %}
+                <div class="form-error">{{ form.observations.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <hr>
+
+        <button type="submit" class="btn btn-success" style="font-size:15px;padding:10px 24px;">
+            📄 Créer le bon de sortie
+        </button>
+
+    </form>
+
+
+</div>
+
+<style>
+    .search-wrap { position:relative; }
+    .search-results {
+        display:none;
+        position:absolute; top:100%; left:0; right:0;
+        background:#fff; border:1px solid var(--border, #d1d5db);
+        border-radius:8px; max-height:200px; overflow-y:auto;
+        z-index:1000; box-shadow:0 4px 12px rgba(0,0,0,0.1);
+    }
+    .search-results.open { display:block; }
+    .sr-item {
+        padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0;
+    }
+    .sr-item:hover { background:#f5f7fb; }
+    .sr-name { font-weight:500; }
+    .sr-sub { font-size:12px; color:var(--text-muted); }
+
+    .form-error {
+        color: var(--danger, #dc3545);
+        font-size: 13px;
+        margin-top: 4px;
+    }
+    .alert {
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+    .alert-danger {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+        color: #721c24;
+    }
+    .alert-success {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        color: #155724;
+    }
+    .alert-info {
+        background-color: #d1ecf1;
+        border-left: 4px solid #17a2b8;
+        color: #0c5460;
+    }
+    .alert-warning {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        color: #856404;
+    }
+</style>
+
+<script>
+    // ===========================
+    // AUTOCOMPLÉTION VÉHICULE
+    // ===========================
+    let vehiculeTimeout = null;
+    let vehiculeAbort = null;
+
+    const searchInput = document.getElementById('vehicule-search');
+    const resultsContainer = document.getElementById('vehicule-results');
+    const vehiculeId = document.getElementById('vehicule-id');
+    const infoDiv = document.getElementById('vehicule-info');
+    const demandeurSelect = document.getElementById('demandeur-select');
+
+    // Fonction pour mettre à jour le select demandeur
+    function updateDemandeur(vehiculeData) {
+        // Vider le select
+        demandeurSelect.innerHTML = '';
+        if (!vehiculeData) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '-- Sélectionner d\'abord un véhicule --';
+            demandeurSelect.appendChild(opt);
+            return;
+        }
+
+        // Ajouter les options : conducteur et/ou client
+        const options = [];
+        if (vehiculeData.conducteur_nom) {
+            options.push({ value: vehiculeData.conducteur_nom, label: 'Conducteur : ' + vehiculeData.conducteur_nom });
+        }
+        if (vehiculeData.client_nom) {
+            options.push({ value: vehiculeData.client_nom, label: 'Client : ' + vehiculeData.client_nom });
+        }
+        if (options.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'Aucun conducteur/client trouvé';
+            demandeurSelect.appendChild(opt);
+        } else {
+            options.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.value;
+                opt.textContent = item.label;
+                demandeurSelect.appendChild(opt);
+            });
+        }
+    }
+
+    // Sélection d'un véhicule
+    function selectVehicule(item) {
+        searchInput.value = item.immatriculation;
+        vehiculeId.value = item.id;
+        infoDiv.textContent = `🚗 ${item.immatriculation} ${item.client_nom ? '- Client: ' + item.client_nom : ''} ${item.conducteur_nom ? '- Conducteur: ' + item.conducteur_nom : ''}`;
+        resultsContainer.classList.remove('open');
+        // Mettre à jour le demandeur
+        updateDemandeur(item);
+    }
+
+    // Recherche
+    searchInput.addEventListener('input', function() {
+        clearTimeout(vehiculeTimeout);
+        const q = this.value.trim();
+        if (q.length < 2) {
+            resultsContainer.classList.remove('open');
+            return;
+        }
+        vehiculeTimeout = setTimeout(() => doSearchVehicule(q), 300);
+    });
+
+    async function doSearchVehicule(q) {
+        if (vehiculeAbort) vehiculeAbort.abort();
+        vehiculeAbort = new AbortController();
+        try {
+            const resp = await fetch(`{% url 'autocomplete_vehicules_presents' %}?q=${encodeURIComponent(q)}`, {
+                signal: vehiculeAbort.signal
+            });
+            const data = await resp.json();
+            renderVehiculeResults(data.results || []);
+        } catch (e) {
+            if (e.name !== 'AbortError') console.error(e);
+        }
+    }
+
+    function renderVehiculeResults(results) {
+        resultsContainer.innerHTML = '';
+        if (!results.length) {
+            resultsContainer.classList.remove('open');
+            return;
+        }
+        results.forEach(r => {
+            const div = document.createElement('div');
+            div.className = 'sr-item';
+            div.innerHTML = `<div class="sr-name">${escapeHtml(r.immatriculation)}</div><div class="sr-sub">${escapeHtml(r.client_nom || '')} ${escapeHtml(r.conducteur_nom || '')}</div>`;
+            div.onclick = () => selectVehicule(r);
+            resultsContainer.appendChild(div);
+        });
+        resultsContainer.classList.add('open');
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>"]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            if (m === '"') return '&quot;';
+            return '&#039;';
+        });
+    }
+
+    // Fermer les résultats en cliquant ailleurs
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-wrap')) {
+            resultsContainer.classList.remove('open');
+        }
+    });
+
+    // ===========================
+    // PRÉ-REMPLISSAGE SI RÉCEPTION
+    // ===========================
+    {% if reception %}
+        // Si une réception est passée, on pré-remplit avec son véhicule
+        (function() {
+            const data = {
+                id: "{{ reception.vehicule.id }}",
+                immatriculation: "{{ reception.vehicule.immatriculation }}",
+                client_nom: "{{ reception.vehicule.client.nom|default:'' }}",
+                conducteur_nom: "{{ reception.conducteur.nom|default:'' }} {{ reception.conducteur.prenom|default:'' }}".trim()
+            };
+            selectVehicule(data);
+        })();
+    {% endif %}
+</script>
+
+{% endblock %}

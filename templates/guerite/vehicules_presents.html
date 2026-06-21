@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Véhicules présents{% endblock %}
+{% block page_title %}🚗 Véhicules dans le local{% endblock %}
+{% block sidebar_nav %}
+
+
+<div class="sidebar-section">Guérite</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_guerite' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'vehicules_presents' %}" class="active"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+</ul>
+
+
+{% endblock %} 
+{% block content %}
+<div class="page-header">
+  <div><h1>Véhicules présents</h1><div class="breadcrumb">{{ entrees|length }} véhicule{{ entrees|length|pluralize }} actuellement dans le local</div></div>
+  <a href="{% url 'nouvelle_entree' %}" class="btn btn-primary">➕ Nouvelle entrée</a>
+</div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Immatriculation°</th></th><th>Véhicule</th><th>Propriétaire</th><th>Conducteur</th><th>Motif</th><th>Entrée le</th><th>Durée</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for entree in entrees %}
+        <tr>
+          <td><a href="{% url 'detail_entree' entree.id %}"><strong>{{ entree.vehicule.immatriculation }}</strong></a></td>
+          <td>{{ entree.vehicule.marque }} {{ entree.vehicule.modele }}</td>
+          <td>{{ entree.vehicule.client }}<br><span class="text-small text-muted">{{ entree.vehicule.client.telephone }}</span></td>
+          <td>{{ entree.conducteur|default:"—" }}</td>
+          <td>
+            {% if entree.motif == 'REPARATION' %}<span class="badge badge-reparation">🔧 Réparation</span>
+            {% elif entree.motif == 'VISITE' %}<span class="badge badge-visite">👁 Visite</span>
+            {% else %}<span class="badge badge-secondary">{{ entree.get_motif_display }}</span>{% endif %}
+          </td>
+          <td class="text-muted text-small">{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
+          <td><strong>{{ entree.duree_sejour }}</strong></td>
+
+          <td>
+ <a href="{% url 'enregistrer_sortie' entree.id %}"
+   class="btn {% if entree.statut == 'BON_SORTIE_FAIT' or entree.motif == 'VISITE' %}btn-success{% else %}btn-warning{% endif %} btn-sm">
+    📤 Sortie
+</a>          </td>
+
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-center text-muted" style="padding:40px;">Aucun véhicule dans le local</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

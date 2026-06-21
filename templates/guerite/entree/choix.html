@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Nouvelle entrée{% endblock %}
+{% block page_title %}➕ Nouvelle entrée véhicule{% endblock %}
+{% block sidebar_nav %}
+<div class="sidebar-section">Guérite</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_guerite' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'nouvelle_entree' %}" class="active"><span class="icon">➕</span> Nouvelle entrée</a></li>
+  <li><a href="{% url 'recherche_vehicule' %}"><span class="icon">🔍</span> Rechercher</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div><h1>Nouvelle entrée véhicule</h1><div class="breadcrumb">Étape 1 — Identification du véhicule</div></div>
+  <a href="{% url 'dashboard_guerite' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+{% if vehicule %}
+<!-- Véhicule déjà sélectionné -->
+<div class="card" style="border-left:4px solid var(--success);max-width:600px;">
+  <div class="card-header">
+    <div class="card-title">✅ Véhicule sélectionné</div>
+    <a href="{% url 'recherche_vehicule' %}" class="btn btn-outline btn-sm">Changer</a>
+  </div>
+  <table>
+    <tr><td class="text-muted">Immatriculation</td><td><strong style="font-size:16px;">{{ vehicule.immatriculation }}</strong></td></tr>
+    <tr><td class="text-muted">Marque / Modèle</td><td>{{ vehicule.marque }} {{ vehicule.modele }} ({{ vehicule.annee }})</td></tr>
+    <tr><td class="text-muted">Couleur</td><td>{{ vehicule.couleur|default:"—" }}</td></tr>
+    <tr><td class="text-muted">Carburant</td><td>{{ vehicule.get_type_carburant_display }}</td></tr>
+    <tr><td class="text-muted">Propriétaire</td><td><strong>{{ vehicule.client }}</strong> — {{ vehicule.client.telephone }}</td></tr>
+    {% if vehicule.en_atelier %}<tr><td colspan="2"><span class="badge badge-en-cours">⚠️ Ce véhicule est actuellement en atelier</span></td></tr>{% endif %}
+  </table>
+  <div class="mt-2">
+    <a href="{% url 'enregistrer_entree' %}?vehicule_id={{ vehicule.id }}" class="btn btn-primary">➡️ Enregistrer l'entrée</a>
+  </div>
+</div>
+{% else %}
+<!-- Choix -->
+<div class="grid-3" style="max-width: 1100px; margin: 0 auto; gap: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+
+  <!-- Véhicule existant -->
+  <div class="card"
+       style="text-align:center; padding:32px 24px; border-radius:16px;
+              display:flex; flex-direction:column; justify-content:space-between;
+              min-height:320px;">
+
+    <div>
+      <div style="font-size:56px; margin-bottom:16px;">🔍</div>
+
+      <h3 style="margin-bottom:12px; font-size:22px;">
+        Véhicule existant
+      </h3>
+
+      <p class="text-muted"
+         style="margin-bottom:24px; line-height:1.6;">
+        Le véhicule est déjà enregistré dans le système.
+        Rechercher rapidement un véhicule existant.
+      </p>
+    </div>
+
+    <a href="{% url 'recherche_vehicule' %}"
+       class="btn btn-primary w-full">
+      Rechercher le véhicule
+    </a>
+  </div>
+
+  <!-- Nouveau client + véhicule -->
+  <div class="card"
+       style="text-align:center; padding:32px 24px; border-radius:16px;
+              display:flex; flex-direction:column; justify-content:space-between;
+              min-height:320px;">
+
+    <div>
+      <div style="font-size:56px; margin-bottom:16px;">🆕</div>
+
+      <h3 style="margin-bottom:12px; font-size:22px;">
+        Nouveau client + véhicule
+      </h3>
+
+      <p class="text-muted"
+         style="margin-bottom:24px; line-height:1.6;">
+        Premier passage au garage.
+        Création complète du client et du véhicule.
+      </p>
+    </div>
+
+    <div>
+      <a href="{% url 'creer_client_guerite' %}?next={% url 'creer_vehicule_guerite' %}"
+         class="btn btn-accent w-full">
+        Créer client + véhicule
+      </a>
+
+      <div style="margin-top:14px;">
+        <a href="{% url 'creer_vehicule_guerite' %}"
+           class="text-small text-muted"
+           style="text-decoration:none;">
+          Client déjà existant ?
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nouveau véhicule -->
+  <div class="card"
+       style="text-align:center; padding:32px 24px; border-radius:16px;
+              display:flex; flex-direction:column; justify-content:space-between;
+              min-height:320px;">
+
+    <div>
+      <div style="font-size:56px; margin-bottom:16px;">🚗</div>
+
+      <h3 style="margin-bottom:12px; font-size:22px;">
+        Nouveau véhicule
+      </h3>
+
+      <p class="text-muted"
+         style="margin-bottom:24px; line-height:1.6;">
+        Le client existe déjà.
+        Ajouter uniquement un nouveau véhicule.
+      </p>
+    </div>
+
+  
+
+    <a href="{% url 'creer_vehicule_guerite' %}"
+   class="btn btn-accent w-full"
+   style="text-align:center;">
+   Créer le véhicule
+</a>
+
+  </div>
+
+</div>
+
+</div>
+{% endif %}
+{% endblock %}

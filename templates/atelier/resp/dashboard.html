@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Atelier — Tableau de bord{% endblock %}
+{% block page_title %}🏭 Responsable Atelier{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Atelier</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_atelier' %}" class="active"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_or' %}"><span class="icon">📋</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'kpi_atelier' %}"><span class="icon">📈</span> Performances KPI</a></li>
+</ul>
+<div class="sidebar-section">Actions</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'creer_or' %}"><span class="icon">➕</span> Nouvel OR</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🏭 {% if atelier %}{{ atelier.nom }}{% else %}Tableau de bord Atelier{% endif %}</h1>
+    <div class="breadcrumb">{% if atelier %}{{ atelier.localisation }} — {% endif %}Gestion des ordres de réparation</div>
+  </div>
+  <a href="{% url 'creer_or' %}" class="btn btn-accent">➕ Nouvel OR</a>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card info"><div class="kpi-label">📂 OR Ouverts</div><div class="kpi-value">{{ or_ouverts }}</div></div>
+  <div class="kpi-card warning"><div class="kpi-label">⚙️ OR En cours</div><div class="kpi-value">{{ or_en_cours }}</div></div>
+  <div class="kpi-card success"><div class="kpi-label">✅ OR Clôturés</div><div class="kpi-value">{{ or_clotures }}</div></div>
+  <div class="kpi-card danger"><div class="kpi-label">🔄 OR Réouverts</div><div class="kpi-value">{{ or_reouvert }}</div></div>
+  <div class="kpi-card accent"><div class="kpi-label">⚠️ Tâches non assignées</div><div class="kpi-value">{{ taches_non_assignees }}</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">🔧 Ordres de réparation actifs</div>
+    <a href="{% url 'liste_or' %}" class="btn btn-outline btn-sm">Voir tout</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>N° OR</th><th>Véhicule</th><th>Client</th><th>Type</th><th>Statut</th><th>Date création</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for or in ordres_actifs %}
+        <tr>
+          <td><a href="{% url 'detail_or' or.id %}"><strong>{{ or.numero }}</strong></a></td>
+          <td><strong>{{ or.vehicule.immatriculation }}</strong><br><span class="text-small text-muted">{{ or.vehicule.marque }} {{ or.vehicule.modele }}</span></td>
+          <td>{{ or.vehicule.client }}</td>
+          <td>{% if or.type_or == 'RETOUR' %}<span class="badge badge-danger">🔄 Retour</span>{% else %}<span class="badge badge-info">Normal</span>{% endif %}</td>
+          <td>
+            {% if or.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
+            {% elif or.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+            {% elif or.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>
+            {% else %}<span class="badge badge-secondary">{{ or.get_statut_display }}</span>{% endif %}
+          </td>
+          <td class="text-muted text-small">{{ or.date_creation|date:"d/m/Y H:i" }}</td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <a href="{% url 'detail_or' or.id %}" class="btn btn-info btn-sm">👁 Détail</a>
+              <a href="{% url 'ajouter_tache' or.id %}" class="btn btn-primary btn-sm">+ Tâche</a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted" style="padding:30px;">Aucun OR actif</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if techniciens %}
+<div class="card mt-2">
+  <div class="card-header"><div class="card-title">👷 État des techniciens</div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+    {% for tech in techniciens %}
+    <div style="background:#f8fafc;border-radius:8px;padding:14px;border:1px solid #e2e8f0;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div class="avatar" style="width:32px;height:32px;font-size:11px;background:#e67e22;">{{ tech.prenom|first }}{{ tech.nom|first }}</div>
+        <div><div class="font-bold text-small">{{ tech.full_name }}</div></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div style="text-align:center;flex:1;background:#fef3c7;border-radius:6px;padding:6px;">
+          <div style="font-size:20px;font-weight:700;color:#92400e;">{{ tech.taches_a_faire }}</div>
+          <div class="text-small text-muted">À faire</div>
+        </div>
+        <div style="text-align:center;flex:1;background:#dbeafe;border-radius:6px;padding:6px;">
+          <div style="font-size:20px;font-weight:700;color:#1e40af;">{{ tech.taches_en_cours }}</div>
+          <div class="text-small text-muted">En cours</div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

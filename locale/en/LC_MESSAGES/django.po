@@ -1,0 +1,108 @@
+# English translations — Garage Suivi
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Login"
+msgstr "Login"
+
+msgid "Logout"
+msgstr "Logout"
+
+msgid "Vehicle entry"
+msgstr "Vehicle entry"
+
+msgid "Vehicle exit"
+msgstr "Vehicle exit"
+
+msgid "Work order"
+msgstr "Work order"
+
+msgid "Reception"
+msgstr "Reception"
+
+msgid "Workshop"
+msgstr "Workshop"
+
+msgid "Estimate"
+msgstr "Estimate"
+
+msgid "Invoice"
+msgstr "Invoice"
+
+msgid "Exit slip"
+msgstr "Exit slip"
+
+msgid "Users"
+msgstr "Users"
+
+msgid "Vehicles"
+msgstr "Vehicles"
+
+msgid "Clients"
+msgstr "Clients"
+
+msgid "Tasks"
+msgstr "Tasks"
+
+msgid "Save"
+msgstr "Save"
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Search"
+msgstr "Search"
+
+msgid "Create"
+msgstr "Create"
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Back"
+msgstr "Back"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "Inactive"
+msgstr "Inactive"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Date"
+msgstr "Date"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "No results found."
+msgstr "No results found."
+
+msgid "Profile"
+msgstr "Profile"
+
+msgid "Settings"
+msgstr "Settings"
+
+msgid "Welcome"
+msgstr "Welcome"
+
+msgid "Language"
+msgstr "Language"
+
+msgid "Dark mode"
+msgstr "Dark mode"
+
+msgid "Light mode"
+msgstr "Light mode"

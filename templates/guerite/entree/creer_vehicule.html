@@ -1,0 +1,767 @@
+{% extends "base.html" %}
+{% block title %}Nouveau véhicule{% endblock %}
+{% block page_title %}🚗 Créer un véhicule{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Guérite</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_guerite' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'vehicules_presents' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'nouvelle_entree' %}" class="active"><span class="icon">➕</span> Nouvelle entrée</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div><h1>Nouveau véhicule</h1>
+    <div class="breadcrumb"><a href="{% url 'nouvelle_entree' %}">Nouvelle entrée</a> › Créer véhicule</div>
+  </div>
+</div>
+
+<div class="card" style="max-width:660px;position:relative;">
+  <div class="spinner-overlay" id="spinner"><div class="spinner"></div><div style="font-size:13px;color:var(--text-muted);">Enregistrement...</div></div>
+
+  <!-- Affichage des erreurs globales -->
+  {% if form.errors %}
+  <div style="background:#fee2e2;border-left:4px solid var(--danger);padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+    <div class="font-bold" style="color:#991b1b;">⚠️ Le formulaire contient des erreurs :</div>
+    <ul style="margin:6px 0 0 18px;color:#991b1b;font-size:13px;">
+      {% for field, errors in form.errors.items %}
+        <li><strong>{{ field|capfirst }}</strong> : {{ errors|join:", " }}</li>
+      {% endfor %}
+      {% if form.non_field_errors %}
+        <li>{{ form.non_field_errors|join:", " }}</li>
+      {% endif %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" id="vehicule-form">
+    {% csrf_token %}
+
+    <!-- Immat + Châssis -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label"><span class="required-label">Immatriculation</span> *</label>
+        <input type="text" name="immatriculation" class="form-input"
+               value="{{ form.immatriculation.value|default:'' }}"
+               placeholder="LT-452-A" style="text-transform:uppercase" required>
+        {% if form.immatriculation.errors %}<div class="form-error">{{ form.immatriculation.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label">N° Châssis</label>
+        <input type="text" name="numero_chassis" class="form-input"
+               value="{{ form.numero_chassis.value|default:'' }}" placeholder="Optionnel">
+        {% if form.numero_chassis.errors %}<div class="form-error">{{ form.numero_chassis.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Marque (texte libre avec autocomplétion) -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label"><span class="required-label">Marque</span> *</label>
+        <div class="search-wrap">
+          <input type="text" name="marque" id="marque-search" class="form-input"
+                 placeholder="Tapez une marque..." autocomplete="off"
+                 value="{{ form.marque.value|default:'' }}">
+          <div class="search-results" id="marque-results"></div>
+        </div>
+        {% if form.marque.errors %}<div class="form-error">{{ form.marque.errors.0 }}</div>{% endif %}
+      </div>
+
+      <!-- Modèle (texte libre avec autocomplétion dépendante) -->
+      <div class="form-group">
+        <label class="form-label"><span class="required-label">Modèle</span> *</label>
+        <div class="search-wrap">
+          <input type="text" name="modele" id="modele-search" class="form-input"
+                 placeholder="Tapez un modèle..." autocomplete="off"
+                 value="{{ form.modele.value|default:'' }}"
+                 {% if not form.marque.value %}disabled{% endif %}>
+          <div class="search-results" id="modele-results"></div>
+        </div>
+        <div class="text-small text-muted" id="modele-hint" style="margin-top:4px;">
+          {% if not form.marque.value %}Choisissez d'abord une marque.{% endif %}
+        </div>
+        {% if form.modele.errors %}<div class="form-error">{{ form.modele.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Plus d'options -->
+    <div class="toggle-more" onclick="toggleMore()">
+      <span class="chevron" id="chevron">▼</span>
+      Plus d'options — Année, Couleur, Carburant, Transmission
+    </div>
+    <div class="more-options" id="more-options">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Année</label>
+          <input type="number" name="annee" class="form-input"
+                 value="{{ form.annee.value|default:'' }}" min="1920" max="2090">
+          {% if form.annee.errors %}<div class="form-error">{{ form.annee.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Couleur</label>
+          <input type="text" name="couleur" class="form-input"
+                 value="{{ form.couleur.value|default:'' }}" placeholder="Blanc, Noir...">
+          {% if form.couleur.errors %}<div class="form-error">{{ form.couleur.errors.0 }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Carburant</label>
+          {{ form.type_carburant }}
+          {% if form.type_carburant.errors %}<div class="form-error">{{ form.type_carburant.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Transmission</label>
+          {{ form.transmission }}
+          {% if form.transmission.errors %}<div class="form-error">{{ form.transmission.errors.0 }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <hr style="margin:20px 0">
+
+    <!-- Type propriétaire -->
+    <div class="form-group">
+      <label class="form-label"><span class="required-label">👤 Type de propriétaire</span> *</label>
+      <div class="type-toggle">
+        <div class="type-btn active" id="btn-part" onclick="setType('PARTICULIER')">
+          <div class="tb-icon">🧑</div><div class="tb-label">Particulier</div>
+        </div>
+        <div class="type-btn" id="btn-ent" onclick="setType('ENTREPRISE')">
+          <div class="tb-icon">🏢</div><div class="tb-label">Entreprise</div>
+        </div>
+      </div>
+      <input type="hidden" id="type-cli" value="PARTICULIER">
+    </div>
+
+    <!-- Recherche propriétaire -->
+    <div class="form-group">
+      <label class="form-label" id="lbl-search">🔍 Rechercher le propriétaire</label>
+      <div class="search-wrap">
+        <input type="text" id="prop-search" class="form-input"
+               placeholder="Nom, téléphone..." autocomplete="off"
+               {% if client_id %}style="display:none"{% endif %}>
+        <div class="search-results" id="prop-results"></div>
+      </div>
+
+      <!-- Propriétaire sélectionné -->
+      <div class="prop-selected {% if client_id %}show{% endif %}" id="prop-box">
+        <span style="font-size:20px">✅</span>
+        <div style="flex:1">
+          <div class="font-bold" id="prop-name">{% if client_preselect %}{{ client_preselect }}{% endif %}</div>
+          <div class="text-small text-muted" id="prop-sub"></div>
+        </div>
+        <button type="button" onclick="clearProp()" class="btn btn-outline btn-sm">✕ Changer</button>
+      </div>
+
+      <input type="hidden" name="client" id="cli-id"
+             value="{{ form.client.value|default:client_id|default:'' }}">
+      {% if form.client.errors %}<div class="form-error">{{ form.client.errors.0 }}</div>{% endif %}
+    </div>
+
+    <!-- Formulaire inline création propriétaire -->
+    <div class="inline-form" id="inline-form" style="position:relative;">
+      <div class="spinner-overlay" id="inline-spin"><div class="spinner"></div><div style="font-size:13px;color:var(--text-muted);">Création...</div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <strong id="inline-title">➕ Nouveau propriétaire</strong>
+        <button type="button" onclick="closeInline()" class="btn btn-outline btn-sm">✕</button>
+      </div>
+
+      <!-- Particulier -->
+      <div id="flds-part">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label"><span class="required-label">Nom</span> *</label><input type="text" id="p-nom" class="form-input" placeholder="Nom de famille"></div>
+          <div class="form-group"><label class="form-label">Prénom</label><input type="text" id="p-prenom" class="form-input" placeholder="Prénom"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label"><span class="required-label">Téléphone</span> *</label><input type="tel" id="p-tel" class="form-input" placeholder="6XX XXX XXX"></div>
+          <div class="form-group"><label class="form-label">Email</label><input type="email" id="p-email" class="form-input" placeholder="email@exemple.cm"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Adresse</label><input type="text" id="p-adresse" class="form-input" placeholder="Quartier, rue..."></div>
+          <div class="form-group"><label class="form-label">Ville</label><input type="text" id="p-ville" class="form-input" placeholder="Douala, Yaoundé..."></div>
+        </div>
+      </div>
+
+      <!-- Entreprise -->
+<div id="flds-ent" style="display:none">
+    <!-- Raison sociale -->
+    <div class="form-group">
+        <label class="form-label"><span class="required-label">Raison sociale</span> *</label>
+        <input type="text" id="e-nom" class="form-input" placeholder="Nom de l'entreprise">
+    </div>
+
+    <!-- NINEA + Email -->
+    <div class="form-row">
+        <div class="form-group">
+            <label class="form-label">NINEA / RC</label>
+            <input type="text" id="e-ninea" class="form-input" placeholder="NINEA ou RC">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="e-email" class="form-input" placeholder="contact@entreprise.com">
+        </div>
+    </div>
+
+    <!-- Correspondant : Nom + Téléphone -->
+    <div class="form-row">
+        <div class="form-group">
+            <label class="form-label"><span class="required-label">Nom du correspondant</span> *</label>
+            <input type="text" id="e-contact-nom" class="form-input" placeholder="Nom du contact">
+        </div>
+        <div class="form-group">
+            <label class="form-label"><span class="required-label">Téléphone du correspondant</span> *</label>
+            <input type="tel" id="e-contact-tel" class="form-input" placeholder="6XX XXX XXX">
+        </div>
+    </div>
+
+    <!-- Ville + Adresse -->
+    <div class="form-row">
+        <div class="form-group">
+            <label class="form-label">Ville</label>
+            <input type="text" id="e-ville" class="form-input" placeholder="Douala, Yaoundé...">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Adresse</label>
+            <input type="text" id="e-adresse" class="form-input" placeholder="Quartier, rue, immeuble...">
+        </div>
+    </div>
+</div>
+
+      <button type="button" onclick="saveClient()" class="btn btn-primary w-full" style="margin-top:12px;">
+        💾 Enregistrer et sélectionner
+      </button>
+    </div>
+
+    <!-- Photos -->
+    <div class="form-group">
+      <label class="form-label">📷 Photos du véhicule (max 3)</label>
+      <div class="photos-grid" id="photos-grid">
+        <div class="photo-slot" id="slot-0" onclick="triggerPhoto(0)">
+          <span style="font-size:28px;opacity:.4">📷</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-top:4px">Ajouter</span>
+        </div>
+        <div class="photo-slot" id="slot-1" style="opacity:.35;pointer-events:none">
+          <span style="font-size:24px;opacity:.4">+</span>
+        </div>
+        <div class="photo-slot" id="slot-2" style="opacity:.35;pointer-events:none">
+          <span style="font-size:24px;opacity:.4">+</span>
+        </div>
+      </div>
+      <div class="photo-actions">
+        <button type="button" onclick="doPhoto('camera')" class="btn btn-outline btn-sm">📷 Prendre photo</button>
+        <button type="button" onclick="doPhoto('gallery')" class="btn btn-outline btn-sm">🖼 Depuis galerie</button>
+      </div>
+      <input type="file" id="fi0" name="photo_0" accept="image/*" style="display:none" onchange="previewPhoto(this,0)">
+      <input type="file" id="fi1" name="photo_1" accept="image/*" style="display:none" onchange="previewPhoto(this,1)">
+      <input type="file" id="fi2" name="photo_2" accept="image/*" style="display:none" onchange="previewPhoto(this,2)">
+    </div>
+
+    <hr style="margin-top:20px">
+    <div style="display:flex;gap:12px;">
+      <button type="submit" class="btn btn-primary" style="font-size:15px;padding:10px 24px;">💾 Créer le véhicule</button>
+      <a href="{% url 'dashboard_guerite' %}" class="btn btn-outline">Annuler</a>
+    </div>
+  </form>
+</div>
+
+<!-- Modale webcam desktop -->
+<div id="webcam-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:16px;max-width:520px;width:90%;position:relative;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <strong>📷 Prendre une photo</strong>
+      <button type="button" onclick="closeWebcam()" class="btn btn-outline btn-sm">✕</button>
+    </div>
+    <div id="webcam-error" style="display:none;background:#fee2e2;border-left:4px solid var(--danger);color:#991b1b;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+    <video id="webcam-video" autoplay playsinline style="width:100%;border-radius:8px;background:#000;max-height:360px;object-fit:contain;"></video>
+    <canvas id="webcam-canvas" style="display:none;"></canvas>
+    <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
+      <button type="button" onclick="closeWebcam()" class="btn btn-outline btn-sm">Annuler</button>
+      <button type="button" id="webcam-capture-btn" onclick="captureWebcamPhoto()" class="btn btn-primary btn-sm">📸 Capturer</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// =========================== MARQUE ===========================
+let marqueTimeout = null;
+let marqueAbort = null;
+const marqueSearch = document.getElementById('marque-search');
+const marqueResults = document.getElementById('marque-results');
+const modeleSearch = document.getElementById('modele-search');
+const modeleHint = document.getElementById('modele-hint');
+
+// Met à jour l'état du champ modèle (activé/désactivé)
+function updateModeleState() {
+  const val = marqueSearch.value.trim();
+  if (val) {
+    modeleSearch.disabled = false;
+    modeleHint.style.display = 'none';
+  } else {
+    modeleSearch.disabled = true;
+    modeleSearch.value = ''; // on vide le modèle si pas de marque
+    modeleHint.style.display = 'block';
+  }
+}
+
+// Sélection d'une marque dans les résultats
+function selectMarque(item) {
+  marqueSearch.value = item.nom;
+  marqueResults.classList.remove('open');
+  updateModeleState();
+  // on déclenche l'événement input pour que d'éventuels écouteurs réagissent
+  marqueSearch.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+marqueSearch.addEventListener('input', function () {
+  clearTimeout(marqueTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) {
+    marqueResults.classList.remove('open');
+    updateModeleState();
+    return;
+  }
+  marqueTimeout = setTimeout(() => doSearchMarque(q), 300);
+  updateModeleState();
+});
+
+async function doSearchMarque(q) {
+  if (marqueAbort) marqueAbort.abort();
+  marqueAbort = new AbortController();
+  try {
+    const resp = await fetch(`{% url 'autocomplete_marques' %}?q=${encodeURIComponent(q)}`, {
+      signal: marqueAbort.signal
+    });
+    const data = await resp.json();
+    renderMarqueResults(data.results || []);
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(e);
+  }
+}
+
+function renderMarqueResults(results) {
+  marqueResults.innerHTML = '';
+  if (!results.length) {
+    marqueResults.classList.remove('open');
+    return;
+  }
+  results.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'sr-item';
+    div.innerHTML = `<div class="sr-name">${escapeHtml(r.nom)}</div>`;
+    div.onclick = () => selectMarque(r);
+    marqueResults.appendChild(div);
+  });
+  marqueResults.classList.add('open');
+}
+ // =========================== MODÈLE ===========================
+let modeleTimeout = null;
+let modeleAbort = null;
+const modeleResults = document.getElementById('modele-results');
+
+function selectModele(item) {
+  modeleSearch.value = item.nom;
+  modeleResults.classList.remove('open');
+}
+
+modeleSearch.addEventListener('input', function () {
+  clearTimeout(modeleTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) {
+    modeleResults.classList.remove('open');
+    return;
+  }
+  const marque = marqueSearch.value.trim();
+  if (!marque) {
+    modeleResults.classList.remove('open');
+    return;
+  }
+  modeleTimeout = setTimeout(() => doSearchModele(q, marque), 300);
+});
+
+async function doSearchModele(q, marqueNom) {
+  if (modeleAbort) modeleAbort.abort();
+  modeleAbort = new AbortController();
+  try {
+    const resp = await fetch(`{% url 'autocomplete_modeles' %}?q=${encodeURIComponent(q)}&marque=${encodeURIComponent(marqueNom)}`, {
+      signal: modeleAbort.signal
+    });
+    const data = await resp.json();
+    renderModeleResults(data.results || []);
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(e);
+  }
+}
+
+function renderModeleResults(results) {
+  modeleResults.innerHTML = '';
+  if (!results.length) {
+    modeleResults.classList.remove('open');
+    return;
+  }
+  results.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'sr-item';
+    div.innerHTML = `<div class="sr-name">${escapeHtml(r.nom)}</div>`;
+    div.onclick = () => selectModele(r);
+    modeleResults.appendChild(div);
+  });
+  modeleResults.classList.add('open');
+}
+
+// =========================== UTILITAIRES ===========================
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    if (m === '"') return '&quot;';
+    return '&#039;';
+  });
+}
+
+// Fermer les résultats en cliquant ailleurs
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.search-wrap')) {
+    document.querySelectorAll('.search-results').forEach(el => el.classList.remove('open'));
+  }
+});
+
+// Initialisation de l'état du modèle
+updateModeleState();
+
+// =========================== TYPE CLIENT ===========================
+let currentType = 'PARTICULIER';
+
+function setType(t) {
+  currentType = t;
+  document.getElementById('type-cli').value = t;
+  document.getElementById('btn-part').classList.toggle('active', t === 'PARTICULIER');
+  document.getElementById('btn-ent').classList.toggle('active', t === 'ENTREPRISE');
+  document.getElementById('lbl-search').textContent = t === 'ENTREPRISE' ? '🔍 Rechercher l\'entreprise' : '🔍 Rechercher le propriétaire';
+  document.getElementById('prop-search').placeholder = t === 'ENTREPRISE' ? 'Nom entreprise, NINEA...' : 'Nom, téléphone...';
+  clearProp();
+}
+
+// =========================== PLUS D'OPTIONS ===========================
+function toggleMore() {
+  document.getElementById('more-options').classList.toggle('open');
+  document.getElementById('chevron').classList.toggle('open');
+}
+
+// =========================== RECHERCHE PROPRIÉTAIRE ===========================
+let dbt;
+let searchAbortController = null;
+document.getElementById('prop-search').addEventListener('input', function () {
+  clearTimeout(dbt);
+  const q = this.value.trim();
+  if (q.length < 2) { closeRes(); return; }
+  dbt = setTimeout(() => doSearch(q), 300);
+});
+
+async function doSearch(q) {
+  if (searchAbortController) searchAbortController.abort();
+  searchAbortController = new AbortController();
+  try {
+    const r = await fetch(`{% url 'autocomplete_clients' %}?q=${encodeURIComponent(q)}&type=${currentType}`, {
+      signal: searchAbortController.signal
+    });
+    const d = await r.json();
+    renderRes(d.results || [], q);
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(e);
+  }
+}
+
+function renderRes(results, q) {
+  const box = document.getElementById('prop-results');
+  box.innerHTML = '';
+  results.forEach(r => {
+    const d = document.createElement('div');
+    d.className = 'sr-item';
+    d.innerHTML = `<div class="sr-name">${escapeHtml(r.nom)}</div><div class="sr-sub">${escapeHtml(r.detail || '')}</div>`;
+    d.onclick = () => selectProp(r);
+    box.appendChild(d);
+  });
+  const c = document.createElement('div');
+  c.className = 'sr-item create-new';
+  c.innerHTML = `<span>➕</span> Créer "${escapeHtml(q)}" comme nouveau propriétaire`;
+  c.onclick = () => { closeRes(); openInline(q); };
+  box.appendChild(c);
+  box.classList.add('open');
+}
+
+function selectProp(r) {
+  document.getElementById('cli-id').value = r.id;
+  document.getElementById('prop-name').textContent = r.nom;
+  document.getElementById('prop-sub').textContent = r.detail || '';
+  document.getElementById('prop-box').classList.add('show');
+  document.getElementById('prop-search').style.display = 'none';
+  closeRes(); closeInline();
+}
+
+function clearProp() {
+  document.getElementById('cli-id').value = '';
+  document.getElementById('prop-box').classList.remove('show');
+  document.getElementById('prop-search').style.display = '';
+  document.getElementById('prop-search').value = '';
+  closeInline();
+}
+
+function closeRes() { document.getElementById('prop-results').classList.remove('open'); }
+
+// =========================== FORMULAIRE INLINE PROPRIÉTAIRE ===========================
+function openInline(prefill) {
+  const form = document.getElementById('inline-form');
+  form.classList.add('open');
+  const isEnt = currentType === 'ENTREPRISE';
+  document.getElementById('inline-title').textContent = isEnt ? '➕ Nouvelle entreprise' : '➕ Nouveau propriétaire particulier';
+  document.getElementById('flds-part').style.display = isEnt ? 'none' : 'block';
+  document.getElementById('flds-ent').style.display = isEnt ? 'block' : 'none';
+  if (prefill) {
+    if (isEnt) document.getElementById('e-nom').value = prefill;
+    else document.getElementById('p-nom').value = prefill;
+  }
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeInline() { document.getElementById('inline-form').classList.remove('open'); }
+
+async function saveClient() {
+  const spin = document.getElementById('inline-spin');
+  spin.classList.add('show');
+  const isEnt = currentType === 'ENTREPRISE';
+  let payload = { type_client: currentType };
+
+  if (isEnt) {
+    const nom = document.getElementById('e-nom').value.trim();
+    const contactNom = document.getElementById('e-contact-nom').value.trim();
+    const contactTel = document.getElementById('e-contact-tel').value.trim();
+    
+    if (!nom || !contactNom || !contactTel) {
+        spin.classList.remove('show');
+        alert('Raison sociale, nom du correspondant et téléphone sont obligatoires.');
+        return;
+    }
+    
+    payload = {
+        type_client: currentType,
+        nom: nom,                         // raison sociale
+        telephone: contactTel,            // téléphone du correspondant
+        nom_correspondant: contactNom,          // nouveau champ
+        ninea: document.getElementById('e-ninea').value.trim(),
+        email: document.getElementById('e-email').value.trim(),
+        adresse: document.getElementById('e-adresse').value.trim(),
+        ville: document.getElementById('e-ville').value.trim()
+    };
+}
+
+  else {
+    const nom = document.getElementById('p-nom').value.trim();
+    const tel = document.getElementById('p-tel').value.trim();
+    if (!nom || !tel) { spin.classList.remove('show'); alert('Nom et téléphone obligatoires.'); return; }
+    payload = {
+      ...payload, nom,
+      prenom: document.getElementById('p-prenom').value.trim(),
+      telephone: tel,
+      email: document.getElementById('p-email').value.trim(),
+      adresse: document.getElementById('p-adresse').value.trim(),
+      ville: document.getElementById('p-ville').value.trim()
+    };
+  }
+  try {
+    const r = await fetch("{% url 'creer_client_ajax' %}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+    if (d.success) selectProp({ id: d.id, nom: d.nom, detail: d.detail || '' });
+    else alert(d.error || 'Erreur.');
+  } catch (e) {
+    alert('Erreur réseau.');
+  } finally {
+    spin.classList.remove('show');
+  }
+}
+
+// =========================== PHOTOS ===========================
+let photoFiles = [null, null, null];
+
+function nextSlot() {
+  for (let i = 0; i < 3; i++) if (!photoFiles[i]) return i;
+  return -1;
+}
+
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+function doPhoto(src) {
+  const s = nextSlot();
+  if (s < 0) { alert('3 photos maximum.'); return; }
+
+  if (src === 'camera') {
+    if (isMobileDevice()) {
+      const fi = document.getElementById('fi' + s);
+      fi.setAttribute('capture', 'environment');
+      fi.setAttribute('accept', 'image/*');
+      fi.click();
+    } else {
+      openWebcam(s);
+    }
+  } else {
+    const fi = document.getElementById('fi' + s);
+    fi.removeAttribute('capture');
+    fi.setAttribute('accept', 'image/*');
+    fi.click();
+  }
+}
+
+function triggerPhoto(s) {
+  const fi = document.getElementById('fi' + s);
+  fi.removeAttribute('capture');
+  fi.setAttribute('accept', 'image/*');
+  fi.click();
+}
+
+function previewPhoto(input, s) {
+  const file = input.files[0];
+  if (!file) return;
+  photoFiles[s] = file;
+  const fr = new FileReader();
+  fr.onload = e => renderPhotoInSlot(s, e.target.result);
+  fr.readAsDataURL(file);
+}
+
+function renderPhotoInSlot(s, dataUrl) {
+  const el = document.getElementById('slot-' + s);
+  el.innerHTML = `<img src="${dataUrl}" alt="photo ${s + 1}" style="max-width:100%;max-height:100%;object-fit:cover;border-radius:6px;"><div class="rm-btn" onclick="rmPhoto(${s},event)" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;">✕</div>`;
+  el.style.opacity = '1';
+  el.style.pointerEvents = 'auto';
+  if (s + 1 < 3) {
+    const n = document.getElementById('slot-' + (s + 1));
+    n.style.opacity = '1';
+    n.style.pointerEvents = 'auto';
+    n.innerHTML = '<span style="font-size:24px;opacity:.5">+</span>';
+  }
+}
+
+function rmPhoto(s, e) {
+  e.stopPropagation();
+  photoFiles[s] = null;
+  document.getElementById('fi' + s).value = '';
+  const el = document.getElementById('slot-' + s);
+  if (s === 0) {
+    el.innerHTML = '<span style="font-size:28px;opacity:.4">📷</span><span style="font-size:11px;color:var(--text-muted);margin-top:4px">Ajouter</span>';
+  } else {
+    el.innerHTML = '<span style="font-size:24px;opacity:.4">+</span>';
+    el.style.opacity = '.35';
+    el.style.pointerEvents = 'none';
+  }
+}
+
+// =========================== WEBCAM DESKTOP ===========================
+let webcamStream = null;
+let webcamTargetSlot = null;
+const webcamModal = document.getElementById('webcam-modal');
+const webcamVideo = document.getElementById('webcam-video');
+const webcamCanvas = document.getElementById('webcam-canvas');
+const webcamError = document.getElementById('webcam-error');
+
+async function openWebcam(slotIndex) {
+  webcamTargetSlot = slotIndex;
+  webcamError.style.display = 'none';
+  webcamModal.style.display = 'flex';
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    webcamError.textContent = "La capture caméra n'est pas supportée par ce navigateur. Utilisez \"Depuis galerie\" à la place.";
+    webcamError.style.display = 'block';
+    return;
+  }
+
+  try {
+    webcamStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' },
+      audio: false
+    });
+    webcamVideo.srcObject = webcamStream;
+  } catch (err) {
+    console.error('Erreur accès webcam :', err);
+    let msg = "Impossible d'accéder à la caméra.";
+    if (err.name === 'NotAllowedError') {
+      msg = "Accès à la caméra refusé. Autorisez l'accès dans les paramètres du navigateur puis réessayez.";
+    } else if (err.name === 'NotFoundError') {
+      msg = "Aucune caméra détectée sur cet appareil.";
+    }
+    webcamError.textContent = msg;
+    webcamError.style.display = 'block';
+  }
+}
+
+function closeWebcam() {
+  if (webcamStream) {
+    webcamStream.getTracks().forEach(track => track.stop());
+    webcamStream = null;
+  }
+  webcamVideo.srcObject = null;
+  webcamModal.style.display = 'none';
+  webcamTargetSlot = null;
+}
+
+function captureWebcamPhoto() {
+  if (!webcamStream || webcamTargetSlot === null) return;
+  const s = webcamTargetSlot;
+
+  webcamCanvas.width = webcamVideo.videoWidth;
+  webcamCanvas.height = webcamVideo.videoHeight;
+  const ctx = webcamCanvas.getContext('2d');
+  ctx.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
+
+  webcamCanvas.toBlob(function (blob) {
+    if (!blob) {
+      webcamError.textContent = "La capture a échoué, réessayez.";
+      webcamError.style.display = 'block';
+      return;
+    }
+    const fileName = `webcam-${Date.now()}.jpg`;
+    const file = new File([blob], fileName, { type: 'image/jpeg' });
+
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('fi' + s).files = dt.files;
+
+    photoFiles[s] = file;
+    const dataUrl = webcamCanvas.toDataURL('image/jpeg');
+    renderPhotoInSlot(s, dataUrl);
+
+    closeWebcam();
+  }, 'image/jpeg', 0.9);
+}
+
+// =========================== SOUMISSION ===========================
+document.getElementById('vehicule-form').addEventListener('submit', function (e) {
+  if (!document.getElementById('cli-id').value) {
+    e.preventDefault();
+    alert('Sélectionnez un propriétaire.');
+    return;
+  }
+  document.getElementById('spinner').classList.add('show');
+});
+</script>
+{% endblock %}

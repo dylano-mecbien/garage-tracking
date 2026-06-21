@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Réceptions{% endblock %}
+{% block page_title %}📋 Liste des réceptions{% endblock %}
+{% block sidebar_nav %}
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+    <li>
+        <a href="{% url 'dashboard_reception' %}">
+            <span class="icon">📊</span> Tableau de bord
+        </a>
+    </li>
+
+    <li>
+        <a href="{% url 'liste_receptions' %}" class="active">
+            <span class="icon">📋</span> Historique des Réceptions
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'vehicules_presents_rec' %}">
+            <span class="icon">🚗</span> Véhicules présents
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'historique_entrees_rec' %}">
+            <span class="icon">📋</span> Historique des mouvements
+        </a>
+    </li>
+     <li>
+        <a href="{% url 'liste_bons_sortie' %}">
+            <span class="icon">📄</span> Bons de sortie
+        </a>
+    </li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Réceptions</h1></div>
+  <a href="{% url 'creer_reception' %}" class="btn btn-primary">+ Nouvelle réception</a>
+</div>
+<div class="card mb-2">
+  <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+    <div><label class="form-label">Recherche</label><input type="text" name="q" value="{{ request.GET.q }}" class="form-input" style="width:220px;" placeholder="N°, immat., client..."></div>
+    <div><label class="form-label">Statut</label>
+      <select name="statut" class="form-select" style="width:180px;">
+        <option value="">Tous les statuts</option>
+        {% for v,l in statuts %}<option value="{{ v }}" {% if statut_filter == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-primary">🔍 Filtrer</button>
+    <a href="{% url 'liste_receptions' %}" class="btn btn-outline">✕</a>
+  </form>
+</div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>N°</th><th>Véhicule</th><th>Client</th><th>Statut</th><th>Atelier</th><th>Réceptionniste</th><th>Date</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for r in receptions %}
+        <tr>
+          <td><a href="{% url 'detail_reception' r.id %}"><strong>{{ r.numero }}</strong></a></td>
+          <td><strong>{{ r.vehicule.immatriculation }}</strong><br><span class="text-small text-muted">{{ r.vehicule.marque }} {{ r.vehicule.modele }}</span></td>
+          <td>{{ r.vehicule.client }}</td>
+          <td>
+            {% if r.statut == 'EN_ATTENTE' %}<span class="badge badge-a-faire">En attente</span>
+            {% elif r.statut == 'DEVIS_ETABLI' %}<span class="badge badge-info">Devis établi</span>
+            {% elif r.statut == 'TRANSFERE_ATELIER' %}<span class="badge badge-en-cours">En atelier</span>
+            {% elif r.statut == 'TRAVAUX_TERMINES' %}<span class="badge badge-success">Travaux OK</span>
+            {% elif r.statut == 'FACTURE' %}<span class="badge badge-ouvert">Facturé</span>
+            {% elif r.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
+            {% else %}<span class="badge badge-secondary">{{ r.get_statut_display }}</span>{% endif %}
+          </td>
+          <td class="text-small">{{ r.atelier.nom|default:"—" }}</td>
+          <td class="text-small">{{ r.receptionniste.full_name|default:"—" }}</td>
+          <td class="text-small text-muted">{{ r.created_at|date:"d/m/Y H:i" }}</td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <a href="{% url 'detail_reception' r.id %}" class="btn btn-info btn-sm">👁</a>
+              {% if r.statut == 'EN_ATTENTE' or r.statut == 'DEVIS_ETABLI' %}
+              <a href="{% url 'creer_devis' r.id %}" class="btn btn-primary btn-sm">📝</a>
+              {% elif r.statut == 'TRAVAUX_TERMINES' %}
+              <a href="{% url 'creer_bon_sortie' r.id %}" class="btn btn-success btn-sm">📄</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted" style="padding:30px;">Aucune réception</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

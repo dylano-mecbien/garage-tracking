@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Liste OR{% endblock %}
+{% block page_title %}📋 Ordres de Réparation{% endblock %}
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_or' %}" class="active"><span class="icon">📋</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'kpi_atelier' %}"><span class="icon">📈</span> KPI</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Ordres de réparation</h1></div>
+  <a href="{% url 'creer_or' %}" class="btn btn-primary">+ Nouvel OR</a>
+</div>
+
+<div class="card mb-2">
+  <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+    <div><label class="form-label">Recherche</label><input type="text" name="q" value="{{ request.GET.q }}" class="form-input" placeholder="N° OR, immat., client..." style="width:200px;"></div>
+    <div><label class="form-label">Statut</label>
+      <select name="statut" class="form-select" style="width:150px;">
+        <option value="">Tous</option>
+        {% for v,l in statuts %}<option value="{{ v }}" {% if statut_filter == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </div>
+    <div><label class="form-label">Type</label>
+      <select name="type_or" class="form-select" style="width:130px;">
+        <option value="">Tous</option>
+        {% for v,l in types %}<option value="{{ v }}" {% if request.GET.type_or == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-primary">🔍 Filtrer</button>
+    <a href="{% url 'liste_or' %}" class="btn btn-outline">✕</a>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>N° OR</th><th>Véhicule</th><th>Client</th><th>Type</th><th>Statut</th><th>Atelier</th><th>Tâches</th><th>Date</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for o in ordres %}
+        <tr>
+          <td><a href="{% url 'detail_or' o.id %}"><strong>{{ o.numero }}</strong></a></td>
+          <td><strong>{{ o.vehicule.immatriculation }}</strong><br><span class="text-small text-muted">{{ o.vehicule.marque }} {{ o.vehicule.modele }}</span></td>
+          <td>{{ o.vehicule.client }}</td>
+          <td>{% if o.type_or == 'RETOUR' %}<span class="badge badge-danger">🔄 Retour</span>{% else %}<span class="badge badge-info">Normal</span>{% endif %}</td>
+          <td>
+            {% if o.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
+            {% elif o.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+            {% elif o.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
+            {% elif o.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>
+            {% elif o.statut == 'ANNULE' %}<span class="badge badge-annule">Annulé</span>{% endif %}
+          </td>
+          <td class="text-small">{{ o.atelier.nom }}</td>
+          <td class="text-center">{{ o.taches.count }}</td>
+          <td class="text-small text-muted">{{ o.date_creation|date:"d/m/Y" }}</td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <a href="{% url 'detail_or' o.id %}" class="btn btn-info btn-sm">👁</a>
+              {% if o.statut == 'CLOTURE' %}<a href="{% url 'creer_or_retour' o.id %}" class="btn btn-danger btn-sm" title="OR Retour">🔄</a>{% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-center text-muted" style="padding:30px;">Aucun ordre de réparation</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

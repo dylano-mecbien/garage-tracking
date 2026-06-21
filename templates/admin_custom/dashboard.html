@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Admin — Tableau de bord{% endblock %}
+{% block page_title %}🛡️ Administration Système{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Administration</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'admin_dashboard' %}" class="active"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+  <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+</ul>
+
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Tableau de bord Administrateur</h1>
+    <div class="breadcrumb">Vue globale du système</div>
+  </div>
+</div>
+
+<!-- KPI globaux -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">👥 Utilisateurs actifs</div>
+    <div class="kpi-value">{{ total_users }}</div>
+    <div class="kpi-sub">Tous rôles confondus</div>
+  </div>
+  <div class="kpi-card accent">
+    <div class="kpi-label">🚗 Total véhicules</div>
+    <div class="kpi-value">{{ total_vehicules }}</div>
+  </div>
+  <div class="kpi-card success">
+    <div class="kpi-label">🏢 Clients enregistrés</div>
+    <div class="kpi-value">{{ total_clients }}</div>
+  </div>
+  <div class="kpi-card info">
+    <div class="kpi-label">🚙 Véhicules en cours</div>
+    <div class="kpi-value">{{ vehicules_en_cours }}</div>
+    <div class="kpi-sub">Dans le garage actuellement</div>
+  </div>
+  <div class="kpi-card warning">
+    <div class="kpi-label">🔧 OR actifs</div>
+    <div class="kpi-value">{{ or_en_cours }}</div>
+    <div class="kpi-sub">En atelier</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- Utilisateurs par rôle -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">👥 Utilisateurs par rôle</div>
+      <a href="{% url 'creer_utilisateur' %}" class="btn btn-primary btn-sm">+ Créer</a>
+    </div>
+    <table>
+      <thead><tr><th>Rôle</th><th>Nombre</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for r in users_par_role %}
+        <tr>
+          <td><span class="role-badge role-{{ r.role }}">{{ r.role }}</span></td>
+          <td><strong>{{ r.total }}</strong></td>
+          <td><a href="{% url 'liste_utilisateurs' %}?role={{ r.role }}" class="btn btn-outline btn-sm">Voir</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-center text-muted">Aucun utilisateur</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Ateliers -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🏭 État des ateliers</div>
+    </div>
+    <table>
+      <thead><tr><th>Atelier</th><th>OR en cours</th><th>Capacité</th></tr></thead>
+      <tbody>
+        {% for a in ateliers %}
+        <tr>
+          <td><strong>{{ a.nom }}</strong><br><span class="text-muted text-small">{{ a.localisation }}</span></td>
+          <td>
+            <span class="badge {% if a.nb_or > 0 %}badge-en-cours{% else %}badge-a-faire{% endif %}">{{ a.nb_or }} OR</span>
+          </td>
+          <td>
+            <div class="progress-bar" style="width:100px">
+              <div class="progress-fill" style="width:{% widthratio a.nb_or a.capacite 100 %}%;"></div>
+            </div>
+            <span class="text-small text-muted">{{ a.nb_or }}/{{ a.capacite }}</span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-center text-muted">Aucun atelier configuré</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Connexions récentes -->
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">🔐 Connexions récentes</div>
+    <a href="{% url 'audit_logs' %}" class="btn btn-outline btn-sm">Tous les logs</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Utilisateur</th><th>Date/Heure</th><th>IP</th><th>Statut</th></tr></thead>
+      <tbody>
+        {% for tentative in connexions_recentes %}
+        <tr>
+          <td>{{ tentative.email }}</td>
+          <td>{{ tentative.timestamp|date:"d/m/Y H:i:s" }}</td>
+          <td class="text-muted text-small">{{ tentative.ip_address|default:"—" }}</td>
+          <td><span class="badge badge-success">✓ OK</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center text-muted">Aucune connexion</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

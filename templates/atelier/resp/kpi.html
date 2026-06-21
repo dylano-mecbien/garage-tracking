@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}KPI Atelier{% endblock %}
+{% block page_title %}📈 KPI & Performance Atelier{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_or' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'kpi_atelier' %}" class="active"><span class="icon">📈</span> KPI & Performance</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Indicateurs de performance</h1>
+    <div class="breadcrumb">{% if atelier %}{{ atelier.nom }}{% else %}Tous ateliers{% endif %}</div>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card success">
+    <div class="kpi-label">✅ Véhicules réparés (mois)</div>
+    <div class="kpi-value">{{ nb_repare_mois }}</div>
+  </div>
+  <div class="kpi-card danger">
+    <div class="kpi-label">🔁 Total retours malfaçon</div>
+    <div class="kpi-value">{{ nb_retours }}</div>
+  </div>
+  <div class="kpi-card info">
+    <div class="kpi-label">⏱ Durée moyenne réparation</div>
+    <div class="kpi-value" style="font-size:20px;">{{ duree_moy|floatformat:0 }}min</div>
+    <div class="kpi-sub">≈ {% widthratio duree_moy 60 1 %}h en moyenne</div>
+  </div>
+</div>
+
+<div class="card mt-2">
+  <div class="card-header"><div class="card-title">👨‍🔧 Performance par technicien</div></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Technicien</th><th>Tâches réalisées</th><th>Temps total (min)</th><th>Temps moyen/tâche</th></tr></thead>
+      <tbody>
+        {% for tech in or_par_technicien %}
+        <tr>
+          <td><strong>{{ tech.technicien__prenom }} {{ tech.technicien__nom }}</strong></td>
+          <td>{{ tech.total }}</td>
+          <td>{{ tech.minutes|default:0 }}</td>
+          <td>{% if tech.total %}{% widthratio tech.minutes|default:0 tech.total 1 %}min{% else %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center text-muted" style="padding:20px;">Aucune donnée disponible</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

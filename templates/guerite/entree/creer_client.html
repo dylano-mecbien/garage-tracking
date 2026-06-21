@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Nouveau client{% endblock %}
+{% block page_title %}👤 Créer un client{% endblock %}
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_guerite' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'nouvelle_entree' %}" class="active"><span class="icon">➕</span> Nouvelle entrée</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Nouveau client / propriétaire</h1><div class="breadcrumb"><a href="{% url 'nouvelle_entree' %}">Nouvelle entrée</a> › Créer client</div></div>
+</div>
+<div class="card" style="max-width:640px;">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label class="form-label">Type de client</label>{{ form.type_client }}
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nom / Raison sociale *</label>{{ form.nom }}{% if form.nom.errors %}<div class="form-error">{{ form.nom.errors.0 }}</div>{% endif %}</div>
+      <div class="form-group"><label class="form-label">Prénom</label>{{ form.prenom }}</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Téléphone *</label>{{ form.telephone }}{% if form.telephone.errors %}<div class="form-error">{{ form.telephone.errors.0 }}</div>{% endif %}</div>
+      <div class="form-group"><label class="form-label">Téléphone 2</label>{{ form.telephone2 }}</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Email</label>{{ form.email }}</div>
+      <div class="form-group"><label class="form-label">NINEA / RC (entreprise)</label>{{ form.ninea }}</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Adresse</label>{{ form.adresse }}</div>
+      <div class="form-group"><label class="form-label">Ville</label>{{ form.ville }}</div>
+    </div>
+    <hr>
+    <div style="display:flex;gap:12px;">
+      <button type="submit" class="btn btn-primary">💾 Enregistrer le client</button>
+      <a href="{% url 'dashboard_guerite' %}" class="btn btn-outline">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

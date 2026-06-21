@@ -1,0 +1,108 @@
+# Traductions françaises — Garage Suivi
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fr\n"
+
+msgid "Dashboard"
+msgstr "Tableau de bord"
+
+msgid "Login"
+msgstr "Connexion"
+
+msgid "Logout"
+msgstr "Déconnexion"
+
+msgid "Vehicle entry"
+msgstr "Entrée véhicule"
+
+msgid "Vehicle exit"
+msgstr "Sortie véhicule"
+
+msgid "Work order"
+msgstr "Ordre de réparation"
+
+msgid "Reception"
+msgstr "Réception"
+
+msgid "Workshop"
+msgstr "Atelier"
+
+msgid "Estimate"
+msgstr "Devis"
+
+msgid "Invoice"
+msgstr "Facture"
+
+msgid "Exit slip"
+msgstr "Bon de sortie"
+
+msgid "Users"
+msgstr "Utilisateurs"
+
+msgid "Vehicles"
+msgstr "Véhicules"
+
+msgid "Clients"
+msgstr "Clients"
+
+msgid "Tasks"
+msgstr "Tâches"
+
+msgid "Save"
+msgstr "Enregistrer"
+
+msgid "Cancel"
+msgstr "Annuler"
+
+msgid "Search"
+msgstr "Rechercher"
+
+msgid "Create"
+msgstr "Créer"
+
+msgid "Edit"
+msgstr "Modifier"
+
+msgid "Delete"
+msgstr "Supprimer"
+
+msgid "Back"
+msgstr "Retour"
+
+msgid "Active"
+msgstr "Actif"
+
+msgid "Inactive"
+msgstr "Inactif"
+
+msgid "Status"
+msgstr "Statut"
+
+msgid "Date"
+msgstr "Date"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "No results found."
+msgstr "Aucun résultat trouvé."
+
+msgid "Profile"
+msgstr "Profil"
+
+msgid "Settings"
+msgstr "Paramètres"
+
+msgid "Welcome"
+msgstr "Bienvenue"
+
+msgid "Language"
+msgstr "Langue"
+
+msgid "Dark mode"
+msgstr "Mode sombre"
+
+msgid "Light mode"
+msgstr "Mode clair"

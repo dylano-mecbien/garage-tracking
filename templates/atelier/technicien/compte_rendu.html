@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Compte rendu — {{ tache.libelle }}{% endblock %}
+{% block page_title %}📝 Saisir un compte rendu{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_technicien' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'mes_taches' %}" class="active"><span class="icon">📋</span> Mes tâches</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Compte rendu d'intervention</h1>
+    <div class="breadcrumb"><a href="{% url 'mes_taches' %}">Mes tâches</a> › {{ tache.libelle }}</div>
+  </div>
+  <a href="{% url 'mes_taches' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<!-- Info tâche -->
+<div class="card mb-2" style="border-left:4px solid var(--primary);">
+  <div style="display:flex;gap:16px;flex-wrap:wrap;">
+    <div><span class="text-muted text-small">Tâche</span><div class="font-bold">{{ tache.libelle }}</div></div>
+    <div><span class="text-muted text-small">Véhicule</span><div class="font-bold">{{ tache.ordre_reparation.vehicule.immatriculation }}</div></div>
+    <div><span class="text-muted text-small">OR</span><div class="font-bold">{{ tache.ordre_reparation.numero }}</div></div>
+    <div><span class="text-muted text-small">Durée estimée</span><div class="font-bold">{{ tache.duree_estimee_minutes }} min</div></div>
+  </div>
+</div>
+
+<!-- Formulaire -->
+<div class="card" style="max-width:700px;">
+  <div class="card-header"><div class="card-title">📝 Détails de l'intervention</div></div>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-group">
+      <label class="form-label">Description de l'intervention *</label>
+      {{ form.description }}
+      {% if form.description.errors %}<div class="form-error">{{ form.description.errors.0 }}</div>{% endif %}
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Durée réelle (minutes) *</label>
+        {{ form.duree_minutes }}
+        {% if form.duree_minutes.errors %}<div class="form-error">{{ form.duree_minutes.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Pièces utilisées</label>
+      {{ form.pieces_utilisees }}
+    </div>
+    <div class="form-group">
+      <label class="form-label">Observations</label>
+      {{ form.observations }}
+    </div>
+
+    <!-- Upload photos -->
+    <div class="form-group">
+      <label class="form-label">📸 Photos (optionnel)</label>
+      <input type="file" name="photos" multiple accept="image/*" class="form-input" style="padding:6px;">
+      <div class="text-small text-muted mt-1">Vous pouvez sélectionner plusieurs photos</div>
+    </div>
+
+    <hr>
+    <div style="display:flex;gap:12px;">
+      <button type="submit" class="btn btn-primary">💾 Enregistrer le compte rendu</button>
+      <a href="{% url 'mes_taches' %}" class="btn btn-outline">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

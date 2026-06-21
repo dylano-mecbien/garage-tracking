@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — Garage Suivi</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #1a3a5c; --primary-light: #2563a8; --accent: #e67e22;
+      --border: #d1d9e0; --text: #2c3e50; --text-muted: #7f8c8d;
+      --danger: #e74c3c; --bg: #f0f4f8;
+    }
+    html, body { height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); }
+    .login-wrap {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--primary) 0%, #2c5282 60%, #1a3a5c 100%);
+      padding: 20px;
+    }
+    .login-card {
+      background: #fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      width: 100%; max-width: 420px; overflow: hidden;
+    }
+    .login-header {
+      background: linear-gradient(135deg, var(--primary-light), var(--accent));
+      padding: 36px 32px 28px; text-align: center; color: #fff;
+    }
+    .login-header .logo { font-size: 48px; margin-bottom: 8px; }
+    .login-header h1 { font-size: 22px; font-weight: 700; letter-spacing: .5px; }
+    .login-header p { opacity: .85; font-size: 13px; margin-top: 4px; }
+    .login-body { padding: 32px; }
+    .form-group { margin-bottom: 18px; }
+    .form-label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .5px; }
+    .form-input {
+      width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 14px; color: var(--text); background: #fafafa; transition: all .2s; font-family: inherit;
+    }
+    .form-input:focus { outline: none; border-color: var(--primary-light); background: #fff; box-shadow: 0 0 0 3px rgba(37,99,168,.15); }
+    /* Conteneur pour le champ mot de passe + bouton */
+    .password-wrapper {
+      position: relative;
+    }
+    .password-wrapper .form-input {
+      padding-right: 48px;  /* pour laisser de la place au bouton */
+    }
+    .toggle-password {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 20px;
+      color: var(--text-muted);
+      padding: 4px;
+      line-height: 1;
+      transition: color .2s;
+    }
+    .toggle-password:hover {
+      color: var(--primary-light);
+    }
+    .form-check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .form-check input { width: 15px; height: 15px; accent-color: var(--primary-light); }
+    .form-check label { font-size: 13px; color: var(--text-muted); cursor: pointer; }
+    .btn-login {
+      width: 100%; padding: 12px; background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: all .2s; margin-top: 8px;
+    }
+    .btn-login:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(26,58,92,.35); }
+    .error-list { background: #fee2e2; border-left: 4px solid var(--danger); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+    .error-list li { color: #991b1b; font-size: 13px; list-style: none; }
+    .login-footer { text-align: center; padding: 16px 32px 24px; color: var(--text-muted); font-size: 12px; border-top: 1px solid var(--border); }
+    .roles-hint { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; }
+    .role-chip { padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 700; }
+    .chip-admin { background: #8e44ad; color: #fff; }
+    .chip-guerite { background: #27ae60; color: #fff; }
+    .chip-reception { background: #2980b9; color: #fff; }
+    .chip-atelier { background: #e67e22; color: #fff; }
+    .chip-tech { background: #c0392b; color: #fff; }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo">🔧</div>
+      <h1>Garage Suivi</h1>
+      <p>Système de gestion automobile professionnel</p>
+    </div>
+    <div class="login-body">
+      {% if form.non_field_errors %}
+      <ul class="error-list">
+        {% for err in form.non_field_errors %}<li>⚠️ {{ err }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+
+      <form method="post" autocomplete="on">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">📧 Adresse email</label>
+          {{ form.email }}
+          {% if form.email.errors %}<div style="color:#e74c3c;font-size:12px;margin-top:4px;">{{ form.email.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label">🔒 Mot de passe</label>
+          <div class="password-wrapper">
+            {{ form.password }}
+            <button type="button" class="toggle-password" id="togglePassword" aria-label="Afficher/masquer le mot de passe">
+              👁️
+            </button>
+          </div>
+          {% if form.password.errors %}<div style="color:#e74c3c;font-size:12px;margin-top:4px;">{{ form.password.errors.0 }}</div>{% endif %}
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <label class="form-check">
+            {{ form.remember_me }}
+            <label style="font-size:13px;color:#7f8c8d;">Se souvenir de moi</label>
+          </label>
+        </div>
+        <button type="submit" class="btn-login">🔧 Se connecter</button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  (function() {
+    const toggleBtn = document.getElementById('togglePassword');
+    const passwordField = document.querySelector('input[name="password"]'); // adapté à ton champ Django
+
+    if (toggleBtn && passwordField) {
+      toggleBtn.addEventListener('click', function() {
+        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordField.setAttribute('type', type);
+        this.textContent = type === 'password' ? '👁️' : '🙈';
+      });
+    }
+  })();
+</script>
+</body>
+</html>

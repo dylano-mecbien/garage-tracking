@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Guérite — Tableau de bord{% endblock %}
+{% block page_title %}🛡️ Poste Guérite{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Guérite</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_guerite' %}" class="active"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'vehicules_presents' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+</ul>
+
+{% endblock %}
+
+
+
+{% block content %}
+<div class="page-header"> 
+  <div>
+    <h1>Tableau de bord Guérite</h1>
+    <div class="breadcrumb">Contrôle des entrées et sorties</div>
+  </div>
+  <a href="{% url 'recherche_vehicule' %}" class="btn btn-accent">➕ Nouvelle entrée</a>
+</div>
+
+<!-- KPI -->
+<div class="kpi-grid">
+  <div class="kpi-card success">
+    <div class="kpi-label">📥 Entrées aujourd'hui</div>
+    <div class="kpi-value">{{ nb_entrees_today }}</div>
+  </div>
+  <div class="kpi-card info">
+    <div class="kpi-label">📤 Sorties aujourd'hui</div>
+    <div class="kpi-value">{{ nb_sorties_today }}</div>
+  </div>
+  <div class="kpi-card accent">
+    <div class="kpi-label">🚗 Véhicules présents</div>
+    <div class="kpi-value">{{ vehicules_presents|length }}</div>
+    <div class="kpi-sub">Dans le local actuellement</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- Véhicules présents -->
+  <div class="card">
+    <div class="card-header"> 
+      <div class="card-title">🚗 Véhicules dans le local</div>
+      <a href="{% url 'vehicules_presents' %}" class="btn btn-outline btn-sm">Voir tout</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Immatriculation</th><th>Client</th><th>Motif</th><th>Durée</th><th>Action</th></tr></thead>
+        <tbody>
+             {% for entree in vehicules_presents %}
+<tr
+    onclick="window.location='{% url 'detail_entree' entree.id %}'"
+    style="cursor:pointer;"
+    class="clickable-row"
+>
+
+    <td>
+        <strong>{{ entree.vehicule.immatriculation }}</strong><br>
+        <span class="text-small text-muted">
+            {{ entree.vehicule.marque }} {{ entree.vehicule.modele }}
+        </span>
+    </td>
+
+    <td>{{ entree.vehicule.client }}</td>
+
+    <td>
+        {% if entree.motif == 'REPARATION' %}
+            <span class="badge badge-reparation">🔧 Réparation</span>
+        {% elif entree.motif == 'VISITE' %}
+            <span class="badge badge-visite">👁 Visite</span>
+        {% else %} 
+            <span class="badge badge-secondary">{{ entree.get_motif_display }}</span>
+        {% endif %}
+    </td>
+
+    <td class="text-muted">{{ entree.duree_sejour }}</td>
+
+    <td onclick="event.stopPropagation();">
+              
+                 <a href="{% url 'enregistrer_sortie' entree.id %}"
+   class="btn {% if entree.statut == 'BON_SORTIE_FAIT' or entree.motif == 'VISITE' %}btn-success{% else %}btn-warning{% endif %} btn-sm">
+    📤 Sortie
+</a>
+
+          
+    </td>
+</tr>
+{% endfor %}
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Entrées récentes du jour -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📋 Historique des mouvements</div>
+            <a href="{% url 'historique_entrees' %}" class="btn btn-outline btn-sm">Voir tout</a>
+
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Véhicule</th><th>Client</th><th>Heure</th><th>Statut</th></tr></thead>
+        <tbody>
+          {% for entree in entrees_recentes %}
+          <tr>
+            <td><a href="{% url 'detail_entree' entree.id %}">{{ entree.vehicule.immatriculation  }}</a></td>
+            <td>{{ entree.vehicule.client  }}</td>
+            <td>{{ entree.date_entree|date:"H:i" }}</td>
+           
+
+          <td>{% if entree.statut != 'SORTI' %}<span class="badge badge-en-cours">Présent</span>{% else %}<span class="badge badge-cloture">Sorti</span>{% endif %}</td>
+
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-center text-muted" style="padding:20px;">Aucune entrée aujourd'hui</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="card mt-2">
+  <div class="card-header"><div class="card-title">⚡ Actions rapides</div></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;">
+    <a href="{% url 'recherche_vehicule' %}" class="btn btn-info">🔍 Rechercher un véhicule</a>
+    
+    <a href="{% url 'creer_client_guerite' %}" class="btn btn-outline">👤 Nouveau client</a>
+    <a href="{% url 'creer_vehicule_guerite' %}" class="btn btn-outline">🚗 Nouveau véhicule</a>
+  </div>
+</div>
+{% endblock %}

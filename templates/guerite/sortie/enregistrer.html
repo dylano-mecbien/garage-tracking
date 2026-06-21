@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Sortie — {{ entree.vehicule.immatriculation }}{% endblock %}
+{% block page_title %}📤 Enregistrer une sortie{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_guerite' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'vehicules_presents' %}" class="active"><span class="icon">🚗</span> Véhicules présents</a></li>
+    <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+
+</ul>
+
+
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Sortie du véhicule</h1>
+    <div class="breadcrumb"><a href="{% url 'vehicules_presents' %}">Véhicules présents</a> › Sortie</div>
+  </div>
+  <a href="{% url 'vehicules_presents' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<!-- Info véhicule -->
+<div class="card mb-2" style="border-left:4px solid var(--accent);">
+  <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+    <div style="font-size:40px;">🚗</div>
+    <div style="flex:1;">
+      <div style="font-size:22px;font-weight:700;">{{ entree.vehicule.immatriculation }}</div>
+      <div>{{ entree.vehicule.marque }} {{ entree.vehicule.modele }} {{ entree.vehicule.annee }} — <span style="color:var(--text-muted)">{{ entree.vehicule.couleur }}</span></div>
+      <div class="mt-1">Client: <strong>{{ entree.vehicule.client }}</strong> | {{ entree.vehicule.client.telephone }}</div>
+      {% if entree.conducteur %}
+      <div>Conducteur: <strong>{{ entree.conducteur }}</strong></div>
+      {% endif %}
+    </div>
+    <div>
+      <div class="text-muted text-small">Entrée</div>
+      <div class="font-bold">{{ entree.date_entree|date:"d/m/Y H:i" }}</div>
+      <div class="text-muted text-small mt-1">Durée séjour: <strong>{{ entree.duree_sejour }}</strong></div>
+      <div class="mt-1">
+        {% if entree.motif == 'REPARATION' %}<span class="badge badge-reparation">🔧 Réparation</span>
+        {% else %}<span class="badge badge-visite">👁 {{ entree.get_motif_display }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Vérification bon de sortie pour réparation -->
+{% if entree.motif == 'REPARATION' %}
+<div class="card mb-2">
+  <div class="card-header"><div class="card-title">📄 Vérification bon de sortie</div></div>
+  {% if bon_sortie %}
+  <div style="display:flex;align-items:center;gap:16px;padding:12px;background:#d1fae5;border-radius:8px;border:2px solid var(--success);">
+    <span style="font-size:36px;">✅</span>
+    <div>
+      <div class="font-bold" style="color:var(--success);font-size:16px;">Bon de sortie  trouvé</div>
+      <div>N° <strong>{{ bon_sortie.numero }}</strong></div>
+    </div>
+  </div>
+  {% else %}
+  <div style="display:flex;align-items:center;gap:16px;padding:16px;background:#fee2e2;border-radius:8px;border:2px solid var(--danger);">
+    <span style="font-size:36px;">⛔</span>
+    <div>
+      <div class="font-bold" style="color:var(--danger);font-size:16px;">Aucun bon de sortie valide</div>
+      <p class="text-small" style="margin-top:4px;">Ce véhicule est en réparation. Un bon de sortie signé est obligatoire.<br>Contactez la réception pour l'établir.</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Formulaire de sortie -->
+<div class="card" style="max-width:580px;">
+  <div class="card-header"><div class="card-title">📤 Confirmer la sortie</div></div>
+
+  {% if entree.motif != 'REPARATION' or bon_sortie %}
+  <form method="post">
+    {% csrf_token %}
+    
+    <!-- Zone signature -->
+    <div style="background:#fef9c3;border-radius:8px;padding:16px;margin-bottom:20px;">
+      <h4 style="margin-bottom:12px;">✍️ Signature client</h4>
+      <canvas id="signature-pad" width="100%" height="160" style="width:100%;border:2px dashed var(--border);border-radius:8px;background:#fff;display:block;"></canvas>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button type="button" onclick="clearPad()" class="btn btn-outline btn-sm">🗑 Effacer</button>
+      </div>
+      <input type="hidden" name="signature_client" id="sig-data">
+    </div>
+
+    <hr>
+    <div style="display:flex;gap:12px;">
+      <button type="submit" id="btn-confirmer" onclick="document.getElementById('sig-data').value=getSignature()" class="btn btn-success" style="font-size:15px;padding:12px 24px;">
+  ✅ Confirmer la sortie
+</button>
+
+      <a href="{% url 'vehicules_presents' %}" class="btn btn-outline">Annuler</a>
+    </div>
+
+    
+  </form>
+  {% endif %}
+  
+</div>
+
+{% endblock %} 
+
+
+{% block extra_js %}
+<script>
+// Rendre canvas accessible globalement
+let canvas = document.getElementById('signature-pad');
+if (canvas) {
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth || 560;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  let drawing = false;
+  const getPos = e => {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
+  };
+  
+  function start(e) {
+    drawing = true;
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    e.preventDefault();
+  }
+  function draw(e) {
+    if (!drawing) return;
+    const p = getPos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = '#1a3a5c';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    e.preventDefault();
+    updateButton();   // 👈 appel après chaque trait
+  }
+  function stop() { drawing = false; }
+  
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('mouseup', stop);
+  canvas.addEventListener('touchstart', start);
+  canvas.addEventListener('touchmove', draw);
+  canvas.addEventListener('touchend', stop);
+}
+
+function clearPad() {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  updateButton();   // 👈 cache le bouton après effacement
+}
+
+function getSignature() {
+  return canvas ? canvas.toDataURL() : '';
+}
+
+function updateButton() {
+  const btn = document.getElementById('btn-confirmer');
+  if (!btn) return;
+  if (!canvas) { btn.style.display = 'none'; return; }
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  // Vérifie s'il y a au moins un pixel non blanc (non 255)
+  const hasSignature = imageData.data.some((value, index) => (index % 4 === 0) ? false : value !== 255);
+  btn.style.display = hasSignature ? 'inline-flex' : 'none';
+}
+
+// Cache le bouton au chargement si pas de signature
+updateButton();
+</script>
+{% endblock %}
+

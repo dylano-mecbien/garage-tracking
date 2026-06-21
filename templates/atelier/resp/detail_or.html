@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block title %}OR {{ or_obj.numero }}{% endblock %}
+{% block page_title %}🔧 OR {{ or_obj.numero }}{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_or' %}" class="active"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'kpi_atelier' %}"><span class="icon">📈</span> KPI</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .tache-card {
+    border: 1.5px solid var(--border); border-radius: 8px; padding: 14px 16px;
+    display: flex; align-items: flex-start; gap: 12px; background: var(--surface); margin-bottom: 8px;
+    transition: box-shadow .2s;
+  }
+  .tache-card:hover { box-shadow: var(--shadow); }
+  .tache-card.terminee { border-color: #86efac; background: #f0fdf4; }
+  .tache-card.en-cours { border-color: #fcd34d; background: #fffbeb; }
+  .prio-haute { border-left: 4px solid var(--danger); }
+  .prio-urgente { border-left: 4px solid #7c3aed; }
+  .prio-normale { border-left: 4px solid var(--info); }
+  .prio-basse { border-left: 4px solid var(--text-muted); }
+  .section-tab { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 0; }
+  .tab-btn { padding: 10px 18px; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .2s; }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>
+      OR {{ or_obj.numero }}
+      {% if or_obj.type_or == 'RETOUR' %}<span class="badge badge-danger">🔁 Retour/Malfaçon</span>{% endif %}
+    </h1>
+    <div class="breadcrumb">
+      <a href="{% url 'liste_or' %}">Ordres de réparation</a> › {{ or_obj.numero }}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    {% if or_obj.statut == 'OUVERT' or or_obj.statut == 'EN_COURS' or or_obj.statut == 'REOUVERT' %}
+      <a href="{% url 'ajouter_tache' or_obj.id %}" class="btn btn-primary">+ Tâche</a>
+      <a href="{% url 'cloture_or' or_obj.id %}" class="btn btn-success">✅ Clôturer</a>
+    {% endif %}
+    {% if or_obj.statut == 'CLOTURE' %}
+      <a href="{% url 'reouverture_or' or_obj.id %}" class="btn btn-warning">🔓 Réouvrir</a>
+      <a href="{% url 'creer_or_retour' or_obj.id %}" class="btn btn-danger">🔁 OR Retour</a>
+    {% endif %}
+    <a href="{% url 'liste_or' %}" class="btn btn-outline">← Retour</a>
+  </div>
+</div>
+
+<!-- Infos OR -->
+<div class="grid-2 mb-2">
+  <div class="card">
+    <div class="card-header"><div class="card-title">📋 Informations OR</div></div>
+    <table>
+      <tr><td class="text-muted" style="width:40%;">Numéro</td><td><strong>{{ or_obj.numero }}</strong></td></tr>
+      <tr><td class="text-muted">Type</td><td>{{ or_obj.get_type_or_display }}</td></tr>
+      <tr><td class="text-muted">Statut</td><td>
+        {% if or_obj.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
+        {% elif or_obj.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+        {% elif or_obj.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
+        {% elif or_obj.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>
+        {% elif or_obj.statut == 'ANNULE' %}<span class="badge badge-annule">Annulé</span>{% endif %}
+      </td></tr>
+      <tr><td class="text-muted">Atelier</td><td>{{ or_obj.atelier }}</td></tr>
+      <tr><td class="text-muted">Responsable</td><td>{{ or_obj.responsable_atelier|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Créé le</td><td>{{ or_obj.date_creation|date:"d/m/Y H:i" }}</td></tr>
+      {% if or_obj.date_cloture %}<tr><td class="text-muted">Clôturé le</td><td>{{ or_obj.date_cloture|date:"d/m/Y H:i" }}</td></tr>{% endif %}
+      <tr><td class="text-muted">Durée totale</td><td><strong>{{ or_obj.duree_heures }}</strong></td></tr>
+      {% if or_obj.or_origine %}<tr><td class="text-muted">OR d'origine</td><td><a href="{% url 'detail_or' or_obj.or_origine.id %}">{{ or_obj.or_origine.numero }}</a></td></tr>{% endif %}
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">🚗 Véhicule & Client</div></div>
+    <table>
+      <tr><td class="text-muted" style="width:40%;">Immatriculation</td><td><strong>{{ or_obj.vehicule.immatriculation }}</strong></td></tr>
+      <tr><td class="text-muted">Marque/Modèle</td><td>{{ or_obj.vehicule.marque }} {{ or_obj.vehicule.modele }} ({{ or_obj.vehicule.annee }})</td></tr>
+      <tr><td class="text-muted">Carburant</td><td>{{ or_obj.vehicule.get_type_carburant_display }}</td></tr>
+      <tr><td class="text-muted">Client</td><td><strong>{{ or_obj.vehicule.client }}</strong></td></tr>
+      <tr><td class="text-muted">Téléphone</td><td>{{ or_obj.vehicule.client.telephone }}</td></tr>
+    </table>
+    {% if or_obj.motif_retour %}
+    <div style="margin-top:12px;padding:10px;background:#fee2e2;border-radius:6px;border-left:4px solid var(--danger);">
+      <strong>Motif retour:</strong> {{ or_obj.motif_retour }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Stats tâches -->
+<div class="kpi-grid mb-2" style="grid-template-columns:repeat(4,1fr);">
+  <div class="kpi-card"><div class="kpi-label">Total tâches</div><div class="kpi-value">{{ taches|length }}</div></div>
+  <div class="kpi-card info"><div class="kpi-label">À faire</div><div class="kpi-value">{{ taches_a_faire }}</div></div>
+  <div class="kpi-card warning"><div class="kpi-label">En cours</div><div class="kpi-value">{{ taches_en_cours }}</div></div>
+  <div class="kpi-card success"><div class="kpi-label">Terminées</div><div class="kpi-value">{{ taches_terminees }}</div></div>
+</div>
+
+<!-- Tabs -->
+<div class="section-tab">
+  <button class="tab-btn active" onclick="showTab('taches',this)">🔧 Tâches ({{ taches|length }})</button>
+  <button class="tab-btn" onclick="showTab('fiche-controle',this)">📋 Fiche contrôle</button>
+  <button class="tab-btn" onclick="showTab('fiche-technique',this)">⚙️ Fiche technique</button>
+  <button class="tab-btn" onclick="showTab('diagnostic',this)">🩺 Diagnostic</button>
+</div>
+
+<!-- TÂCHES -->
+<div id="tab-taches" class="tab-content active">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h3 style="font-size:15px;">Liste des tâches</h3>
+    {% if or_obj.statut != 'CLOTURE' and or_obj.statut != 'ANNULE' %}
+    <a href="{% url 'ajouter_tache' or_obj.id %}" class="btn btn-primary btn-sm">+ Ajouter une tâche</a>
+    {% endif %}
+  </div>
+  {% for tache in taches %}
+  <div class="tache-card prio-{{ tache.priorite|lower }} {% if tache.statut == 'TERMINEE' %}terminee{% elif tache.statut == 'EN_COURS' %}en-cours{% endif %}">
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+        <strong style="font-size:14px;">{{ tache.libelle }}</strong>
+        {% if tache.statut == 'A_FAIRE' %}<span class="badge badge-a-faire">À faire</span>
+        {% elif tache.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+        {% elif tache.statut == 'TERMINEE' %}<span class="badge badge-terminee">✓ Terminée</span>{% endif %}
+        {% if tache.priorite == 'HAUTE' %}<span class="badge badge-warning">🔴 Haute</span>
+        {% elif tache.priorite == 'URGENTE' %}<span class="badge badge-danger">🚨 Urgente</span>{% endif %}
+        {% if tache.est_copiee %}<span class="badge badge-info">📋 Copiée</span>{% endif %}
+      </div>
+      {% if tache.description %}<p class="text-small text-muted" style="margin-bottom:6px;">{{ tache.description }}</p>{% endif %}
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <span class="text-small">
+          👨‍🔧 {% if tache.technicien %}<strong>{{ tache.technicien.full_name }}</strong>{% else %}<em class="text-muted">Non assigné</em>{% endif %}
+        </span>
+        <span class="text-small text-muted">⏱ Estimé: {{ tache.duree_estimee_minutes }}min</span>
+        {% if tache.duree_reelle_minutes %}<span class="text-small text-muted">✅ Réel: {{ tache.duree_reelle_minutes }}min</span>{% endif %}
+      </div>
+      {% if tache.comptes_rendus.count > 0 %}
+      <div style="margin-top:8px;">
+        <span class="text-small text-muted">{{ tache.comptes_rendus.count }} compte(s) rendu(s)</span>
+      </div>
+      {% endif %}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:120px;">
+      {% if or_obj.statut != 'CLOTURE' %}
+      <form method="post" action="{% url 'assigner_technicien' tache.id %}">
+        {% csrf_token %}
+        <select name="technicien_id" class="form-select" style="font-size:11px;padding:4px 8px;" onchange="this.form.submit()">
+          <option value="">— Assigner —</option>
+          {% for tech in or_obj.atelier.employes.all %}
+          {% if tech.role == 'TECHNICIEN' and tech.is_active %}
+          <option value="{{ tech.id }}" {% if tache.technicien == tech %}selected{% endif %}>{{ tech.prenom }} {{ tech.nom|slice:":1" }}.</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="card" style="text-align:center;padding:40px;color:var(--text-muted);">
+    Aucune tâche définie. <a href="{% url 'ajouter_tache' or_obj.id %}">Ajouter la première tâche</a>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- FICHE CONTROLE -->
+<div id="tab-fiche-controle" class="tab-content">
+  {% if fiche_controle %}
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📋 Fiche de contrôle</div>
+      <span class="text-small text-muted">Inspecté par {{ fiche_controle.inspecte_par }} le {{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}</span>
+    </div>
+    <div class="grid-3">
+      <div>
+        <h4 style="margin-bottom:8px;color:var(--primary);">État général</h4>
+        <table>
+          <tr><td class="text-muted">État</td><td><strong>{{ fiche_controle.get_etat_general_display }}</strong></td></tr>
+          <tr><td class="text-muted">Carburant</td><td>
+            <div class="fuel-indicator">
+              <div class="fuel-bar"><div class="fuel-fill" style="width:{{ fiche_controle.niveau_carburant }}%;background:{% if fiche_controle.niveau_carburant > 50 %}var(--success){% elif fiche_controle.niveau_carburant > 20 %}var(--warning){% else %}var(--danger){% endif %};"></div></div>
+              {{ fiche_controle.niveau_carburant }}%
+            </div>
+          </td></tr>
+          <tr><td class="text-muted">Kilométrage</td><td>{{ fiche_controle.kilometrage|default:"—" }} km</td></tr>
+        </table>
+      </div>
+      <div>
+        <h4 style="margin-bottom:8px;color:var(--primary);">Feux</h4>
+        <table>
+          <tr><td>Feux avant</td><td>{% if fiche_controle.feux_avant %}✅{% else %}❌{% endif %}</td></tr>
+          <tr><td>Feux arrière</td><td>{% if fiche_controle.feux_arriere %}✅{% else %}❌{% endif %}</td></tr>
+          <tr><td>Feux stop</td><td>{% if fiche_controle.feux_stop %}✅{% else %}❌{% endif %}</td></tr>
+          <tr><td>Clignotants</td><td>{% if fiche_controle.clignotants %}✅{% else %}❌{% endif %}</td></tr>
+        </table>
+      </div>
+      <div>
+        <h4 style="margin-bottom:8px;color:var(--primary);">Pneus</h4>
+        <table>
+          <tr><td>AV Gauche</td><td><span class="badge {% if fiche_controle.pneu_avant_gauche == 'BON' %}badge-success{% elif fiche_controle.pneu_avant_gauche == 'MOYEN' %}badge-warning{% else %}badge-danger{% endif %}">{{ fiche_controle.get_pneu_avant_gauche_display }}</span></td></tr>
+          <tr><td>AV Droit</td><td><span class="badge {% if fiche_controle.pneu_avant_droit == 'BON' %}badge-success{% elif fiche_controle.pneu_avant_droit == 'MOYEN' %}badge-warning{% else %}badge-danger{% endif %}">{{ fiche_controle.get_pneu_avant_droit_display }}</span></td></tr>
+          <tr><td>AR Gauche</td><td><span class="badge {% if fiche_controle.pneu_arriere_gauche == 'BON' %}badge-success{% elif fiche_controle.pneu_arriere_gauche == 'MOYEN' %}badge-warning{% else %}badge-danger{% endif %}">{{ fiche_controle.get_pneu_arriere_gauche_display }}</span></td></tr>
+          <tr><td>AR Droit</td><td><span class="badge {% if fiche_controle.pneu_arriere_droit == 'BON' %}badge-success{% elif fiche_controle.pneu_arriere_droit == 'MOYEN' %}badge-warning{% else %}badge-danger{% endif %}">{{ fiche_controle.get_pneu_arriere_droit_display }}</span></td></tr>
+        </table>
+      </div>
+    </div>
+    {% if fiche_controle.defauts_observes %}
+    <div style="margin-top:16px;padding:12px;background:#fff7ed;border-radius:6px;border-left:4px solid var(--accent);">
+      <strong>Défauts observés:</strong><br>{{ fiche_controle.defauts_observes }}
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:40px;">
+    <div style="font-size:40px;margin-bottom:12px;">📋</div>
+    <p class="text-muted">Aucune fiche de contrôle créée</p>
+    <a href="{% url 'creer_fiche_controle' or_obj.id %}" class="btn btn-primary mt-2">Créer la fiche de contrôle</a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- FICHE TECHNIQUE -->
+<div id="tab-fiche-technique" class="tab-content">
+  {% if fiche_technique %}
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">⚙️ Fiche technique</div>
+      <span class="text-small text-muted">Par {{ fiche_technique.cree_par }} le {{ fiche_technique.date_creation|date:"d/m/Y" }}</span>
+    </div>
+    <div class="grid-2">
+      <div>
+        <h4 style="margin-bottom:8px;color:var(--primary);">Diagnostic</h4>
+        <p style="white-space:pre-wrap;font-size:13px;">{{ fiche_technique.diagnostic }}</p>
+        {% if fiche_technique.pieces_recommandees %}
+        <h4 style="margin:12px 0 8px;color:var(--primary);">Pièces recommandées</h4>
+        <p style="white-space:pre-wrap;font-size:13px;">{{ fiche_technique.pieces_recommandees }}</p>
+        {% endif %}
+      </div>
+      <div>
+        <h4 style="margin-bottom:8px;color:var(--primary);">Estimations</h4>
+        <table>
+          <tr><td class="text-muted">Main d'œuvre estimée</td><td><strong>{{ fiche_technique.main_oeuvre_estimee|floatformat:0 }} FCFA</strong></td></tr>
+          <tr><td class="text-muted">Pièces estimées</td><td><strong>{{ fiche_technique.pieces_estimees|floatformat:0 }} FCFA</strong></td></tr>
+          <tr style="border-top:2px solid var(--border);"><td class="text-muted"><strong>Total estimé</strong></td><td><strong style="font-size:16px;color:var(--primary);">{{ fiche_technique.total_estime|floatformat:0 }} FCFA</strong></td></tr>
+          <tr><td class="text-muted">Temps estimé</td><td>{{ fiche_technique.temps_estime_heures }}h</td></tr>
+        </table>
+        {% if fiche_technique.observations %}
+        <div style="margin-top:12px;padding:10px;background:var(--bg);border-radius:6px;">
+          <strong>Observations:</strong> {{ fiche_technique.observations }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:40px;">
+    <div style="font-size:40px;margin-bottom:12px;">⚙️</div>
+    <p class="text-muted">Aucune fiche technique créée</p>
+    <a href="{% url 'creer_fiche_technique' or_obj.id %}" class="btn btn-primary mt-2">Créer la fiche technique</a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- DIAGNOSTIC -->
+<div id="tab-diagnostic" class="tab-content">
+  <div class="card">
+    <div class="card-header"><div class="card-title">🩺 Diagnostic et observations</div></div>
+    {% if or_obj.diagnostic %}
+    <h4 style="margin-bottom:8px;">Diagnostic</h4>
+    <p style="white-space:pre-wrap;font-size:13px;margin-bottom:16px;">{{ or_obj.diagnostic }}</p>
+    {% endif %}
+    {% if or_obj.observations %}
+    <h4 style="margin-bottom:8px;">Observations</h4>
+    <p style="white-space:pre-wrap;font-size:13px;">{{ or_obj.observations }}</p>
+    {% endif %}
+    {% if not or_obj.diagnostic and not or_obj.observations %}
+    <p class="text-muted">Aucun diagnostic saisi sur cet OR.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+{% endblock %}

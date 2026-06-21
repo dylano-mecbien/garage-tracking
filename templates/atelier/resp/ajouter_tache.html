@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Ajouter tâche{% endblock %}
+{% block page_title %}📌 Ajouter une tâche{% endblock %}
+{% block sidebar_nav %}
+<ul class="sidebar-nav" style="padding-top:12px;">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_or' %}" class="active"><span class="icon">📋</span> Ordres de réparation</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Ajouter une tâche</h1>
+    <div class="breadcrumb"><a href="{% url 'detail_or' or_obj.id %}">{{ or_obj.numero }}</a> › {{ or_obj.vehicule.immatriculation }}</div>
+  </div>
+  <a href="{% url 'detail_or' or_obj.id %}" class="btn btn-outline">← Retour</a>
+</div>
+<div class="card" style="max-width:620px;">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label class="form-label">Libellé de la tâche *</label>
+      {{ form.libelle }}{% if form.libelle.errors %}<div class="form-error">{{ form.libelle.errors.0 }}</div>{% endif %}
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>{{ form.description }}
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Type d'opération</label>{{ form.type_operation }}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Technicien assigné</label>{{ form.technicien }}
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Priorité</label>{{ form.priorite }}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Durée estimée (minutes)</label>{{ form.duree_estimee_minutes }}
+      </div>
+    </div>
+    <hr>
+    <div style="display:flex;gap:10px;">
+      <button type="submit" class="btn btn-primary">💾 Créer la tâche</button>
+      <a href="{% url 'detail_or' or_obj.id %}" class="btn btn-outline">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
