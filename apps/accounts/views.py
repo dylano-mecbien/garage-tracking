@@ -30,8 +30,8 @@ def connexion(request):
         if form.is_valid():
             user = form.get_user()
             
-            # ⬇️ Détecter la première connexion AVANT login() (last_login est None)
-            is_first_login = (user.last_login is None)
+            # ⬇️ Détecter la première connexion AVANT login() 
+            is_first_login = (user.pass_default)
             if is_first_login:
                 request.session['force_change_password'] = True   # flag pour le profil
 
@@ -92,10 +92,11 @@ def profil(request):
         form = ChangePasswordForm(request.POST)
         if form.is_valid():
             request.user.set_password(form.cleaned_data['new_password1'])
+            request.user.pass_default(False)
             request.user.save()
             messages.success(request, "Mot de passe modifié avec succès.")
             # Rediriger vers la page de connexion (ou dashboard) après changement
-            
+            return redirect('connexion')
     else:
         form = ChangePasswordForm()
 
@@ -150,11 +151,12 @@ def creer_utilisateur(request):
         form = UserCreateForm(request.POST, request.FILES)
         if form.is_valid():
             user = form.save(commit=False)
-            # Définir un mot de passe par défaut (ex: "Garage2026")
-            user.set_password('Garage2026')
+            # Définir un mot de passe par défaut (ex: "garage2026")
+            user.set_password('garage2026')
+            
             user.save()
             log_action(request, ActionType.CREATION, 'USERS', user, {'role': user.role})
-            messages.success(request, f"Utilisateur {user.full_name} créé avec succès. Mot de passe par défaut : Garage2026")
+            messages.success(request, f"Utilisateur {user.full_name} créé avec succès. Mot de passe par défaut : garage2026")
             return redirect('liste_utilisateurs')
     return render(request, 'admin_custom/utilisateurs/form.html', {'form': form, 'titre': 'Créer utilisateur'})
 
@@ -179,10 +181,11 @@ def editer_utilisateur(request, user_id):
 def reset_password_utilisateur(request, user_id):
     user = get_object_or_404(User, id=user_id)
     if request.method == 'POST':
-        new_password = request.POST.get('new_password', 'Garage2026')
+        new_password = request.POST.get('new_password', 'garage2026')
         user.set_password(new_password)
         user.failed_login_count = 0
         user.locked_until = None
+        user.pass_default(True)
         user.save()
         messages.success(request, f"Mot de passe réinitialisé pour {user.full_name}.")
     return redirect('liste_utilisateurs')

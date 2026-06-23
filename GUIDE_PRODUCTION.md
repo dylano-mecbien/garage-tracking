@@ -47,7 +47,7 @@ ufw enable
 scp -r garage_suivi/ deploy@VOTRE_IP:/home/deploy/
 
 # Ou via Git (recommandé)
-git clone https://github.com/votre-compte/garage_suivi.git
+git clone https://github.com/dylano-mecbien/garage-tracking.git
 cd garage_suivi
 ```
 
@@ -113,7 +113,6 @@ docker compose -f docker-compose.prod.yml exec web python manage.py migrate
 docker compose -f docker-compose.prod.yml exec web python manage.py createsuperuser
 ```
 
-➡️ **Ne pas utiliser `create_default_admin`** en production (comptes de démo avec mots de passe connus). Créez un vrai superutilisateur avec `createsuperuser`.
 
 ## 9. Vérifications post-déploiement
 

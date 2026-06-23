@@ -347,8 +347,7 @@ def creer_vehicule(request):
             vehicule.immatriculation = vehicule.immatriculation.upper()
             vehicule.save()
  
-          
-
+        
             photos_paths = []
             for i in range(3):
                  photo_file = request.FILES.get(f'photo_{i}')

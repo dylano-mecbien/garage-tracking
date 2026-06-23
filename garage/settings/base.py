@@ -182,10 +182,13 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='garage@garage.cm')
 
 # MinIO / S3
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-AWS_ACCESS_KEY_ID = config('MINIO_ACCESS_KEY', default='minioadmin')
-AWS_SECRET_ACCESS_KEY = config('MINIO_SECRET_KEY', default='minioadmin')
+AWS_ACCESS_KEY_ID = config('MINIO_ACCESS_KEY', default='minioGarage')
+AWS_SECRET_ACCESS_KEY = config('MINIO_SECRET_KEY', default='minioadminGarage')
 AWS_STORAGE_BUCKET_NAME = config('MINIO_BUCKET', default='garage-docs')
 AWS_S3_ENDPOINT_URL = config('MINIO_ENDPOINT', default='http://localhost:9000')
+
+
+
 AWS_S3_USE_SSL = False
 AWS_DEFAULT_ACL = 'private'
 

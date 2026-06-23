@@ -23,7 +23,7 @@ urlpatterns = [
     path('<uuid:rec_id>/bon-sortie/',            views.creer_bon_sortie,   name='creer_bon_sortie_rec'),
 
     path('bons-sortie/creer/',                        views.creer_bon_sortie_direct,   name='creer_bon_sortie_direct'),
-        path('entree/<uuid:entree_id>/', views.detail_entree, name='detail_entree_rec'),
+    path('entree/<uuid:entree_id>/', views.detail_entree, name='detail_entree_rec'),
 
 
         # ── Bons de sortie ──────────────────────────────────────────

@@ -61,31 +61,51 @@
       </div>
     </div>
 
-    <!-- Marque (texte libre avec autocomplétion) -->
+    <!-- Marque (recherche -> sélection ou création verrouillée) -->
     <div class="form-row">
       <div class="form-group">
         <label class="form-label"><span class="required-label">Marque</span> *</label>
-        <div class="search-wrap">
-          <input type="text" name="marque" id="marque-search" class="form-input"
-                 placeholder="Tapez une marque..." autocomplete="off"
-                 value="{{ form.marque.value|default:'' }}">
+        <div class="search-wrap" id="marque-search-wrap" {% if form.marque.value %}style="display:none"{% endif %}>
+          <input type="text" id="marque-search" class="form-input"
+                 placeholder="Tapez pour rechercher une marque..." autocomplete="off">
           <div class="search-results" id="marque-results"></div>
         </div>
+
+        <!-- Marque verrouillée (affichage readonly une fois choisie) -->
+        <div class="locked-box {% if form.marque.value %}show{% endif %}" id="marque-box">
+          <span style="font-size:16px">🏷️</span>
+          <div style="flex:1">
+            <div class="font-bold" id="marque-name">{{ form.marque.value|default:'' }}</div>
+          </div>
+          <button type="button" onclick="clearMarque()" class="btn btn-outline btn-sm">✕ Changer</button>
+        </div>
+
+        <input type="hidden" name="marque" id="marque-id" value="{{ form.marque.value|default:'' }}">
         {% if form.marque.errors %}<div class="form-error">{{ form.marque.errors.0 }}</div>{% endif %}
       </div>
 
-      <!-- Modèle (texte libre avec autocomplétion dépendante) -->
+      <!-- Modèle (dépend de la marque, même logique recherche -> verrouillage) -->
       <div class="form-group">
         <label class="form-label"><span class="required-label">Modèle</span> *</label>
-        <div class="search-wrap">
-          <input type="text" name="modele" id="modele-search" class="form-input"
-                 placeholder="Tapez un modèle..." autocomplete="off"
-                 value="{{ form.modele.value|default:'' }}"
+        <div class="search-wrap" id="modele-search-wrap" {% if form.modele.value %}style="display:none"{% endif %}>
+          <input type="text" id="modele-search" class="form-input"
+                 placeholder="Tapez pour rechercher un modèle..." autocomplete="off"
                  {% if not form.marque.value %}disabled{% endif %}>
           <div class="search-results" id="modele-results"></div>
         </div>
-        <div class="text-small text-muted" id="modele-hint" style="margin-top:4px;">
-          {% if not form.marque.value %}Choisissez d'abord une marque.{% endif %}
+
+        <!-- Modèle verrouillé -->
+        <div class="locked-box {% if form.modele.value %}show{% endif %}" id="modele-box">
+          <span style="font-size:16px">🚘</span>
+          <div style="flex:1">
+            <div class="font-bold" id="modele-name">{{ form.modele.value|default:'' }}</div>
+          </div>
+          <button type="button" onclick="clearModele()" class="btn btn-outline btn-sm">✕ Changer</button>
+        </div>
+
+        <input type="hidden" name="modele" id="modele-id" value="{{ form.modele.value|default:'' }}">
+        <div class="text-small text-muted" id="modele-hint" style="margin-top:4px;{% if form.marque.value %}display:none;{% endif %}">
+          Choisissez d'abord une marque.
         </div>
         {% if form.modele.errors %}<div class="form-error">{{ form.modele.errors.0 }}</div>{% endif %}
       </div>
@@ -191,49 +211,49 @@
       </div>
 
       <!-- Entreprise -->
-<div id="flds-ent" style="display:none">
-    <!-- Raison sociale -->
-    <div class="form-group">
-        <label class="form-label"><span class="required-label">Raison sociale</span> *</label>
-        <input type="text" id="e-nom" class="form-input" placeholder="Nom de l'entreprise">
-    </div>
-
-    <!-- NINEA + Email -->
-    <div class="form-row">
+      <div id="flds-ent" style="display:none">
+        <!-- Raison sociale -->
         <div class="form-group">
+          <label class="form-label"><span class="required-label">Raison sociale</span> *</label>
+          <input type="text" id="e-nom" class="form-input" placeholder="Nom de l'entreprise">
+        </div>
+
+        <!-- NINEA + Email -->
+        <div class="form-row">
+          <div class="form-group">
             <label class="form-label">NINEA / RC</label>
             <input type="text" id="e-ninea" class="form-input" placeholder="NINEA ou RC">
-        </div>
-        <div class="form-group">
+          </div>
+          <div class="form-group">
             <label class="form-label">Email</label>
             <input type="email" id="e-email" class="form-input" placeholder="contact@entreprise.com">
+          </div>
         </div>
-    </div>
 
-    <!-- Correspondant : Nom + Téléphone -->
-    <div class="form-row">
-        <div class="form-group">
+        <!-- Correspondant : Nom + Téléphone -->
+        <div class="form-row">
+          <div class="form-group">
             <label class="form-label"><span class="required-label">Nom du correspondant</span> *</label>
             <input type="text" id="e-contact-nom" class="form-input" placeholder="Nom du contact">
-        </div>
-        <div class="form-group">
+          </div>
+          <div class="form-group">
             <label class="form-label"><span class="required-label">Téléphone du correspondant</span> *</label>
             <input type="tel" id="e-contact-tel" class="form-input" placeholder="6XX XXX XXX">
+          </div>
         </div>
-    </div>
 
-    <!-- Ville + Adresse -->
-    <div class="form-row">
-        <div class="form-group">
+        <!-- Ville + Adresse -->
+        <div class="form-row">
+          <div class="form-group">
             <label class="form-label">Ville</label>
             <input type="text" id="e-ville" class="form-input" placeholder="Douala, Yaoundé...">
-        </div>
-        <div class="form-group">
+          </div>
+          <div class="form-group">
             <label class="form-label">Adresse</label>
             <input type="text" id="e-adresse" class="form-input" placeholder="Quartier, rue, immeuble...">
+          </div>
         </div>
-    </div>
-</div>
+      </div>
 
       <button type="button" onclick="saveClient()" class="btn btn-primary w-full" style="margin-top:12px;">
         💾 Enregistrer et sélectionner
@@ -291,134 +311,33 @@
 
 {% endblock %}
 
+{% block extra_css %}
+<style>
+/* Box "verrouillée" affichant la valeur choisie (marque/modèle),
+   même esprit visuel que .prop-selected pour le propriétaire. */
+.locked-box {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface2);
+  border: 1.5px solid var(--success);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.locked-box.show { display: flex; }
+
+/* Item "Créer ..." dans la liste de résultats, mis en avant */
+.sr-item.create-new {
+  color: var(--primary);
+  font-weight: 600;
+  border-top: 1px solid var(--border);
+}
+.sr-item.create-new:hover { background: var(--surface2); }
+</style>
+{% endblock %}
+
 {% block extra_js %}
 <script>
-// =========================== MARQUE ===========================
-let marqueTimeout = null;
-let marqueAbort = null;
-const marqueSearch = document.getElementById('marque-search');
-const marqueResults = document.getElementById('marque-results');
-const modeleSearch = document.getElementById('modele-search');
-const modeleHint = document.getElementById('modele-hint');
-
-// Met à jour l'état du champ modèle (activé/désactivé)
-function updateModeleState() {
-  const val = marqueSearch.value.trim();
-  if (val) {
-    modeleSearch.disabled = false;
-    modeleHint.style.display = 'none';
-  } else {
-    modeleSearch.disabled = true;
-    modeleSearch.value = ''; // on vide le modèle si pas de marque
-    modeleHint.style.display = 'block';
-  }
-}
-
-// Sélection d'une marque dans les résultats
-function selectMarque(item) {
-  marqueSearch.value = item.nom;
-  marqueResults.classList.remove('open');
-  updateModeleState();
-  // on déclenche l'événement input pour que d'éventuels écouteurs réagissent
-  marqueSearch.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-marqueSearch.addEventListener('input', function () {
-  clearTimeout(marqueTimeout);
-  const q = this.value.trim();
-  if (q.length < 2) {
-    marqueResults.classList.remove('open');
-    updateModeleState();
-    return;
-  }
-  marqueTimeout = setTimeout(() => doSearchMarque(q), 300);
-  updateModeleState();
-});
-
-async function doSearchMarque(q) {
-  if (marqueAbort) marqueAbort.abort();
-  marqueAbort = new AbortController();
-  try {
-    const resp = await fetch(`{% url 'autocomplete_marques' %}?q=${encodeURIComponent(q)}`, {
-      signal: marqueAbort.signal
-    });
-    const data = await resp.json();
-    renderMarqueResults(data.results || []);
-  } catch (e) {
-    if (e.name !== 'AbortError') console.error(e);
-  }
-}
-
-function renderMarqueResults(results) {
-  marqueResults.innerHTML = '';
-  if (!results.length) {
-    marqueResults.classList.remove('open');
-    return;
-  }
-  results.forEach(r => {
-    const div = document.createElement('div');
-    div.className = 'sr-item';
-    div.innerHTML = `<div class="sr-name">${escapeHtml(r.nom)}</div>`;
-    div.onclick = () => selectMarque(r);
-    marqueResults.appendChild(div);
-  });
-  marqueResults.classList.add('open');
-}
- // =========================== MODÈLE ===========================
-let modeleTimeout = null;
-let modeleAbort = null;
-const modeleResults = document.getElementById('modele-results');
-
-function selectModele(item) {
-  modeleSearch.value = item.nom;
-  modeleResults.classList.remove('open');
-}
-
-modeleSearch.addEventListener('input', function () {
-  clearTimeout(modeleTimeout);
-  const q = this.value.trim();
-  if (q.length < 2) {
-    modeleResults.classList.remove('open');
-    return;
-  }
-  const marque = marqueSearch.value.trim();
-  if (!marque) {
-    modeleResults.classList.remove('open');
-    return;
-  }
-  modeleTimeout = setTimeout(() => doSearchModele(q, marque), 300);
-});
-
-async function doSearchModele(q, marqueNom) {
-  if (modeleAbort) modeleAbort.abort();
-  modeleAbort = new AbortController();
-  try {
-    const resp = await fetch(`{% url 'autocomplete_modeles' %}?q=${encodeURIComponent(q)}&marque=${encodeURIComponent(marqueNom)}`, {
-      signal: modeleAbort.signal
-    });
-    const data = await resp.json();
-    renderModeleResults(data.results || []);
-  } catch (e) {
-    if (e.name !== 'AbortError') console.error(e);
-  }
-}
-
-function renderModeleResults(results) {
-  modeleResults.innerHTML = '';
-  if (!results.length) {
-    modeleResults.classList.remove('open');
-    return;
-  }
-  results.forEach(r => {
-    const div = document.createElement('div');
-    div.className = 'sr-item';
-    div.innerHTML = `<div class="sr-name">${escapeHtml(r.nom)}</div>`;
-    div.onclick = () => selectModele(r);
-    modeleResults.appendChild(div);
-  });
-  modeleResults.classList.add('open');
-}
-
 // =========================== UTILITAIRES ===========================
 function escapeHtml(str) {
   if (!str) return '';
@@ -438,8 +357,178 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// Initialisation de l'état du modèle
-updateModeleState();
+// =========================== MARQUE ===========================
+let marqueTimeout = null;
+let marqueAbort = null;
+const marqueSearchWrap = document.getElementById('marque-search-wrap');
+const marqueSearch = document.getElementById('marque-search');
+const marqueResults = document.getElementById('marque-results');
+const marqueBox = document.getElementById('marque-box');
+const marqueNameSpan = document.getElementById('marque-name');
+const marqueIdInput = document.getElementById('marque-id');
+
+const modeleSearchWrap = document.getElementById('modele-search-wrap');
+const modeleSearch = document.getElementById('modele-search');
+const modeleResults = document.getElementById('modele-results');
+const modeleBox = document.getElementById('modele-box');
+const modeleNameSpan = document.getElementById('modele-name');
+const modeleIdInput = document.getElementById('modele-id');
+const modeleHint = document.getElementById('modele-hint');
+
+function lockMarque(nom) {
+  marqueIdInput.value = nom;
+  marqueNameSpan.textContent = nom;
+  marqueBox.classList.add('show');
+  marqueSearchWrap.style.display = 'none';
+  marqueResults.classList.remove('open');
+  // Changer/créer une marque réinitialise toujours le modèle.
+  clearModele();
+  updateModeleAvailability();
+}
+
+function clearMarque() {
+  marqueIdInput.value = '';
+  marqueBox.classList.remove('show');
+  marqueSearchWrap.style.display = '';
+  marqueSearch.value = '';
+  marqueSearch.focus();
+  clearModele();
+  updateModeleAvailability();
+}
+
+function updateModeleAvailability() {
+  const hasMarque = !!marqueIdInput.value;
+  modeleSearch.disabled = !hasMarque;
+  modeleHint.style.display = hasMarque ? 'none' : 'block';
+}
+
+marqueSearch.addEventListener('input', function () {
+  clearTimeout(marqueTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) {
+    marqueResults.classList.remove('open');
+    return;
+  }
+  marqueTimeout = setTimeout(() => doSearchMarque(q), 300);
+});
+
+async function doSearchMarque(q) {
+  if (marqueAbort) marqueAbort.abort();
+  marqueAbort = new AbortController();
+  try {
+    const resp = await fetch(`{% url 'autocomplete_marques' %}?q=${encodeURIComponent(q)}`, {
+      signal: marqueAbort.signal
+    });
+    const data = await resp.json();
+    renderMarqueResults(data.results || [], q);
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(e);
+  }
+}
+
+function renderMarqueResults(results, q) {
+  marqueResults.innerHTML = '';
+
+  const qNorm = q.trim().toLowerCase();
+  const exactMatch = results.some(r => r.nom.trim().toLowerCase() === qNorm);
+
+  results.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'sr-item';
+    div.innerHTML = `<div class="sr-name">${escapeHtml(r.nom)}</div>`;
+    div.onclick = () => lockMarque(r.nom);
+    marqueResults.appendChild(div);
+  });
+
+  // Si aucune marque existante ne correspond exactement au texte tapé,
+  // on propose de "créer" cette valeur : on ne fait AUCUN appel serveur,
+  // on place simplement le texte tel quel dans le champ verrouillé.
+  if (!exactMatch && q.trim().length >= 2) {
+    const c = document.createElement('div');
+    c.className = 'sr-item create-new';
+    c.innerHTML = `<span>➕</span> Créer "${escapeHtml(q.trim())}"`;
+    c.onclick = () => lockMarque(q.trim());
+    marqueResults.appendChild(c);
+  }
+
+  marqueResults.classList.add('open');
+}
+
+// =========================== MODÈLE ===========================
+let modeleTimeout = null;
+let modeleAbort = null;
+
+function lockModele(nom) {
+  modeleIdInput.value = nom;
+  modeleNameSpan.textContent = nom;
+  modeleBox.classList.add('show');
+  modeleSearchWrap.style.display = 'none';
+  modeleResults.classList.remove('open');
+}
+
+function clearModele() {
+  modeleIdInput.value = '';
+  modeleBox.classList.remove('show');
+  modeleSearchWrap.style.display = '';
+  modeleSearch.value = '';
+}
+
+modeleSearch.addEventListener('input', function () {
+  clearTimeout(modeleTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) {
+    modeleResults.classList.remove('open');
+    return;
+  }
+  const marqueNom = marqueIdInput.value.trim();
+  if (!marqueNom) {
+    modeleResults.classList.remove('open');
+    return;
+  }
+  modeleTimeout = setTimeout(() => doSearchModele(q, marqueNom), 300);
+});
+
+async function doSearchModele(q, marqueNom) {
+  if (modeleAbort) modeleAbort.abort();
+  modeleAbort = new AbortController();
+  try {
+    const resp = await fetch(`{% url 'autocomplete_modeles' %}?q=${encodeURIComponent(q)}&marque=${encodeURIComponent(marqueNom)}`, {
+      signal: modeleAbort.signal
+    });
+    const data = await resp.json();
+    renderModeleResults(data.results || [], q);
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(e);
+  }
+}
+
+function renderModeleResults(results, q) {
+  modeleResults.innerHTML = '';
+
+  const qNorm = q.trim().toLowerCase();
+  const exactMatch = results.some(r => r.nom.trim().toLowerCase() === qNorm);
+
+  results.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'sr-item';
+    div.innerHTML = `<div class="sr-name">${escapeHtml(r.nom)}</div>`;
+    div.onclick = () => lockModele(r.nom);
+    modeleResults.appendChild(div);
+  });
+
+  if (!exactMatch && q.trim().length >= 2) {
+    const c = document.createElement('div');
+    c.className = 'sr-item create-new';
+    c.innerHTML = `<span>➕</span> Créer "${escapeHtml(q.trim())}"`;
+    c.onclick = () => lockModele(q.trim());
+    modeleResults.appendChild(c);
+  }
+
+  modeleResults.classList.add('open');
+}
+
+// Initialisation de l'état du modèle au chargement
+updateModeleAvailability();
 
 // =========================== TYPE CLIENT ===========================
 let currentType = 'PARTICULIER';
@@ -548,13 +637,13 @@ async function saveClient() {
     const nom = document.getElementById('e-nom').value.trim();
     const contactNom = document.getElementById('e-contact-nom').value.trim();
     const contactTel = document.getElementById('e-contact-tel').value.trim();
-    
+
     if (!nom || !contactNom || !contactTel) {
         spin.classList.remove('show');
         alert('Raison sociale, nom du correspondant et téléphone sont obligatoires.');
         return;
     }
-    
+
     payload = {
         type_client: currentType,
         nom: nom,                         // raison sociale
@@ -565,8 +654,7 @@ async function saveClient() {
         adresse: document.getElementById('e-adresse').value.trim(),
         ville: document.getElementById('e-ville').value.trim()
     };
-}
-
+  }
   else {
     const nom = document.getElementById('p-nom').value.trim();
     const tel = document.getElementById('p-tel').value.trim();
@@ -634,10 +722,14 @@ function doPhoto(src) {
 }
 
 function triggerPhoto(s) {
-  const fi = document.getElementById('fi' + s);
-  fi.removeAttribute('capture');
-  fi.setAttribute('accept', 'image/*');
-  fi.click();
+ if (isMobileDevice()) {
+      const fi = document.getElementById('fi' + s);
+      fi.setAttribute('capture', 'environment');
+      fi.setAttribute('accept', 'image/*');
+      fi.click();
+    } else {
+      openWebcam(s);
+    }
 }
 
 function previewPhoto(input, s) {
@@ -759,6 +851,16 @@ document.getElementById('vehicule-form').addEventListener('submit', function (e)
   if (!document.getElementById('cli-id').value) {
     e.preventDefault();
     alert('Sélectionnez un propriétaire.');
+    return;
+  }
+  if (!marqueIdInput.value) {
+    e.preventDefault();
+    alert('Sélectionnez ou créez une marque.');
+    return;
+  }
+  if (!modeleIdInput.value) {
+    e.preventDefault();
+    alert('Sélectionnez ou créez un modèle.');
     return;
   }
   document.getElementById('spinner').classList.add('show');

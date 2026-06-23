@@ -36,19 +36,21 @@
 <div class="sidebar-section">Actions</div>
 <ul class="sidebar-nav">
     <li>
- <a href="{% url 'creer_bon_sortie_direct' %}">
-            <span class="icon">🚚</span> Bon de sortie véhicule </a> </li>
+        <a href="{% url 'creer_bon_sortie_direct' %}">
+            <span class="icon">🚚</span> Bon de sortie véhicule
+        </a>
+    </li>
     <li>
         <a href="{% url 'creer_bon_sortie_divers' %}" class="active">
             <span class="icon">📦</span> Bon de sortie divers
-        </a></li>
+        </a>
+    </li>
 </ul>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* Style pour la sélection employé (inchangé) */
+/* Style pour la sélection employé */
 .emp-search-wrap { position: relative; }
 .emp-results {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0;
@@ -76,49 +78,32 @@
 }
 .emp-selected.show { display: flex; }
 
-/* Récapitulatif */
-.recap-card {
-  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
-  color: #fff; border-radius: var(--radius); padding: 20px;
-  margin-top: 16px;
+/* Aperçu "cahier" des articles saisis */
+.ligne-item {
+  display: flex;
+  align-items: baseline;
+  padding: 4px 8px;
+  border-bottom: 1px dashed #e5e7eb;
+  font-size: 14px;
 }
-.recap-line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-.recap-line strong { color: #fff; }
-.articles-list-recap {
-  margin-top: 10px;
-  padding-left: 20px;
-  list-style-type: disc;
-  font-size: 13px;
+.ligne-item:last-child {
+  border-bottom: none;
 }
-.articles-list-recap li { margin: 4px 0; }
-
-
-  .ligne-item {
-    display: flex;
-    align-items: baseline;
-    padding: 4px 8px;
-    border-bottom: 1px dashed #e5e7eb;
-    font-size: 14px;
-  }
-  .ligne-item:last-child {
-    border-bottom: none;
-  }
-  .ligne-number {
-    display: inline-block;
-    width: 24px;
-    font-weight: 600;
-    color: #6b7280;
-    font-size: 12px;
-  }
-  .ligne-text {
-    flex: 1;
-    word-break: break-word;
-  }
-  .ligne-item:hover {
-    background-color: #f3f4f6;
-    border-radius: 4px;
-  }
-
+.ligne-number {
+  display: inline-block;
+  width: 24px;
+  font-weight: 600;
+  color: #6b7280;
+  font-size: 12px;
+}
+.ligne-text {
+  flex: 1;
+  word-break: break-word;
+}
+.ligne-item:hover {
+  background-color: #f3f4f6;
+  border-radius: 4px;
+}
 </style>
 {% endblock %}
 
@@ -163,57 +148,36 @@
       <input type="hidden" name="demandeur_id"  id="dem-id-hidden">
     </div>
 
-
-
-
+    <!-- ② Articles / Lignes -->
     <div class="form-group">
-  <label class="form-label">📝 Articles / Lignes</label>
-  
-  <!-- Zone de saisie -->
-  <textarea name="observations" id="obs-textarea" class="form-textarea" rows="6"
-            placeholder="Saisissez chaque article/ligne sur une nouvelle ligne ou séparez par des points-virgules (;).&#10;Exemple :&#10;Pince multiprise;Tournevis cruciforme;Clé à molette 13mm"></textarea>
-  
-  <!-- Aperçu en temps réel (cahier) -->
-  <div id="cahier-preview" style="margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fafbfc; min-height: 50px;">
-    <div style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">📋 Aperçu des lignes :</div>
-    <div id="lignes-container" style="display: flex; flex-direction: column; gap: 4px;">
-      <!-- Les lignes apparaîtront ici dynamiquement -->
-    </div>
-    <div id="empty-message" style="color: #9ca3af; font-style: italic; text-align: center; padding: 8px 0;">
-      Aucune ligne saisie
-    </div>
-  </div>
-  
-  <div class="text-small text-muted mt-1">
-    Séparez chaque article par un point‑virgule <code>;</code> ou par un saut de ligne.
-  </div>
-</div>
+      <label class="form-label">📝 Articles / Lignes</label>
 
+      <textarea name="observations" id="obs-textarea" class="form-textarea" rows="6"
+                placeholder="Saisissez chaque article/ligne sur une nouvelle ligne ou séparez par des points-virgules (;).&#10;Exemple :&#10;Pince multiprise;Tournevis cruciforme;Clé à molette 13mm"></textarea>
 
-
-    <!-- ③ Récapitulatif dynamique -->
-    <div class="recap-card" id="recap-card">
-      <div style="font-size:13px;opacity:.7;margin-bottom:10px;text-transform:uppercase;">Récapitulatif</div>
-      <div class="recap-line">
-        <span>Demandeur</span>
-        <strong id="recap-dem">—</strong>
-      </div>
-      <div class="recap-line" style="align-items:flex-start;">
-        <span>Articles</span>
-        <div id="recap-articles-list" style="flex:1; text-align:right;">
-          <ul class="articles-list-recap" id="articles-list-recap">
-            <li>Aucun</li>
-          </ul>
+      <!-- Aperçu en temps réel (cahier) -->
+      <div id="cahier-preview" style="margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fafbfc; min-height: 50px;">
+        <div style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">📋 Aperçu des lignes :</div>
+        <div id="lignes-container" style="display: flex; flex-direction: column; gap: 4px;">
+          <!-- Les lignes apparaîtront ici dynamiquement -->
+        </div>
+        <div id="empty-message" style="color: #9ca3af; font-style: italic; text-align: center; padding: 8px 0;">
+          Aucune ligne saisie
         </div>
       </div>
-      <div style="margin-top:20px;display:flex;gap:10px;">
-        <button type="submit" class="btn btn-success" style="flex:1;font-size:15px;padding:12px;">
-          📄 Créer le bon de sortie
-        </button>
-        <a href="{% url 'liste_bons_sortie' %}" class="btn btn-outline" style="padding:12px 16px;">
-          Annuler
-        </a>
+
+      <div class="text-small text-muted mt-1">
+        Séparez chaque article par un point‑virgule <code>;</code> ou par un saut de ligne.
       </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button type="submit" class="btn btn-success" style="flex:1;font-size:15px;padding:12px;">
+        📄 Créer le bon de sortie
+      </button>
+      <a href="{% url 'liste_bons_sortie' %}" class="btn btn-outline" style="padding:12px 16px;">
+        Annuler
+      </a>
     </div>
   </div>
 </form>
@@ -222,28 +186,33 @@
 {% block extra_js %}
 <script>
 
-
-
 document.addEventListener('DOMContentLoaded', function() {
   const textarea = document.getElementById('obs-textarea');
   const container = document.getElementById('lignes-container');
   const emptyMsg = document.getElementById('empty-message');
 
+  function escapeHtml(unsafe) {
+    return unsafe.replace(/[&<>"]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      if (m === '"') return '&quot;';
+      return m;
+    });
+  }
+
   function updatePreview() {
     const raw = textarea.value;
-    // Séparer par ; ou par saut de ligne, enlever les espaces superflus, filtrer les vides
     const lines = raw.split(/[;\n]+/).map(s => s.trim()).filter(s => s.length > 0);
-    
-    // Vider le conteneur
+
     container.innerHTML = '';
-    
+
     if (lines.length === 0) {
       emptyMsg.style.display = 'block';
       return;
     }
     emptyMsg.style.display = 'none';
-    
-    // Ajouter chaque ligne
+
     lines.forEach((text, index) => {
       const div = document.createElement('div');
       div.className = 'ligne-item';
@@ -255,26 +224,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Échapper les caractères HTML pour éviter les failles XSS
-  function escapeHtml(unsafe) {
-    return unsafe.replace(/[&<>"]/g, function(m) {
-      if (m === '&') return '&amp;';
-      if (m === '<') return '&lt;';
-      if (m === '>') return '&gt;';
-      if (m === '"') return '&quot;';
-      return m;
-    });
-  }
-
-  // Mise à jour à chaque frappe
   textarea.addEventListener('input', updatePreview);
-  
-  // Initialisation
   updatePreview();
 });
 
-
-// ── Données employés (inchangé) ──────────────────────────────────────────────
+// ── Données employés ──────────────────────────────────────────────
 const EMPLOYES = [
   {% for emp in employes %}
   {
@@ -341,7 +295,6 @@ function selectEmp(e) {
   empBox.classList.add('show');
   empSearch.style.display = 'none';
   closeEmpRes();
-  updateRecap();
 }
 
 function clearEmp() {
@@ -350,7 +303,6 @@ function clearEmp() {
   empBox.classList.remove('show');
   empSearch.style.display = '';
   empSearch.value = '';
-  updateRecap();
 }
 
 function closeEmpRes() {
@@ -366,48 +318,10 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.emp-search-wrap')) closeEmpRes();
 });
 
-// ── Mise à jour du récapitulatif des articles ───────────────────────────────
-const obsTextarea = document.getElementById('obs-textarea');
-const recapDemSpan = document.getElementById('recap-dem');
-const articlesListRecap = document.getElementById('articles-list-recap');
-
-function splitObservations(text) {
-  // Sépare par ; ou par saut de ligne
-  let items = text.split(/[;\n]/).filter(s => s.trim().length > 0);
-  // Nettoie chaque item
-  items = items.map(s => s.trim());
-  return items;
-}
-
-function updateRecap() {
-  // Demandeur
-  const dem = nomDemHidden.value || '—';
-  recapDemSpan.textContent = dem;
-
-  // Observations
-  const raw = obsTextarea.value;
-  const articles = splitObservations(raw);
-  articlesListRecap.innerHTML = '';
-  if (articles.length === 0) {
-    articlesListRecap.innerHTML = '<li>Aucun article saisi</li>';
-  } else {
-    articles.forEach(art => {
-      const li = document.createElement('li');
-      li.textContent = art;
-      articlesListRecap.appendChild(li);
-    });
-  }
-}
-
-obsTextarea.addEventListener('input', updateRecap);
-nomDemHidden.addEventListener('change', updateRecap);
-document.getElementById('emp-box').addEventListener('DOMSubtreeModified', updateRecap); // fallback
-updateRecap();
-
 // ── Validation avant soumission ──────────────────────────────────────────────
 document.getElementById('bon-form').addEventListener('submit', function(e) {
   const dem = nomDemHidden.value;
-  const obs = obsTextarea.value.trim();
+  const obs = document.getElementById('obs-textarea').value.trim();
   if (!dem) {
     e.preventDefault();
     alert('⚠️ Veuillez sélectionner un demandeur.');
@@ -418,7 +332,6 @@ document.getElementById('bon-form').addEventListener('submit', function(e) {
     alert('⚠️ Veuillez saisir au moins un article (dans le champ observations).');
     return;
   }
-  // Pas de vérification supplémentaire – tout est accepté
 });
 </script>
 {% endblock %}

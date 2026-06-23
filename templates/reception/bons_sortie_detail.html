@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load garage_extras %}
 {% block title %}Bon {{ bon.numero }}{% endblock %}
 {% block page_title %}📄 Bon de sortie{% endblock %}
 
@@ -75,7 +76,7 @@
   .bon-header { background: #1a3a5c !important; -webkit-print-color-adjust: exact; }
 }
 </style>
-{% endblock %}
+{% endblock %} 
 
 {% block content %}
 <div class="page-header no-print">
@@ -86,9 +87,8 @@
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <a href="{% url 'liste_bons_sortie' %}" class="btn btn-outline">← Retour</a>
-    <button onclick="window.print()" class="btn btn-outline">🖨️ Imprimer</button>
-    <a href="{% url 'pdf_bon_sortie_guerite' bon.id %}" class="btn btn-primary">📥 PDF</a>
+ <a href="{% url 'liste_bons_sortie' %}" class="btn btn-outline">← Retour</a>
+<a href="{% url 'pdf_bon_sortie_guerite' bon.id %}" class="btn btn-primary">🖨️ Imprimer / PDF</a>
 
   </div>
 </div>
@@ -161,9 +161,27 @@
     {% elif bon.types == 'DIVERS' %}
     <div class="card-header"><div class="card-title">📦 Objet / Matériel</div></div>
     <div class="info-section">
-      <div class="info-row"><span class="info-label">Description</span>{{ bon.observations|default:"—" }}</div>
-      <div class="info-row"><span class="info-label">Origine</span>{{ bon.Origine_demande|default:"—" }}</div>
+
+<div class="info-row" style="display: flex; align-items: flex-start; gap: 16px;">
+    <span class="info-label" style="flex: 0 0 120px; font-weight: 600; white-space: nowrap;">Description</span>
+    <div style="flex: 1;">
+        {% with articles=bon.observations|split_articles %}
+            {% if articles %}
+                <ol style="margin:0; padding-left:18px;">
+                    {% for article in articles %}
+                        <li style="margin:2px 0;">{{ article }}</li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <span>—</span>
+            {% endif %}
+        {% endwith %}
     </div>
+</div>
+
+  
+
+          </div>
     {% else %}
     <div class="card-header"><div class="card-title">📄 Détails</div></div>
     <div class="info-section">

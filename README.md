@@ -14,7 +14,7 @@ Application Django complète pour la gestion d'un garage professionnel multi-ate
 
 ```bash
 # 1. Cloner / accéder au projet
-git clone https://github.com/votre-org/aw
+git clone https://github.com/dylano-mecbien/garage-tracking.git
 cd garage_suivi
 
 # 2. Lancer tous les services
@@ -27,16 +27,6 @@ docker-compose exec web python manage.py create_default_admin
 **L'application est disponible sur : http://localhost**
 
 ---
-
-## 🔑 COMPTES PAR DÉFAUT
-
-| Rôle              | Email                      | Mot de passe    |
-|-------------------|---------------------------|-----------------|
-| Administrateur    | admin@garage.cm            | Admin@2024      |
-| Agent Guérite     | guerite@garage.cm          | Guerite@2024    |
-| Réceptionniste    | reception@garage.cm        | Reception@2024  |
-| Resp. Atelier     | resp.atelier@garage.cm     | Atelier@2024    |
-| Technicien        | tech1@garage.cm            | Tech@2024       |
 
 > ⚠️ **Changez ces mots de passe en production !**
 

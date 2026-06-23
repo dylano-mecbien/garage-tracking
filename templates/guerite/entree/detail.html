@@ -17,7 +17,10 @@
 
 <div class="page-header">
   <div>
-    <h1>Entrée {{ entree.numero }}</h1>
+    
+    <h1>Entrée {{ entree.vehicule.immatriculation  }}</h1>
+                       
+
     <div class="breadcrumb">
       Enregistrée le {{ entree.date_entree|date:"d/m/Y à H:i" }}
     </div>
@@ -175,7 +178,7 @@
 <!-- BOUTONS TOUJOURS VISIBLES -->
 <div style="display:flex;gap:8px; margin-top:20px;">
   <a href="{% url 'dashboard_guerite' %}" class="btn btn-outline">← Retour</a>
-  {% if entree.statut == 'EN_COURS' %}
+  {% if entree.statut != 'SORTI' and entree.statut == 'BON_SORTIE_FAIT'  %}
     <a href="{% url 'enregistrer_sortie' entree.id %}" class="btn btn-warning">
       📤 Enregistrer SORTI
     </a>

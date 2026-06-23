@@ -62,6 +62,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     photo = models.ImageField(upload_to='users/photos/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    pass_default = models.BooleanField(default=True)
 
     date_joined = models.DateTimeField(default=timezone.now)
 

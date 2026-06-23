@@ -19,7 +19,10 @@ from apps.accounts.decorators import guerite_required, receptionniste_required
 from apps.accounts.models import Role
 from apps.audit.service import log_action
 from apps.audit.models import ActionType
-
+from apps.documents.pdf_generator import generer_pdf_bon_sortie
+import qrcode
+from io import BytesIO
+from django.core.files.base import ContentFile
 
 # ─── Utilitaire notif ────────────────────────────────────────────────────────
 def _notifier(type_notif, titre, message, reception=None):
@@ -424,7 +427,6 @@ def detail_bon_sortie(request, bon_id):
 @receptionniste_required
 def pdf_bon_sortie(request, bon_id):
     bon = get_object_or_404(BonSortie, id=bon_id)
-    from apps.documents.pdf_generator import generer_pdf_bon_sortie
     pdf = generer_pdf_bon_sortie(bon)
     log_action(request, ActionType.TELECHARGEMENT, 'RECEPTION', bon)
     r = HttpResponse(pdf, content_type='application/pdf')
@@ -435,9 +437,7 @@ def pdf_bon_sortie(request, bon_id):
 # ─── Helper QR ────────────────────────────────────────────────────────────────
 def _gen_qr(bon):
     try:
-        import qrcode
-        from io import BytesIO
-        from django.core.files.base import ContentFile
+        
         qr = qrcode.QRCode(version=1, box_size=6, border=2)
         qr.add_data(f"GARAGE|{bon.numero}|{bon.vehicule.immatriculation}")
         qr.make(fit=True)
@@ -567,7 +567,6 @@ def pdf_bon_sortie_guerite(request, bon_id):
     from django.http import HttpResponse
     bon = get_object_or_404(BonSortie, id=bon_id)
     try:
-        from apps.documents.pdf_generator import generer_pdf_bon_sortie
         pdf = generer_pdf_bon_sortie(bon)
         log_action(request, ActionType.TELECHARGEMENT, 'GUERITE', bon)
         resp = HttpResponse(pdf, content_type='application/pdf')
@@ -577,7 +576,7 @@ def pdf_bon_sortie_guerite(request, bon_id):
         messages.error(request, f"Erreur génération PDF: {e}")
         return redirect('detail_bon_sortie_guerite', bon_id=bon_id)
  
- 
+
 # ─── CRÉER BON DIRECT (sans réception) ───────────────────────────────────────
 
 
