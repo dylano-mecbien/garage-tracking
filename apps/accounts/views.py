@@ -92,7 +92,10 @@ def profil(request):
         form = ChangePasswordForm(request.POST)
         if form.is_valid():
             request.user.set_password(form.cleaned_data['new_password1'])
-            request.user.pass_default(False)
+
+            request.user.pass_default = False
+
+
             request.user.save()
             messages.success(request, "Mot de passe modifié avec succès.")
             # Rediriger vers la page de connexion (ou dashboard) après changement
@@ -185,7 +188,8 @@ def reset_password_utilisateur(request, user_id):
         user.set_password(new_password)
         user.failed_login_count = 0
         user.locked_until = None
-        user.pass_default(True)
+        
+        user.pass_default = False
         user.save()
         messages.success(request, f"Mot de passe réinitialisé pour {user.full_name}.")
     return redirect('liste_utilisateurs')

@@ -48,6 +48,7 @@ def dashboard(request):
     ctx = { 
         'nb_entrees_today': entrees_today.count(),
         'nb_sorties_today': entrees_today.filter(statut=StatutEntree.SORTI).count(),
+        
         'vehicules_presents': EnregistrementEntree.objects.exclude(statut=StatutEntree.SORTI).select_related(
             'vehicule', 'vehicule__client', 'conducteur'
         ).order_by('-date_entree')[:20],
@@ -688,10 +689,9 @@ def export_entrees_pdf(request):
         elements.append(Spacer(1, 10))
 
     # Données du tableau
-    data = [['N°', 'Immat.', 'Client', 'Motif', 'Statut', 'Entrée', 'Sortie', 'Agent']]
+    data = [['Immat.', 'Client', 'Motif', 'Statut', 'Entrée', 'Sortie', 'Agent']]
     for e in entrees:
         data.append([
-            e.numero,
             e.vehicule.immatriculation,
             str(e.vehicule.client)[:30],
             e.get_motif_display(),
@@ -702,7 +702,7 @@ def export_entrees_pdf(request):
         ])
 
     # Création du tableau
-    table = Table(data, repeatRows=1, colWidths=[50, 70, 100, 60, 55, 70, 70, 70])
+    table = Table(data, repeatRows=1, colWidths=[ 70, 100, 60, 55, 70, 70, 70])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#366092')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),

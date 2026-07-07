@@ -105,13 +105,14 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Véhicule</th><th>Client</th><th>Heure</th><th>Statut</th></tr></thead>
+        <thead><tr><th>Véhicule</th><th>Client</th><th>Entrée</th><th>Sortie</th><th>Statut</th></tr></thead>
         <tbody>
           {% for entree in entrees_recentes %}
           <tr>
             <td><a href="{% url 'detail_entree' entree.id %}">{{ entree.vehicule.immatriculation  }}</a></td>
             <td>{{ entree.vehicule.client  }}</td>
-            <td>{{ entree.date_entree|date:"H:i" }}</td>
+            <td>{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
+            <td>{{ entree.date_sortie|date:"d/m/Y H:i" }}</td>
            
 
           <td>{% if entree.statut != 'SORTI' %}<span class="badge badge-en-cours">Présent</span>{% else %}<span class="badge badge-cloture">Sorti</span>{% endif %}</td>

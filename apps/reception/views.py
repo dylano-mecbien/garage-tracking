@@ -4,19 +4,20 @@ Vues Réception — sans devis, sans facture
 from decimal import Decimal
 import json
 from django.core.serializers.json import DjangoJSONEncoder
+from django.db import models
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Q, Sum
 from django.http import HttpResponse, JsonResponse
-
+from django.views.decorators.http import require_POST
 from .models import Reception, StatutVehicule, RapportReception, TransfertAtelier, Notification
 from .forms import ReceptionForm, RapportReceptionForm, TransfertAtelierForm, BonSortieForm, ORReceptionForm
 from apps.guerite.models import EnregistrementEntree, BonSortie, StatutEntree, MotifEntree, StatutViewHinstorisue
 from apps.atelier.models import FicheTechnique, OrdreReparation, StatutOR, TypeOR, FicheControle, Tache, StatutTache
-from apps.vehicules.models import Vehicule
+from apps.vehicules.models import Client, Vehicule
 from apps.accounts.decorators import guerite_required, receptionniste_required
-from apps.accounts.models import Role
+from apps.accounts.models import Demandeur, Role, User
 from apps.audit.service import log_action
 from apps.audit.models import ActionType
 from apps.documents.pdf_generator import generer_pdf_bon_sortie
@@ -63,9 +64,12 @@ def dashboard(request):
     ).select_related('vehicule', 'atelier').order_by('-date_creation')
     aujourd_hui = timezone.now().date()
     entrees_today = EnregistrementEntree.objects.filter(date_entree__date=aujourd_hui)
+    
 
 
     ctx = {
+        'nb_entrees_today': entrees_today.count(),
+        'nb_sorties_today': entrees_today.filter(statut=StatutEntree.SORTI).count(),
         'entrees':            entrees,
         'entrees_sans_rec':   entrees.filter(reception__isnull=True),
         'receptions':         receptions,
@@ -424,7 +428,7 @@ def detail_bon_sortie(request, bon_id):
     return render(request, 'reception/detail_bon_sortie.html', {'bon': bon})
 
  
-@receptionniste_required
+
 def pdf_bon_sortie(request, bon_id):
     bon = get_object_or_404(BonSortie, id=bon_id)
     pdf = generer_pdf_bon_sortie(bon)
@@ -786,10 +790,9 @@ def liste_vehicules_presents(request):
 @guerite_required
 def creer_bon_sortie_divers(request):
     """Page dédiée à la création d'un bon de sortie divers (version ultra simplifiée)."""
-    from apps.accounts.models import User
-    from django.utils import timezone
+ 
+    employes = User.objects.filter(is_active=True).order_by('role', 'nom') 
 
-    employes = User.objects.filter(is_active=True).order_by('role', 'nom')
 
     if request.method == 'POST':
         nom_demandeur = request.POST.get('nom_demandeur', '').strip()
@@ -811,6 +814,107 @@ def creer_bon_sortie_divers(request):
             messages.success(request, f"Bon de sortie {bon.numero} créé avec succès.")
             return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
 
-    return render(request, 'reception/creer_divers.html', {
-        'employes': employes,
+    return render(request, 'reception/creer_divers.html') 
+
+
+
+
+
+@guerite_required
+def autocomplete_demandeur(request):
+    """
+    Recherche fusionnée dans 3 sources : Client, User (employés) et
+    Demandeur. Renvoie une liste unifiée avec un champ `source` pour
+    distinguer l'origine de chaque résultat, et un `exact_match`
+    global pour savoir si le texte tapé correspond déjà à un nom
+    existant (sert à afficher ou non le bouton "Créer").
+    """
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse({'results': [], 'exact_match': False})
+
+    results = []
+
+    # ── 1. Clients ──
+    clients = Client.objects.filter(
+        models.Q(nom__icontains=q) | models.Q(telephone__icontains=q)
+    )[:8]
+    for c in clients:
+        results.append({
+            'source': 'CLIENT',
+            'id': str(c.id),
+            'nom': c.nom,
+            'numero': getattr(c, 'telephone', '') or '',
+            'detail': 'Client',
+        })
+
+    # ── 2. Employés (User actifs) ──
+    employes = User.objects.filter(is_active=True).filter(
+        models.Q(nom__icontains=q) | models.Q(prenom__icontains=q) | models.Q(matricule__icontains=q)
+    )[:8]
+    for e in employes:
+        results.append({
+            'source': 'EMPLOYE',
+            'id': str(e.id),
+            'nom': e.full_name if hasattr(e, 'full_name') else f"{e.prenom} {e.nom}",
+            'numero': getattr(e, 'telephone', '') or getattr(e, 'matricule', '') or '',
+            'detail': e.get_role_display() if hasattr(e, 'get_role_display') else 'Employé',
+        })
+
+    # ── 3. Demandeurs déjà créés ──
+    demandeurs = Demandeur.objects.filter(
+        models.Q(nom__icontains=q) | models.Q(numero__icontains=q)
+    )[:8]
+    for d in demandeurs:
+        results.append({
+            'source': 'DEMANDEUR',
+            'id': str(d.id),
+            'nom': d.nom,
+            'numero': d.numero,
+            'detail': d.description or 'Demandeur',
+        })
+
+    qNorm = q.strip().lower()
+    exact_match = any(r['nom'].strip().lower() == qNorm for r in results)
+
+    return JsonResponse({'results': results[:15], 'exact_match': exact_match})
+
+
+@guerite_required
+@require_POST
+def creer_demandeur_ajax(request):
+    """
+    Crée réellement un nouveau Demandeur en base à partir du nom tapé
+    dans l'autocomplétion, lorsqu'aucune correspondance n'a été
+    trouvée parmi Client / Employé / Demandeur.
+    """
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({'success': False, 'error': "Requête invalide."}, status=400)
+
+    nom = (data.get('nom') or '').strip()
+    numero = (data.get('numero') or '').strip()
+    description = (data.get('description') or '').strip()
+
+    if not nom:
+        return JsonResponse({'success': False, 'error': "Le nom est obligatoire."}, status=400)
+    if not numero:
+        return JsonResponse({'success': False, 'error': "Le numéro est obligatoire."}, status=400)
+
+    if Demandeur.objects.filter(numero=numero).exists():
+        return JsonResponse({'success': False, 'error': "Ce numéro est déjà associé à un demandeur existant."}, status=400)
+
+    demandeur = Demandeur.objects.create(
+        nom=nom,
+        numero=numero,
+        description=description,
+    )
+
+    return JsonResponse({
+        'success': True,
+        'id': str(demandeur.id),
+        'nom': demandeur.nom,
+        'numero': demandeur.numero,
+        'detail': demandeur.description or 'Demandeur',
     })

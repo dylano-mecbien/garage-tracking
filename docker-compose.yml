@@ -27,6 +27,7 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
 
+
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
@@ -38,6 +39,7 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s

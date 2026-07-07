@@ -131,3 +131,24 @@ class LoginAttempt(models.Model):
         db_table = 'login_attempts'
         verbose_name = 'Tentative de connexion'
         ordering = ['-timestamp']
+
+
+class Demandeur(models.Model):
+    """
+    Personne externe (ni client, ni employé) pouvant demander un bon
+    de sortie divers. Créée à la volée depuis l'autocomplétion si elle
+    n'existe pas encore parmi les Clients ou les Employés.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nom = models.CharField(max_length=150, verbose_name="Nom")
+    numero = models.CharField(max_length=30, unique=True, verbose_name="Numéro / téléphone")
+    description = models.CharField(max_length=255, blank=True, default='', verbose_name="Description")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Demandeur"
+        verbose_name_plural = "Demandeurs"
+        ordering = ['nom']
+
+    def __str__(self):
+        return f"{self.nom} ({self.numero})"

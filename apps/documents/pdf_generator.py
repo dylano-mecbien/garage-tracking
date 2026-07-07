@@ -68,7 +68,7 @@ def _header_table(titre, numero, date, vehicule=None, client=None):
     data = [
         [Paragraph("<b><font size=14 color='#1a3a5c'>GARAGE AUTO LA PRUDENCE +</font></b>", styles['Normal']),
          Paragraph(f"<b><font size=16 color='#e67e22'>{titre}</font></b>", ParagraphStyle('', alignment=TA_RIGHT))],
-        [Paragraph("BP 1234 - Douala, Cameroun<br/>Tél: +237 699 000 000", styles['Normal']),
+        [Paragraph("BP 9060 - Douala, Cameroun<br/>Tél: +237 650 99 75 09", styles['Normal']),
          Paragraph(f"<b>N°:</b> {numero}<br/><b>Date:</b> {date.strftime('%d/%m/%Y %H:%M')}", ParagraphStyle('', alignment=TA_RIGHT))],
         [Paragraph(ligne_vehicule, styles['Normal']),
          Paragraph(ligne_client, ParagraphStyle('', alignment=TA_RIGHT))],
@@ -187,7 +187,7 @@ def _mention_legale():
     """Mention légale en pied de document, sur fond léger, encadrée."""
     style = ParagraphStyle('', fontSize=8.5, fontName='Helvetica-Oblique',
                             textColor=COULEUR_TEXTE, alignment=TA_CENTER, leading=12)
-    texte = ("NB : Tout bon de sortie validé fait office de signature numérique du chauffeur.")
+    texte = ("NB : Tout bon de sortie validé fait office de signature numérique.")
     t = Table([[Paragraph(texte, style)]], colWidths=[190 * mm])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), COULEUR_GRIS),
@@ -200,12 +200,17 @@ def _mention_legale():
     return t
 
 
+
 def generer_pdf_bon_sortie(bon):
     """
     Génère le PDF d'un bon de sortie (véhicule ou divers) au même
     style visuel que les devis/factures : en-tête GARAGE AUTO,
     badge d'état coloré, informations, détails véhicule ou description
     verticale pour un bon divers, et mention légale en pied de page.
+
+    Si le bon est de type VEHICULE, les dates d'entrée/sortie sont
+    récupérées depuis l'EnregistrementEntree lié (relation déjà
+    existante via bon.entrees_liees), sans paramètre supplémentaire.
 
     Retourne les bytes du PDF (utilisables directement dans une
     HttpResponse Django).
@@ -243,6 +248,17 @@ def generer_pdf_bon_sortie(bon):
         ("Créé par", bon.cree_par.full_name if bon.cree_par else "—"),
         ("Créé le", bon.created_at.strftime('%d/%m/%Y %H:%M')),
     ]
+
+    # Dates d'entrée/sortie : récupérées depuis l'EnregistrementEntree lié
+    # à ce bon (relation bon_sortie -> related_name='entrees_liees').
+    if bon.types == 'VEHICULE':
+        entree = bon.entrees_liees.first()
+        if entree:
+            date_entree_str = entree.date_entree.strftime('%d/%m/%Y %H:%M') if entree.date_entree else "—"
+            date_sortie_str = entree.date_sortie.strftime('%d/%m/%Y %H:%M') if entree.date_sortie else "—"
+            info_rows.append(("Date entrée", date_entree_str))
+            info_rows.append(("Date sortie", date_sortie_str))
+
     if bon.est_valide:
         info_rows.append(("Validé par", bon.valide_par.full_name if bon.valide_par else "—"))
         info_rows.append(("Validé le", bon.date_validation.strftime('%d/%m/%Y %H:%M') if bon.date_validation else "—"))

@@ -7,32 +7,125 @@
   <li><a href="{% url 'nouvelle_entree' %}" class="active"><span class="icon">➕</span> Nouvelle entrée</a></li>
 </ul>
 {% endblock %}
+
 {% block content %}
 <div class="page-header">
   <div><h1>Nouveau client / propriétaire</h1><div class="breadcrumb"><a href="{% url 'nouvelle_entree' %}">Nouvelle entrée</a> › Créer client</div></div>
 </div>
+
 <div class="card" style="max-width:640px;">
-  <form method="post">
+
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger">
+    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" id="client-form">
     {% csrf_token %}
+
     <div class="form-group">
-      <label class="form-label">Type de client</label>{{ form.type_client }}
+      <label class="form-label">Type de client</label>
+      {{ form.type_client }}
+      {% if form.type_client.errors %}<div class="form-error">{{ form.type_client.errors.0 }}</div>{% endif %}
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Nom / Raison sociale *</label>{{ form.nom }}{% if form.nom.errors %}<div class="form-error">{{ form.nom.errors.0 }}</div>{% endif %}</div>
-      <div class="form-group"><label class="form-label">Prénom</label>{{ form.prenom }}</div>
+
+    <!-- Particulier -->
+    <div id="flds-part">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label"><span class="required-label">Nom</span> *</label>
+          <input type="text" id="p-nom" name="nom" class="form-input" placeholder="Nom de famille"
+                 value="{{ form.nom.value|default:'' }}">
+          {% if form.nom.errors %}<div class="form-error">{{ form.nom.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prénom</label>
+          <input type="text" id="p-prenom" name="prenom" class="form-input" placeholder="Prénom"
+                 value="{{ form.prenom.value|default:'' }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label"><span class="required-label">Téléphone</span> *</label>
+          <input type="tel" id="p-tel" name="telephone" class="form-input" placeholder="6XX XXX XXX"
+                 value="{{ form.telephone.value|default:'' }}">
+          {% if form.telephone.errors %}<div class="form-error">{{ form.telephone.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="p-email" name="email" class="form-input" placeholder="email@exemple.cm"
+                 value="{{ form.email.value|default:'' }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Adresse</label>
+          <input type="text" id="p-adresse" name="adresse" class="form-input" placeholder="Quartier, rue..."
+                 value="{{ form.adresse.value|default:'' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ville</label>
+          <input type="text" id="p-ville" name="ville" class="form-input" placeholder="Douala, Yaoundé..."
+                 value="{{ form.ville.value|default:'' }}">
+        </div>
+      </div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Téléphone *</label>{{ form.telephone }}{% if form.telephone.errors %}<div class="form-error">{{ form.telephone.errors.0 }}</div>{% endif %}</div>
-      <div class="form-group"><label class="form-label">Téléphone 2</label>{{ form.telephone2 }}</div>
+
+    <!-- Entreprise -->
+    <div id="flds-ent" style="display:none">
+      <!-- Raison sociale -->
+      <div class="form-group">
+        <label class="form-label"><span class="required-label">Raison sociale</span> *</label>
+        <input type="text" id="e-nom" name="nom" class="form-input" placeholder="Nom de l'entreprise"
+               value="{{ form.nom.value|default:'' }}">
+        {% if form.nom.errors %}<div class="form-error">{{ form.nom.errors.0 }}</div>{% endif %}
+      </div>
+
+      <!-- NINEA + Email -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">NINEA / RC</label>
+          <input type="text" id="e-ninea" name="ninea" class="form-input" placeholder="NINEA ou RC"
+                 value="{{ form.ninea.value|default:'' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="e-email" name="email" class="form-input" placeholder="contact@entreprise.com"
+                 value="{{ form.email.value|default:'' }}">
+        </div>
+      </div>
+
+      <!-- Correspondant : Nom + Téléphone -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label"><span class="required-label">Nom du correspondant</span> *</label>
+          <input type="text" id="e-contact-nom" name="nom_correspondant" class="form-input" placeholder="Nom du contact"
+                 value="{{ form.nom_correspondant.value|default:'' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label"><span class="required-label">Téléphone du correspondant</span> *</label>
+          <input type="tel" id="e-contact-tel" name="telephone" class="form-input" placeholder="6XX XXX XXX"
+                 value="{{ form.telephone.value|default:'' }}">
+          {% if form.telephone.errors %}<div class="form-error">{{ form.telephone.errors.0 }}</div>{% endif %}
+        </div>
+      </div>
+
+      <!-- Ville + Adresse -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Ville</label>
+          <input type="text" id="e-ville" name="ville" class="form-input" placeholder="Douala, Yaoundé..."
+                 value="{{ form.ville.value|default:'' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Adresse</label>
+          <input type="text" id="e-adresse" name="adresse" class="form-input" placeholder="Quartier, rue, immeuble..."
+                 value="{{ form.adresse.value|default:'' }}">
+        </div>
+      </div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Email</label>{{ form.email }}</div>
-      <div class="form-group"><label class="form-label">NINEA / RC (entreprise)</label>{{ form.ninea }}</div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Adresse</label>{{ form.adresse }}</div>
-      <div class="form-group"><label class="form-label">Ville</label>{{ form.ville }}</div>
-    </div>
+
     <hr>
     <div style="display:flex;gap:12px;">
       <button type="submit" class="btn btn-primary">💾 Enregistrer le client</button>
@@ -40,4 +133,49 @@
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// =========================== BASCULE PARTICULIER / ENTREPRISE ===========================
+// Un seul bloc visible à la fois, piloté par le <select> form.type_client.
+// Les champs partagés (nom, telephone, email, adresse, ville) ont le même
+// `name` dans les deux blocs : comme un seul bloc est affiché et que l'autre
+// est masqué (display:none), seule la valeur du bloc visible est envoyée
+// au serveur lors du POST — les navigateurs n'envoient pas les valeurs des
+// champs masqués... SAUF si le champ a été rempli puis caché sans être vidé.
+// Pour éviter tout envoi de valeurs fantômes du bloc caché, on les désactive
+// (disabled) plutôt que de compter uniquement sur display:none.
+
+const typeClientSelect = document.querySelector('#client-form select[name="type_client"]')
+  || document.querySelector('#client-form [name="type_client"]');
+const fldsPart = document.getElementById('flds-part');
+const fldsEnt = document.getElementById('flds-ent');
+
+function disableFields(container, disabled) {
+  container.querySelectorAll('input, select, textarea').forEach(el => {
+    el.disabled = disabled;
+  });
+}
+
+function updateClientType() {
+  if (!typeClientSelect) return;
+  const isEntreprise = typeClientSelect.value === 'ENTREPRISE';
+
+  fldsPart.style.display = isEntreprise ? 'none' : 'block';
+  fldsEnt.style.display = isEntreprise ? 'block' : 'none';
+
+  // Désactive les champs du bloc caché pour qu'ils ne soient pas
+  // soumis avec le formulaire (sinon le name="nom" en double pourrait
+  // envoyer la valeur du mauvais bloc si l'utilisateur a tapé dans les
+  // deux avant de changer de type).
+  disableFields(fldsPart, isEntreprise);
+  disableFields(fldsEnt, !isEntreprise);
+}
+
+if (typeClientSelect) {
+  typeClientSelect.addEventListener('change', updateClientType);
+  updateClientType(); // état initial au chargement (utile en cas de retour avec erreurs de formulaire)
+}
+</script>
 {% endblock %}

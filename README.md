@@ -248,7 +248,7 @@ garage_suivi/
 # Obtenir un token JWT
 curl -X POST http://localhost/api/v1/auth/token/ \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@garage.cm","password":"Admin@2024"}'
+  -d '{"email":"admin@garage.cm","password":"Admin@2026"}'
 
 # Utiliser le token
 curl http://localhost/api/v1/vehicules/vehicules/ \

@@ -33,7 +33,8 @@ urlpatterns = [
     path('bons-sortie/<uuid:bon_id>/pdf/',            views.pdf_bon_sortie_guerite,    name='pdf_bon_sortie_guerite'),
     path('bons-sortie/creer-divers/',            views.creer_bon_sortie_divers,    name='creer_bon_sortie_divers'),
     path('autocomplete/vehicules-presents/', views.autocomplete_vehicules_presents, name='autocomplete_vehicules_presents'),
-
+    path('autocomplete/demandeur/', views.autocomplete_demandeur, name='autocomplete_demandeur'),
+path('demandeur/creer-ajax/', views.creer_demandeur_ajax, name='creer_demandeur_ajax'),
 
 ]
  

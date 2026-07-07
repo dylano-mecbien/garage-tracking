@@ -10,7 +10,6 @@
             <span class="icon">📊</span> Tableau de bord
         </a>
     </li>
-
     <li>
         <a href="{% url 'liste_receptions' %}">
             <span class="icon">📋</span> Historique des Réceptions
@@ -50,33 +49,46 @@
 
 {% block extra_css %}
 <style>
-/* Style pour la sélection employé */
-.emp-search-wrap { position: relative; }
-.emp-results {
+.dem-search-wrap { position: relative; }
+.dem-results {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0;
   background: var(--surface); border: 1.5px solid var(--primary-light);
   border-radius: 8px; box-shadow: var(--shadow-md); z-index: 300;
-  max-height: 280px; overflow-y: auto; display: none;
+  max-height: 320px; overflow-y: auto; display: none;
 }
-.emp-results.open { display: block; }
-.emp-item {
+.dem-results.open { display: block; }
+.dem-item {
   padding: 10px 14px; cursor: pointer;
   border-bottom: 1px solid var(--border); transition: background .15s;
   display: flex; align-items: center; gap: 12px;
 }
-.emp-item:last-child { border-bottom: none; }
-.emp-item:hover { background: var(--surface2); }
-.emp-avatar {
+.dem-item:last-child { border-bottom: none; }
+.dem-item:hover { background: var(--surface2); }
+.dem-avatar {
   width: 34px; height: 34px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
 }
-.emp-selected {
+.dem-source-badge {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 4px; letter-spacing: .3px;
+}
+.dem-source-CLIENT     { background: #e0f2fe; color: #075985; }
+.dem-source-EMPLOYE     { background: #ede9fe; color: #5b21b6; }
+.dem-source-DEMANDEUR   { background: #f1f5f9; color: #475569; }
+
+.dem-item.create-new {
+  color: var(--primary); font-weight: 600;
+  border-top: 1px solid var(--border);
+}
+.dem-item.create-new:hover { background: var(--surface2); }
+
+.dem-selected {
   display: none; background: var(--surface2);
   border: 1.5px solid var(--success); border-radius: 8px;
   padding: 12px 16px; align-items: center; gap: 12px;
 }
-.emp-selected.show { display: flex; }
+.dem-selected.show { display: flex; }
 
 /* Aperçu "cahier" des articles saisis */
 .ligne-item {
@@ -86,9 +98,7 @@
   border-bottom: 1px dashed #e5e7eb;
   font-size: 14px;
 }
-.ligne-item:last-child {
-  border-bottom: none;
-}
+.ligne-item:last-child { border-bottom: none; }
 .ligne-number {
   display: inline-block;
   width: 24px;
@@ -96,14 +106,19 @@
   color: #6b7280;
   font-size: 12px;
 }
-.ligne-text {
-  flex: 1;
-  word-break: break-word;
+.ligne-text { flex: 1; word-break: break-word; }
+.ligne-item:hover { background-color: #f3f4f6; border-radius: 4px; }
+
+/* Petit formulaire de création rapide (numéro + description) */
+.quick-create-form {
+  display: none;
+  margin-top: 10px;
+  background: var(--surface2);
+  border: 1.5px dashed var(--primary-light);
+  border-radius: 8px;
+  padding: 14px;
 }
-.ligne-item:hover {
-  background-color: #f3f4f6;
-  border-radius: 4px;
-}
+.quick-create-form.open { display: block; }
 </style>
 {% endblock %}
 
@@ -125,27 +140,52 @@
       <div class="card-title">📝 Informations du bon</div>
     </div>
 
-    <!-- ① Demandeur -->
+    <!-- ① Demandeur : recherche fusionnée Client / Employé / Demandeur -->
     <div class="form-group">
       <label class="form-label">👤 Demandeur *</label>
-      <div class="emp-search-wrap">
-        <input type="text" id="emp-search" class="form-input"
-               placeholder="Tapez le nom, rôle ou matricule..."
+      <div class="dem-search-wrap" id="dem-search-wrap">
+        <input type="text" id="dem-search" class="form-input"
+               placeholder="Tapez un nom, numéro, matricule..."
                autocomplete="off">
-        <div class="emp-results" id="emp-results"></div>
+        <div class="dem-results" id="dem-results"></div>
       </div>
 
-      <div class="emp-selected" id="emp-box">
-        <div class="emp-avatar" id="emp-avatar" style="background:var(--primary);">??</div>
-        <div style="flex:1;">
-          <div class="font-bold" id="emp-name">—</div>
-          <div class="text-small text-muted" id="emp-role">—</div>
-          <div class="text-small text-muted" id="emp-mat">—</div>
+      <!-- Formulaire rapide de création (affiché si aucune correspondance) -->
+      <div class="quick-create-form" id="quick-create-form">
+        <div class="text-small text-muted" style="margin-bottom:8px;">
+          Aucune correspondance trouvée. Compléter pour créer ce demandeur :
         </div>
-        <button type="button" onclick="clearEmp()" class="btn btn-outline btn-sm">✕</button>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nom *</label>
+            <input type="text" id="qc-nom" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Numéro *</label>
+            <input type="text" id="qc-numero" class="form-input" placeholder="6XX XXX XXX">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description (optionnel)</label>
+          <input type="text" id="qc-description" class="form-input" placeholder="Précision sur ce demandeur">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" onclick="creerDemandeur()" class="btn btn-primary btn-sm">✅ Créer et sélectionner</button>
+          <button type="button" onclick="closeQuickCreate()" class="btn btn-outline btn-sm">Annuler</button>
+        </div>
       </div>
+
+      <!-- Demandeur sélectionné -->
+      <div class="dem-selected" id="dem-box">
+        <div class="dem-avatar" id="dem-avatar" style="background:var(--primary);">??</div>
+        <div style="flex:1;">
+          <div class="font-bold" id="dem-name">—</div>
+          <div class="text-small text-muted" id="dem-detail">—</div>
+        </div>
+        <button type="button" onclick="clearDem()" class="btn btn-outline btn-sm">✕ Changer</button>
+      </div>
+
       <input type="hidden" name="nom_demandeur" id="nom-dem-hidden">
-      <input type="hidden" name="demandeur_id"  id="dem-id-hidden">
     </div>
 
     <!-- ② Articles / Lignes -->
@@ -158,9 +198,7 @@
       <!-- Aperçu en temps réel (cahier) -->
       <div id="cahier-preview" style="margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fafbfc; min-height: 50px;">
         <div style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">📋 Aperçu des lignes :</div>
-        <div id="lignes-container" style="display: flex; flex-direction: column; gap: 4px;">
-          <!-- Les lignes apparaîtront ici dynamiquement -->
-        </div>
+        <div id="lignes-container" style="display: flex; flex-direction: column; gap: 4px;"></div>
         <div id="empty-message" style="color: #9ca3af; font-style: italic; text-align: center; padding: 8px 0;">
           Aucune ligne saisie
         </div>
@@ -185,21 +223,40 @@
 
 {% block extra_js %}
 <script>
+// =========================== UTILITAIRES ===========================
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    if (m === '"') return '&quot;';
+    return '&#039;';
+  });
+}
 
+function initiales(nom) {
+  const parts = nom.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+const SOURCE_COULEUR = {
+  CLIENT: '#0284c7',
+  EMPLOYE: '#7c3aed',
+  DEMANDEUR: '#64748b',
+};
+const SOURCE_LABEL = {
+  CLIENT: 'Client',
+  EMPLOYE: 'Employé',
+  DEMANDEUR: 'Demandeur',
+};
+
+// =========================== APERÇU CAHIER (articles) ===========================
 document.addEventListener('DOMContentLoaded', function() {
   const textarea = document.getElementById('obs-textarea');
   const container = document.getElementById('lignes-container');
   const emptyMsg = document.getElementById('empty-message');
-
-  function escapeHtml(unsafe) {
-    return unsafe.replace(/[&<>"]/g, function(m) {
-      if (m === '&') return '&amp;';
-      if (m === '<') return '&lt;';
-      if (m === '>') return '&gt;';
-      if (m === '"') return '&quot;';
-      return m;
-    });
-  }
 
   function updatePreview() {
     const raw = textarea.value;
@@ -228,103 +285,168 @@ document.addEventListener('DOMContentLoaded', function() {
   updatePreview();
 });
 
-// ── Données employés ──────────────────────────────────────────────
-const EMPLOYES = [
-  {% for emp in employes %}
-  {
-    id:       "{{ emp.id }}",
-    nom:      "{{ emp.full_name|escapejs }}",
-    role:     "{{ emp.get_role_display|escapejs }}",
-    matricule:"{{ emp.matricule|default:''|escapejs }}",
-    initiales:"{{ emp.prenom|first|upper }}{{ emp.nom|first|upper }}",
-    couleur:  "{% if emp.role == 'ADMIN' %}#8e44ad{% elif emp.role == 'RESP_ATELIER' %}#e67e22{% elif emp.role == 'TECHNICIEN' %}#c0392b{% elif emp.role == 'RECEPTIONNISTE' %}#2980b9{% else %}#27ae60{% endif %}"
-  }{% if not forloop.last %},{% endif %}
-  {% endfor %}
-];
+// =========================== RECHERCHE DEMANDEUR (fusionnée) ===========================
+let demTimeout = null;
+let demAbort = null;
 
-// ── Sélection employé ────────────────────────────────────────────────────────
-let dbt;
-const empSearch = document.getElementById('emp-search');
-const empResults = document.getElementById('emp-results');
-const empBox = document.getElementById('emp-box');
-const empNameSpan = document.getElementById('emp-name');
-const empRoleSpan = document.getElementById('emp-role');
-const empMatSpan = document.getElementById('emp-mat');
-const empAvatar = document.getElementById('emp-avatar');
+const demSearch = document.getElementById('dem-search');
+const demResults = document.getElementById('dem-results');
+const demBox = document.getElementById('dem-box');
+const demNameSpan = document.getElementById('dem-name');
+const demDetailSpan = document.getElementById('dem-detail');
+const demAvatar = document.getElementById('dem-avatar');
 const nomDemHidden = document.getElementById('nom-dem-hidden');
-const demIdHidden = document.getElementById('dem-id-hidden');
+const quickCreateForm = document.getElementById('quick-create-form');
 
-function renderEmps(q) {
-  if (!q || q.length < 1) { closeEmpRes(); return; }
-  const results = EMPLOYES.filter(e =>
-    e.nom.toLowerCase().includes(q) ||
-    e.role.toLowerCase().includes(q) ||
-    e.matricule.toLowerCase().includes(q)
-  ).slice(0, 8);
+demSearch.addEventListener('input', function () {
+  clearTimeout(demTimeout);
+  const q = this.value.trim();
+  closeQuickCreate();
+  if (q.length < 2) {
+    demResults.classList.remove('open');
+    return;
+  }
+  demTimeout = setTimeout(() => doSearchDemandeur(q), 300);
+});
 
-  empResults.innerHTML = '';
+async function doSearchDemandeur(q) {
+  if (demAbort) demAbort.abort();
+  demAbort = new AbortController();
+  try {
+    const resp = await fetch(`{% url 'autocomplete_demandeur' %}?q=${encodeURIComponent(q)}`, {
+      signal: demAbort.signal
+    });
+    const data = await resp.json();
+    renderDemandeurResults(data.results || [], q);
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(e);
+  }
+}
+
+function renderDemandeurResults(results, q) {
+  demResults.innerHTML = '';
+
+  const qNorm = q.trim().toLowerCase();
+  const exactMatch = results.some(r => r.nom.trim().toLowerCase() === qNorm);
+
   if (!results.length) {
-    empResults.innerHTML = '<div style="padding:12px 14px;color:var(--text-muted);font-size:13px;">Aucun employé trouvé</div>';
-    empResults.classList.add('open');
+    demResults.innerHTML = '<div style="padding:12px 14px;color:var(--text-muted);font-size:13px;">Aucune correspondance trouvée</div>';
+  } else {
+    results.forEach(r => {
+      const div = document.createElement('div');
+      div.className = 'dem-item';
+      const couleur = SOURCE_COULEUR[r.source] || '#64748b';
+      const label = SOURCE_LABEL[r.source] || r.source;
+      div.innerHTML = `
+        <div class="dem-avatar" style="background:${couleur};">${initiales(r.nom)}</div>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:13px;">${escapeHtml(r.nom)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${escapeHtml(r.numero || '')}${r.detail ? ' · ' + escapeHtml(r.detail) : ''}</div>
+        </div>
+        <span class="dem-source-badge dem-source-${r.source}">${label}</span>
+      `;
+      div.onclick = () => selectDem(r);
+      demResults.appendChild(div);
+    });
+  }
+
+  // Bouton "Créer" si aucune correspondance exacte sur le nom
+  if (!exactMatch && q.trim().length >= 2) {
+    const c = document.createElement('div');
+    c.className = 'dem-item create-new';
+    c.innerHTML = `<span>➕</span> Créer "${escapeHtml(q.trim())}" comme nouveau demandeur`;
+    c.onclick = () => openQuickCreate(q.trim());
+    demResults.appendChild(c);
+  }
+
+  demResults.classList.add('open');
+}
+
+function selectDem(r) {
+  nomDemHidden.value = r.nom;
+  demNameSpan.textContent = r.nom;
+  demDetailSpan.textContent = `${SOURCE_LABEL[r.source] || r.source}${r.numero ? ' · ' + r.numero : ''}`;
+  demAvatar.textContent = initiales(r.nom);
+  demAvatar.style.background = SOURCE_COULEUR[r.source] || '#64748b';
+  demBox.classList.add('show');
+  document.getElementById('dem-search-wrap').style.display = 'none';
+  closeDemRes();
+  closeQuickCreate();
+}
+
+function clearDem() {
+  nomDemHidden.value = '';
+  demBox.classList.remove('show');
+  document.getElementById('dem-search-wrap').style.display = '';
+  demSearch.value = '';
+  demSearch.focus();
+  closeQuickCreate();
+}
+
+function closeDemRes() {
+  demResults.classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dem-search-wrap')) closeDemRes();
+});
+
+// =========================== CRÉATION RAPIDE D'UN DEMANDEUR ===========================
+function openQuickCreate(nomPrefill) {
+  closeDemRes();
+  quickCreateForm.classList.add('open');
+  document.getElementById('qc-nom').value = nomPrefill || '';
+  document.getElementById('qc-numero').value = '';
+  document.getElementById('qc-description').value = '';
+}
+
+function closeQuickCreate() {
+  quickCreateForm.classList.remove('open');
+}
+
+async function creerDemandeur() {
+  const nom = document.getElementById('qc-nom').value.trim();
+  const numero = document.getElementById('qc-numero').value.trim();
+  const description = document.getElementById('qc-description').value.trim();
+
+  if (!nom || !numero) {
+    alert('Le nom et le numéro sont obligatoires.');
     return;
   }
 
-  results.forEach(e => {
-    const div = document.createElement('div');
-    div.className = 'emp-item';
-    div.innerHTML = `
-      <div class="emp-avatar" style="background:${e.couleur};">${e.initiales}</div>
-      <div>
-        <div style="font-weight:700;font-size:13px;">${e.nom}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${e.role}${e.matricule ? ' · ' + e.matricule : ''}</div>
-      </div>`;
-    div.onclick = () => selectEmp(e);
-    empResults.appendChild(div);
-  });
-  empResults.classList.add('open');
+  try {
+    const resp = await fetch("{% url 'creer_demandeur_ajax' %}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({ nom, numero, description })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      selectDem({
+        source: 'DEMANDEUR',
+        nom: data.nom,
+        numero: data.numero,
+        detail: data.detail,
+      });
+    } else {
+      alert(data.error || "Erreur lors de la création.");
+    }
+  } catch (e) {
+    alert('Erreur réseau.');
+  }
 }
 
-function selectEmp(e) {
-  nomDemHidden.value = e.nom;
-  demIdHidden.value  = e.id;
-  empNameSpan.textContent = e.nom;
-  empRoleSpan.textContent = e.role;
-  empMatSpan.textContent = e.matricule ? `Matricule: ${e.matricule}` : '';
-  empAvatar.textContent = e.initiales;
-  empAvatar.style.background = e.couleur;
-  empBox.classList.add('show');
-  empSearch.style.display = 'none';
-  closeEmpRes();
-}
-
-function clearEmp() {
-  nomDemHidden.value = '';
-  demIdHidden.value  = '';
-  empBox.classList.remove('show');
-  empSearch.style.display = '';
-  empSearch.value = '';
-}
-
-function closeEmpRes() {
-  empResults.classList.remove('open');
-}
-
-empSearch.addEventListener('input', function() {
-  clearTimeout(dbt);
-  const q = this.value.trim().toLowerCase();
-  dbt = setTimeout(() => renderEmps(q), 200);
-});
-document.addEventListener('click', e => {
-  if (!e.target.closest('.emp-search-wrap')) closeEmpRes();
-});
-
-// ── Validation avant soumission ──────────────────────────────────────────────
+// =========================== VALIDATION AVANT SOUMISSION ===========================
 document.getElementById('bon-form').addEventListener('submit', function(e) {
   const dem = nomDemHidden.value;
   const obs = document.getElementById('obs-textarea').value.trim();
   if (!dem) {
     e.preventDefault();
-    alert('⚠️ Veuillez sélectionner un demandeur.');
+    alert('⚠️ Veuillez sélectionner ou créer un demandeur.');
     return;
   }
   if (!obs) {

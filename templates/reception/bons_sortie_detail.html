@@ -203,18 +203,22 @@
 
 <!-- ── Zone de signature ── -->
 {% if not bon.est_valide %}
+
     {% if super and bon.types != 'VEHICULE' %}
         <!-- ── Zone de signature ── -->
-        <div class="card mt-2 no-print">
+         <div style="background:#fef9c3;border-radius:8px;padding:16px;margin-bottom:20px;">
+
+        
             <div class="card-header">
-                <div class="card-title">✍️ Signature du demandeur</div>
+                <div class="card-title">✍️ Signature pour la sortie</div>
             </div>
 
             <div class="text-small text-muted" style="margin-bottom:12px;">
-                Faites signer le demandeur ci-dessous puis validez le bon.
+                signez  ci-dessous puis validez le bon.
             </div>
 
-            <canvas id="sig-canvas"></canvas>
+      <canvas id="sig-canvas" width="100%" height="160" style="width:100%;border:2px dashed var(--border);border-radius:8px;background:#fff;display:block;"></canvas>
+
 
             <div class="sig-actions">
                 <button type="button"
@@ -242,6 +246,7 @@
             </form>
         </div>
     {% endif %}
+
 {% elif bon.signature_client %}
     <!-- Signature déjà faite -->
     <div class="card mt-2">

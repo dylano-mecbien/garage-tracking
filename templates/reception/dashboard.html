@@ -73,6 +73,23 @@
 </div>
 
 
+<!-- KPI Guerite-->
+<div class="kpi-grid">
+  <div class="kpi-card success">
+    <div class="kpi-label">📥 Entrées aujourd'hui</div>
+    <div class="kpi-value">{{ nb_entrees_today }}</div>
+  </div>
+  <div class="kpi-card info">
+    <div class="kpi-label">📤 Sorties aujourd'hui</div>
+    <div class="kpi-value">{{ nb_sorties_today }}</div>
+  </div>
+  <div class="kpi-card accent">
+    <div class="kpi-label">🚗 Véhicules présents</div>
+    <div class="kpi-value">{{ vehicules_presents|length }}</div>
+    <div class="kpi-sub">Dans le local actuellement</div>
+  </div>
+</div>
+
 <!-- KPI -->
 <div class="kpi-grid">
   <div class="kpi-card accent">
@@ -164,14 +181,14 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Véhicule</th><th>Client</th><th>Heure</th><th>Statut</th></tr></thead>
+        <thead><tr><th>Véhicule</th><th>Client</th><th>Entrée</th><th>Sortie</th><th>Statut</th></tr></thead>
         <tbody>
           {% for entree in entrees_recentes %}
           <tr>
             <td><a href="{% url 'detail_entree_rec' entree.id %}">{{ entree.vehicule.immatriculation  }}</a></td>
             <td>{{ entree.vehicule.client  }}</td>
-            <td>{{ entree.date_entree|date:"H:i" }}</td>
-           
+            <td>{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
+            <td>{{ entree.date_sortie|date:"d/m/Y H:i" }}</td>
 
           <td>{% if entree.statut != 'SORTI' %}<span class="badge badge-en-cours">Présent</span>{% else %}<span class="badge badge-cloture">Sorti</span>{% endif %}</td>
 

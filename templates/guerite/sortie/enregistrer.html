@@ -51,11 +51,27 @@
 <div class="card mb-2">
   <div class="card-header"><div class="card-title">📄 Vérification bon de sortie</div></div>
   {% if bon_sortie %}
-  <div style="display:flex;align-items:center;gap:16px;padding:12px;background:#d1fae5;border-radius:8px;border:2px solid var(--success);">
+  <div onclick="ouvrirObservationsBon()"
+       style="display:flex;align-items:center;gap:16px;padding:12px;background:#d1fae5;border-radius:8px;border:2px solid var(--success);cursor:pointer;transition:filter .15s;"
+       onmouseover="this.style.filter='brightness(0.97)'" onmouseout="this.style.filter='none'"
+       title="Cliquer pour voir les observations du bon">
     <span style="font-size:36px;">✅</span>
-    <div>
+    <div style="flex:1;">
       <div class="font-bold" style="color:var(--success);font-size:16px;">Bon de sortie  trouvé</div>
       <div>N° <strong>{{ bon_sortie.numero }}</strong></div>
+    </div>
+    <span style="font-size:13px;color:var(--success);font-weight:600;">👁 Voir observations</span>
+  </div>
+
+  <!-- Modale observations du bon de sortie -->
+  <div id="obs-bon-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;padding:20px;max-width:480px;width:90%;max-height:80vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <strong style="font-size:16px;">📄 Bon de sortie N° {{ bon_sortie.numero }}</strong>
+        <button type="button" onclick="fermerObservationsBon()" class="btn btn-outline btn-sm">✕</button>
+      </div>
+      <div class="text-small text-muted" style="margin-bottom:10px;">Observations :</div>
+      <div id="obs-bon-content" style="background:var(--surface2);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;"></div>
     </div>
   </div>
   {% else %}
@@ -178,6 +194,53 @@ function updateButton() {
 
 // Cache le bouton au chargement si pas de signature
 updateButton();
+
+// =========================== MODALE OBSERVATIONS BON DE SORTIE ===========================
+{% if bon_sortie %}
+function renderObservationsBon() {
+  const container = document.getElementById('obs-bon-content');
+  const raw = "{{ bon_sortie.observations|default:''|escapejs }}";
+  const articles = raw.split(/[;\n]+/).map(s => s.trim()).filter(s => s.length > 0);
+
+  if (articles.length === 0) {
+    container.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">Aucune observation renseignée.</span>';
+    return;
+  }
+
+  if (articles.length === 1) {
+    container.textContent = articles[0];
+    return;
+  }
+
+  const ol = document.createElement('ol');
+  ol.style.margin = '0';
+  ol.style.paddingLeft = '18px';
+  articles.forEach(a => {
+    const li = document.createElement('li');
+    li.style.margin = '3px 0';
+    li.textContent = a;
+    ol.appendChild(li);
+  });
+  container.innerHTML = '';
+  container.appendChild(ol);
+}
+
+function ouvrirObservationsBon() {
+  renderObservationsBon();
+  document.getElementById('obs-bon-modal').style.display = 'flex';
+}
+
+function fermerObservationsBon() {
+  document.getElementById('obs-bon-modal').style.display = 'none';
+}
+
+// Fermer en cliquant en dehors de la boîte, ou avec la touche Échap
+document.getElementById('obs-bon-modal').addEventListener('click', function(e) {
+  if (e.target === this) fermerObservationsBon();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') fermerObservationsBon();
+});
+{% endif %}
 </script>
 {% endblock %}
-
