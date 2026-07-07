@@ -141,6 +141,7 @@ psql -h localhost -p 5432 -U garage_user -d garage_db
 # autre
 find . -path "*/migrations/*.py" -not -name "__init__.py" -delete
 sudo systemctl stop postgresql
+docker rm garage_web
 sudo find . -path "*/migrations/*.py" -not -name "__init__.py" -delete
 
 

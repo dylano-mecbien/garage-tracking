@@ -28,7 +28,6 @@ db.sqlite3-journal
 /static/
 /staticfiles/
 /collectstatic/
-.env
 venv/
 env/
 ENV/
