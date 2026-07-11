@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block title %}Destinataires email{% endblock %}
+{% block page_title %}📧 Destinataires email{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Administration</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'admin_dashboard' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+  <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+    <li><a href="{% url 'destinataires_email' %}" class="active"><span class="icon">📧</span> Destinataires email</a></li>
+
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.dest-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  margin-bottom: 10px;
+  transition: all .2s;
+}
+.dest-card:hover { box-shadow: var(--shadow); }
+.dest-card.inactif { opacity: .55; border-style: dashed; }
+
+.email-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0; color: #fff; font-weight: 700;
+}
+.email-avatar.inactif { background: var(--border); color: var(--text-muted); }
+
+.inline-form {
+  display: none; animation: fadeIn .2s ease;
+  background: var(--surface2); border: 1.5px solid var(--primary-light);
+  border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+}
+.inline-form.open { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+
+.test-result {
+  display: none; padding: 10px 14px; border-radius: 8px;
+  font-size: 13px; margin-top: 8px;
+}
+.test-result.success { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; }
+.test-result.error   { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+.test-result.show    { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Destinataires — Bons de sortie</h1>
+    <div class="breadcrumb">
+      Ces adresses reçoivent un email à chaque création de bon de sortie
+    </div>
+  </div>
+  <button onclick="openForm()" class="btn btn-primary">➕ Ajouter un destinataire</button>
+</div>
+
+<!-- Infos -->
+<div style="background:var(--surface2);border-left:4px solid var(--info);border-radius:8px;padding:14px 18px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-start;">
+  <span style="font-size:20px;flex-shrink:0;">ℹ️</span>
+  <div>
+    <div class="font-bold text-small">Comment ça fonctionne</div>
+    <div class="text-small text-muted" style="margin-top:2px;">
+      Lorsqu'un bon de sortie divers est créé , un email de notification est automatiquement envoyé
+      à toutes les adresses <strong>actives</strong> ci-dessous, leur demandant de venir valider le bon.
+    </div>
+  </div>
+</div>
+
+<!-- Formulaire d'ajout / modification -->
+<div class="inline-form" id="inline-form">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <strong id="form-title">➕ Nouveau destinataire</strong>
+    <button type="button" onclick="closeForm()" class="btn btn-outline btn-sm">✕ Fermer</button>
+  </div>
+  <form method="post" id="dest-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="form-action" value="creer">
+    <input type="hidden" name="dest_id" id="form-dest-id" value="">
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">📧 Adresse email *</label>
+        <input type="email" name="email" id="form-email" class="form-input"
+               placeholder="valideur@garage.cm" required>
+        <div class="text-small text-muted mt-1">Doit être une adresse email valide et accessible</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">👤 Nom (optionnel)</label>
+        <input type="text" name="nom" id="form-nom" class="form-input"
+               placeholder="Ex: M. Directeur, Chef Atelier...">
+        <div class="text-small text-muted mt-1">Affiché dans l'email de notification</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <input type="checkbox" name="actif" id="form-actif" checked
+               style="width:18px;height:18px;accent-color:var(--primary);">
+        <span>Destinataire <strong>actif</strong> (reçoit les notifications)</span>
+      </label>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button type="submit" class="btn btn-primary" style="padding:10px 24px;">
+        💾 <span id="btn-submit-label">Ajouter le destinataire</span>
+      </button>
+      <button type="button" onclick="closeForm()" class="btn btn-outline">Annuler</button>
+    </div>
+  </form>
+</div>
+
+<!-- Stats rapides -->
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;">
+    📧 {{ destinataires|length }} destinataire{{ destinataires|length|pluralize }} total
+  </div>
+  <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#065f46;">
+    ✅ {{ nb_actifs }} actif{{ nb_actifs|pluralize }}
+  </div>
+  {% if nb_inactifs %}
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--text-muted);">
+    ⏸ {{ nb_inactifs }} inactif{{ nb_inactifs|pluralize }}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Messages Django -->
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags }}" style="margin-bottom:12px;">{{ msg }}</div>
+{% endfor %}
+
+<!-- Liste des destinataires -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">📋 Destinataires configurés</div>
+
+  </div>
+
+  <!-- Résultat du test -->
+  <div class="test-result" id="test-result"></div>
+
+  {% if destinataires %}
+  {% for d in destinataires %}
+  <div class="dest-card {% if not d.actif %}inactif{% endif %}" id="dest-{{ d.id }}">
+
+    <!-- Avatar -->
+    <div class="email-avatar {% if not d.actif %}inactif{% endif %}">
+      {% if d.nom %}{{ d.nom|first|upper }}{% else %}@{% endif %}
+    </div>
+
+    <!-- Infos -->
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <strong style="font-size:14px;">{{ d.email }}</strong>
+        {% if d.actif %}
+        <span class="badge badge-success" style="font-size:10px;">✅ Actif</span>
+        {% else %}
+        <span class="badge badge-secondary" style="font-size:10px;">⏸ Inactif</span>
+        {% endif %}
+      </div>
+      {% if d.nom %}
+      <div class="text-small text-muted">{{ d.nom }}</div>
+      {% endif %}
+      <div class="text-small text-muted" style="margin-top:2px;">
+        Ajouté le {{ d.created_at|date:"d/m/Y" }}
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:6px;align-items:center;">
+      <!-- Toggle actif/inactif -->
+      <form method="post" style="display:inline;">
+        {% csrf_token %}
+        <input type="hidden" name="action"  value="toggle">
+        <input type="hidden" name="dest_id" value="{{ d.id }}">
+        <button class="btn {% if d.actif %}btn-warning{% else %}btn-success{% endif %} btn-sm"
+                title="{% if d.actif %}Désactiver{% else %}Activer{% endif %}">
+          {% if d.actif %}⏸ Désactiver{% else %}▶️ Activer{% endif %}
+        </button>
+      </form>
+
+      <!-- Modifier -->
+      <button onclick="editDest('{{ d.id }}', '{{ d.email }}', '{{ d.nom|default:'' }}', {{ d.actif|lower }})"
+              class="btn btn-info btn-sm">✏️ Modifier</button>
+
+      <!-- Supprimer -->
+      <form method="post" style="display:inline;"
+            onsubmit="return confirm('Supprimer {{ d.email }} ?')">
+        {% csrf_token %}
+        <input type="hidden" name="action"  value="supprimer">
+        <input type="hidden" name="dest_id" value="{{ d.id }}">
+        <button class="btn btn-outline btn-sm" style="border-color:var(--danger);color:var(--danger);">
+          🗑
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% else %}
+  <div style="text-align:center;padding:50px;color:var(--text-muted);">
+    <div style="font-size:48px;margin-bottom:12px;">📧</div>
+    <div class="font-bold" style="margin-bottom:6px;">Aucun destinataire configuré</div>
+    <div class="text-small">Ajoutez au moins une adresse pour recevoir les notifications de bons de sortie.</div>
+    <button onclick="openForm()" class="btn btn-primary" style="margin-top:16px;">➕ Ajouter le premier destinataire</button>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openForm() {
+  document.getElementById('form-title').textContent = '➕ Nouveau destinataire';
+  document.getElementById('form-action').value  = 'creer';
+  document.getElementById('form-dest-id').value = '';
+  document.getElementById('form-email').value   = '';
+  document.getElementById('form-nom').value     = '';
+  document.getElementById('form-actif').checked = true;
+  document.getElementById('btn-submit-label').textContent = 'Ajouter le destinataire';
+  document.getElementById('inline-form').classList.add('open');
+  document.getElementById('inline-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  document.getElementById('form-email').focus();
+}
+
+function closeForm() {
+  document.getElementById('inline-form').classList.remove('open');
+}
+
+function editDest(id, email, nom, actif) {
+  document.getElementById('form-title').textContent = '✏️ Modifier le destinataire';
+  document.getElementById('form-action').value  = 'modifier';
+  document.getElementById('form-dest-id').value = id;
+  document.getElementById('form-email').value   = email;
+  document.getElementById('form-nom').value     = nom;
+  document.getElementById('form-actif').checked = actif;
+  document.getElementById('btn-submit-label').textContent = 'Enregistrer les modifications';
+  document.getElementById('inline-form').classList.add('open');
+  document.getElementById('inline-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  document.getElementById('form-email').focus();
+}
+
+async function envoyerTest() {
+  const res = document.getElementById('test-result');
+  res.className = 'test-result show';
+  res.textContent = '⏳ Envoi du test en cours...';
+  try {
+    const r    = await fetch("{% url 'test_email_bon_sortie' %}", {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    const data = await r.json();
+    if (data.success) {
+      res.className = 'test-result success show';
+      res.textContent = '✅ ' + data.message;
+    } else {
+      res.className = 'test-result error show';
+      res.textContent = '❌ ' + data.error;
+    }
+  } catch(e) {
+    res.className = 'test-result error show';
+    res.textContent = '❌ Erreur réseau lors du test.';
+  }
+  setTimeout(() => res.classList.remove('show'), 6000);
+}
+</script>
+{% endblock %}

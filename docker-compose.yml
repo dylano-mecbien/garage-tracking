@@ -46,23 +46,6 @@ services:
       timeout: 5s
       retries: 5
 
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      minio:
-        condition: service_healthy
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET:-garage-docs}
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
-      mc mb --ignore-existing local/$$MINIO_BUCKET;
-      mc anonymous set download local/$$MINIO_BUCKET;
-      exit 0;
-      "
-
 
   pgadmin:
     image: dpage/pgadmin4
@@ -86,10 +69,11 @@ services:
              python manage.py makemigrations reception &&
              python manage.py makemigrations guerite &&
              python manage.py makemigrations audit &&
+             python manage.py makemigrations notifications &&
              python manage.py migrate &&
              python manage.py collectstatic --noinput &&
              python manage.py create_default_admin &&
-             gunicorn garage.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"
+             gunicorn garage.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 2 --timeout 120"
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
@@ -107,6 +91,7 @@ services:
   nginx:
     image: nginx:alpine
     container_name: garage_nginx
+    restart: always
     ports:
       - "80:80"
     volumes:

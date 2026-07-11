@@ -34,7 +34,7 @@ INSTALLED_APPS = [
     'apps.vehicules',
     'apps.guerite', 
     'apps.reception',
-    
+    'apps.notifications',
     'apps.documents',
     'apps.audit',
 ]

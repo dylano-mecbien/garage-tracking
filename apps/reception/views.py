@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.db.models import Q, Sum
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
+from apps.notifications.hook import notifier_bon_sortie_cree
 from .models import Reception, StatutVehicule, RapportReception, TransfertAtelier, Notification
 from .forms import ReceptionForm, RapportReceptionForm, TransfertAtelierForm, BonSortieForm, ORReceptionForm
 from apps.guerite.models import EnregistrementEntree, BonSortie, StatutEntree, MotifEntree, StatutViewHinstorisue
@@ -810,6 +811,7 @@ def creer_bon_sortie_divers(request):
                 observations    = observations,
                 cree_par        = request.user,
             )
+            notifier_bon_sortie_cree(bon)
             log_action(request, ActionType.CREATION, 'GUERITE', bon, {'type': 'DIVERS'})
             messages.success(request, f"Bon de sortie {bon.numero} créé avec succès.")
             return redirect('detail_bon_sortie_guerite', bon_id=bon.id)

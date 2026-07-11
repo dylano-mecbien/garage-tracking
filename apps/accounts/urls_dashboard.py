@@ -11,4 +11,6 @@ urlpatterns = [
     path('admin-garage/utilisateurs/<uuid:user_id>/reset-password/', views.reset_password_utilisateur, name='reset_password_utilisateur'),
     path('admin-garage/utilisateurs/<uuid:user_id>/toggle/', views.toggle_utilisateur, name='toggle_utilisateur'),
     path('admin-garage/audit/', views.audit_logs_view, name='audit_logs'),
+    
+
 ]

@@ -152,3 +152,6 @@ class Demandeur(models.Model):
 
     def __str__(self):
         return f"{self.nom} ({self.numero})"
+    
+
+ 
