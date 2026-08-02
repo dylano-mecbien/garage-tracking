@@ -191,3 +191,4 @@ Le service `certbot` dans le compose se charge du renouvellement automatique tou
 | SSL ne fonctionne pas | Vérifier les chemins certbot et que le DNS est bien propagé |
 | Base de données inaccessible | `docker compose exec db psql -U $DB_USER -d $DB_NAME` |
 | Reset complet (⚠️ perte de données) | `docker compose -f docker-compose.prod.yml down -v` |
+dylanogold@gmail.com
