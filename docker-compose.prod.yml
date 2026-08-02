@@ -67,6 +67,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+    - garage_internal
 
   # ─── Application Django (Gunicorn) ─────────────────────────────────────
   web:
@@ -172,3 +174,4 @@ volumes:
   logs_volume:
   certbot_certs:
   certbot_www:
+  minio_data:
