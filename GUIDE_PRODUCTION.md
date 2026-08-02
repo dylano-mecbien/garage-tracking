@@ -25,10 +25,10 @@ su - deploy
 ## 2. Pointer le nom de domaine
 
 Chez votre registrar (Namecheap, OVH, Google Domains...) :
-- Créez un enregistrement **A** : `garage.votredomaine.com` → IP du serveur
+- Créez un enregistrement **A** : `garage.laprudenceplus-cm.com` → IP du serveur
 - Attendez la propagation DNS (5 min à 24h) — vérifiez avec :
 ```bash
-nslookup garage.votredomaine.com
+nslookup garage.laprudenceplus-cm.com
 ```
 
 ## 3. Configurer le firewall
@@ -90,7 +90,7 @@ docker run --rm \
   -v $(pwd)/certbot_certs:/etc/letsencrypt \
   -v $(pwd)/certbot_www:/var/www/certbot \
   certbot/certbot certonly --webroot -w /var/www/certbot \
-  -d garage.votredomaine.com \
+  -d garage.laprudenceplus-cm.com \
   --email dylanogold@gmail.com --agree-tos --no-eff-email
 ```
 
@@ -118,13 +118,13 @@ docker compose -f docker-compose.prod.yml exec web python manage.py createsuperu
 
 ```bash
 # Tester le HTTPS
-curl -I https://garage.votredomaine.com
+curl -I https://garage.laprudenceplus-cm.com
 
 # Vérifier les en-têtes de sécurité
-curl -I https://garage.votredomaine.com | grep -i strict
+curl -I https://garage.laprudenceplus-cm.com | grep -i strict
 
 # Tester depuis le navigateur :
-# https://garage.votredomaine.com
+# https://garage.laprudenceplus-cm.com
 ```
 
 Utilisez aussi : https://www.ssllabs.com/ssltest/ pour noter votre config SSL.
