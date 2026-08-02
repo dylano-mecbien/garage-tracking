@@ -95,12 +95,11 @@ services:
     image: nginx:alpine
     restart: always
     container_name: garage_nginx_prod
-    ports:
+    ports: 
       - "80:80"
       - "443:443"
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro
       - certbot_certs:/etc/letsencrypt:ro
