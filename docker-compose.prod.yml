@@ -61,7 +61,7 @@ services:
       - "0.0.0.0:9001:9001"
     volumes:
       - minio_data:/data
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
@@ -76,9 +76,25 @@ services:
     context: .
     dockerfile: Dockerfile.prod
    restart: always
+   healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
    container_name: garage_web_prod
-   entrypoint: /app/entrypoint.prod.sh  
-
+   command: >
+      sh -c "python manage.py makemigrations accounts &&
+             python manage.py makemigrations vehicules &&
+             python manage.py makemigrations atelier &&
+             python manage.py makemigrations reception &&
+             python manage.py makemigrations guerite &&
+             python manage.py makemigrations audit &&
+             python manage.py makemigrations notifications &&
+             python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             python manage.py create_default_admin &&
+             gunicorn garage.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 4 --worker-class gthread --timeout 120"
    volumes:
     - static_volume:/app/staticfiles
     - media_volume:/app/media
@@ -95,12 +111,18 @@ services:
     - DB_PASSWORD=${DB_PASSWORD}
     - DB_PORT=${DB_PORT}                    # ⬅️ AJOUT OBLIGATOIRE
     - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+    - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+    - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+    - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+    - MINIO_BUCKET=${MINIO_BUCKET}
     - EMAIL_HOST=${EMAIL_HOST}
     - EMAIL_HOST_USER=${EMAIL_HOST_USER}
     - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
     - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
     - ADMIN_EMAIL=${ADMIN_EMAIL}
     - SENTRY_DSN=${SENTRY_DSN}
+   ports:
+      - "8000:8000"
    depends_on:
     db:
       condition: service_healthy

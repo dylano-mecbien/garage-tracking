@@ -347,7 +347,7 @@ ssl-renew:
 ssl-status:
 	@echo "$(CYAN)📋 État des certificats SSL :$(RESET)"
 	docker run --rm \
-		-v $(PWD)/certbot_certs:/etc/letsencrypt \
+		-v garage-tracking_certbot_certs:/etc/letsencrypt \
 		certbot/certbot certificates
 
 # ════════════════════════════════════════════════════════════════════
