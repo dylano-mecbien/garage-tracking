@@ -10,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Q, Count
-
+from django.views.decorators.http import require_POST
 
 import os
 from django.core.files.storage import default_storage
@@ -282,50 +282,56 @@ def autocomplete_modeles(request):
     return JsonResponse({'results': results})
 
 
-def creer_conducteur_ajax(request):
-    """Créer un conducteur via appel AJAX depuis le formulaire véhicule."""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
 
+@login_required
+@require_POST
+def creer_conducteur_ajax(request):
     try:
         data = json.loads(request.body)
-    except Exception:
-        return JsonResponse({'success': False, 'error': 'Données invalides'})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Données invalides.'}, status=400)
 
-    # Champs obligatoires
     nom = data.get('nom', '').strip()
+    prenom = data.get('prenom', '').strip()
     telephone = data.get('telephone', '').strip()
+    telephone2 = data.get('telephone2', '').strip()
+    cni = data.get('cni', '').strip()
+    permis = data.get('permis', '').strip()
+    categorie_permis = data.get('categorie_permis', '').strip()
+    client_id = data.get('client_id')
+
     if not nom or not telephone:
-        return JsonResponse({'success': False, 'error': 'Nom et téléphone obligatoires'})
+        return JsonResponse({'success': False, 'error': 'Le nom et le téléphone sont obligatoires.'})
 
-    # Vérifier si un conducteur avec ce téléphone existe déjà
-    conducteur_existant = Conducteur.objects.filter(telephone=telephone).first()
-    if conducteur_existant:
-        return JsonResponse({
-            'success': True,
-            'id': str(conducteur_existant.id),
-            'nom': str(conducteur_existant),
-            'detail': f"{conducteur_existant.telephone} — {conducteur_existant.ville or ''}",
-        })
+    client = None
+    if client_id:
+        client = get_object_or_404(Client, id=client_id)
 
-    # Création du nouveau conducteur
     conducteur = Conducteur.objects.create(
         nom=nom,
-        prenom=data.get('prenom', '').strip(),
+        prenom=prenom,
         telephone=telephone,
-        telephone2=data.get('telephone2', '').strip(),
-        cni=data.get('cni', '').strip(),
-        permis=data.get('permis', '').strip(),
-        categorie_permis=data.get('categorie_permis', '').strip(),
+        telephone2=telephone2,
+        cni=cni,
+        permis=permis,
+        categorie_permis=categorie_permis,
+        client=client,
+        created_by=request.user,
     )
-    log_action(request, ActionType.CREATION, 'GUERITE', conducteur)
+
+    nom_complet = f"{conducteur.prenom} {conducteur.nom}".strip()
+    detail_parts = []
+    if conducteur.telephone:
+        detail_parts.append(conducteur.telephone)
+    if conducteur.permis:
+        detail_parts.append(f"Permis: {conducteur.permis}")
+
     return JsonResponse({
         'success': True,
         'id': str(conducteur.id),
-        'nom': str(conducteur),
-        'detail': f"{conducteur.telephone}",
+        'nom': nom_complet,
+        'detail': ' — '.join(detail_parts),
     })
-
 
 
 @guerite_required

@@ -4,20 +4,16 @@
 {% block page_title %}📥 Enregistrer une entrée{% endblock %}
 
 {% block sidebar_nav %}
-
-
 <div class="sidebar-section">Guérite</div>
 <ul class="sidebar-nav">
   <li><a href="{% url 'dashboard_guerite' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
   <li><a href="{% url 'vehicules_presents' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
   <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
     <li><a href="{% url 'nouvelle_entree' %}" class="active"><span class="icon">➕</span> Nouvelle entrée</a></li>
-
 </ul>
 {% endblock %}
 
 {% block extra_css %}
-
 {% endblock %}
 
 {% block content %}
@@ -83,7 +79,6 @@
       </div>
 
       <input type="hidden" name="conducteur" id="cond-id">
-      
     </div>
 
     <!-- ══ Formulaire inline création conducteur ══ -->
@@ -96,6 +91,12 @@
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <strong>➕ Nouveau conducteur</strong>
         <button type="button" onclick="closeInline()" class="btn btn-outline btn-sm">✕ Fermer</button>
+      </div>
+
+      <!-- Rattachement automatique à un client existant (si sélectionné via la recherche) -->
+      <input type="hidden" id="cn-client-id" value="">
+      <div class="text-small text-muted mb-1" id="cn-client-hint" style="display:none;">
+        🔗 Ce conducteur sera rattaché au client sélectionné.
       </div>
 
       <div class="form-row">
@@ -205,7 +206,6 @@ function renderRes(results, q) {
   box.innerHTML = '';
 
   if (!results.length) {
-    // Aucun résultat → proposer directement la création
     const none = document.createElement('div');
     none.className = 'sr-item';
     none.style.color = 'var(--text-muted)';
@@ -215,7 +215,9 @@ function renderRes(results, q) {
     results.forEach(r => {
       const d = document.createElement('div');
       d.className = 'sr-item';
-      d.innerHTML = `<div class="sr-name">${r.nom}</div><div class="sr-sub">${r.detail || ''}</div>`;
+      // Petit badge visuel pour distinguer un client (à convertir) d'un conducteur existant
+      const badge = r.is_client ? '<span class="text-small" style="color:var(--warning, #b8860b);">👤 Client</span> ' : '';
+      d.innerHTML = `<div class="sr-name">${badge}${r.nom}</div><div class="sr-sub">${r.detail || ''}</div>`;
       d.onclick = () => selectCond(r);
       box.appendChild(d);
     });
@@ -231,6 +233,13 @@ function renderRes(results, q) {
 }
 
 function selectCond(r) {
+  if (r.is_client) {
+    // Résultat venant de la table Client (Particulier) : ce n'est pas un
+    // conducteur existant, il faut en créer un rattaché à ce client.
+    closeRes();
+    openInlineFromClient(r);
+    return;
+  }
   document.getElementById('cond-id').value   = r.id;
   document.getElementById('cond-name').textContent = r.nom;
   document.getElementById('cond-sub').textContent  = r.detail || '';
@@ -260,12 +269,30 @@ document.addEventListener('click', e => {
 function openInline(prefill) {
   const form = document.getElementById('inline-cond');
   form.classList.add('open');
+
+  // Pas de client rattaché dans ce cas (création "à froid")
+  document.getElementById('cn-client-id').value = '';
+  document.getElementById('cn-client-hint').style.display = 'none';
+
   if (prefill) {
-    // Mettre le texte saisi dans le champ Nom
     const parts = prefill.trim().split(' ');
     document.getElementById('cn-nom').value    = parts[0] || '';
     document.getElementById('cn-prenom').value = parts.slice(1).join(' ') || '';
   }
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function openInlineFromClient(r) {
+  const form = document.getElementById('inline-cond');
+  form.classList.add('open');
+
+  document.getElementById('cn-nom').value       = r.nom_famille || '';
+  document.getElementById('cn-prenom').value    = r.prenom || '';
+  document.getElementById('cn-tel').value       = r.telephone || '';
+  document.getElementById('cn-cni').value       = r.cni || '';
+  document.getElementById('cn-client-id').value = r.client_id || '';
+  document.getElementById('cn-client-hint').style.display = 'block';
+
   form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -289,10 +316,11 @@ async function saveConducteur() {
 
   const payload = {
     nom, prenom, telephone: tel,
-    telephone2:      document.getElementById('cn-tel2').value.trim(),
-    cni:             document.getElementById('cn-cni').value.trim(),
-    permis:          document.getElementById('cn-permis').value.trim(),
-    categorie_permis:document.getElementById('cn-cat').value.trim(),
+    telephone2:       document.getElementById('cn-tel2').value.trim(),
+    cni:              document.getElementById('cn-cni').value.trim(),
+    permis:           document.getElementById('cn-permis').value.trim(),
+    categorie_permis: document.getElementById('cn-cat').value.trim(),
+    client_id:        document.getElementById('cn-client-id').value || null,
   };
 
   try {
@@ -307,7 +335,7 @@ async function saveConducteur() {
     });
     const data = await res.json();
     if (data.success) {
-      selectCond({ id: data.id, nom: data.nom, detail: data.detail });
+      selectCond({ id: data.id, nom: data.nom, detail: data.detail, is_client: false });
       closeInline();
     } else {
       alert(data.error || 'Erreur lors de la création.');
