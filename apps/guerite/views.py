@@ -473,9 +473,16 @@ def modifier_motif_entree(request, entree_id):
 
 @guerite_required
 def liste_vehicules_presents(request):
-    entrees = EnregistrementEntree.objects.exclude(
-        statut=StatutEntree.SORTI          # exclut les sortis → reste les présents
-    ).select_related('vehicule', 'vehicule__client', 'conducteur').order_by('-date_entree')
+    entrees = (
+        EnregistrementEntree.objects.exclude(statut=StatutEntree.SORTI)
+        .select_related(
+            'vehicule',
+            'vehicule__client',
+            'conducteur',
+            'conducteur__client',  # Inclus le client rattaché au conducteur
+        )
+        .order_by('-date_entree')
+    )
     return render(request, 'guerite/vehicules_presents.html', {'entrees': entrees})
 
 
