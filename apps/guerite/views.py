@@ -99,20 +99,23 @@ def nouvelle_entree(request):
 
 
 # ─── AJAX: Autocomplete conducteurs ──────────────────────────────────────────
+
 @login_required
 def autocomplete_conducteurs(request):
+    q = request.GET.get('q', '').strip()
+    results = []
 
-    q  = request.GET.get('q', '').strip()
-    qs = Conducteur.objects.all()
+    # 1. Recherche prioritaire dans la table Conducteur
+    qs_conducteurs = Conducteur.objects.all()
     if q:
-        qs = qs.filter(
+        qs_conducteurs = qs_conducteurs.filter(
             Q(nom__icontains=q) | Q(prenom__icontains=q) |
             Q(telephone__icontains=q) | Q(cni__icontains=q) |
             Q(permis__icontains=q)
         )
-    results = []
-    for c in qs[:10]:
-        nom    = f"{c.prenom} {c.nom}".strip()
+
+    for c in qs_conducteurs[:10]:
+        nom = f"{c.prenom} {c.nom}".strip()
         detail_parts = []
         if c.telephone:
             detail_parts.append(c.telephone)
@@ -120,13 +123,46 @@ def autocomplete_conducteurs(request):
             detail_parts.append(f"Permis: {c.permis}")
         if c.categorie_permis:
             detail_parts.append(f"Cat. {c.categorie_permis}")
+
         results.append({
-            'id':     str(c.id),
-            'nom':    nom,
+            'id': str(c.id),
+            'nom': nom,
             'detail': ' — '.join(detail_parts),
+            'is_client': False,
         })
+
+    # 2. Si moins de 10 résultats, recherche complémentaire dans les Clients Particuliers
+    limit_restante = 10 - len(results)
+    if limit_restante > 0:
+        # Ajustez 'type_client' ou 'type' selon le champ exact de votre modèle Client
+        qs_clients = Client.objects.filter(is_active=True, type_client='PARTICULIER')
+
+        if q:
+            qs_clients = qs_clients.filter(
+                Q(nom__icontains=q) | Q(prenom__icontains=q) |
+                Q(telephone__icontains=q) 
+            )
+
+        for client in qs_clients[:limit_restante]:
+            nom = f"{getattr(client, 'prenom', '')} {getattr(client, 'nom', '')}".strip()
+            detail_parts = ["Client Particulier (À créer)"]
+            
+            if getattr(client, 'telephone', None):
+                detail_parts.append(client.telephone)
+
+            results.append({
+                'id': f"client_{client.id}",  # Identifiant distinct pour le frontend
+                'client_id': client.id,
+                'nom': nom,
+                'prenom': getattr(client, 'prenom', ''),
+                'nom_famille': getattr(client, 'nom', ''),
+                'telephone': getattr(client, 'telephone', ''),
+                'cni': getattr(client, 'cni', ''),
+                'detail': ' — '.join(detail_parts),
+                'is_client': True,  # Flag indiquant au JS qu'il faut créer un conducteur
+            })
+
     return JsonResponse({'results': results})
- 
 
 
 def autocomplete_clients(request):

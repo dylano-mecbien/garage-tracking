@@ -16,7 +16,6 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 INSTALLED_APPS = [
 
     'apps.accounts',
-    'apps.atelier',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -31,12 +30,14 @@ INSTALLED_APPS = [
     'django_filters',
     # Local apps
     
-    'apps.vehicules',
+    
     'apps.guerite', 
+    'apps.vehicules',
     'apps.reception',
     'apps.notifications',
     'apps.documents',
     'apps.audit',
+    'apps.atelier',
 ]
 
 MIDDLEWARE = [
@@ -216,3 +217,4 @@ LOCALE_PATHS = [BASE_DIR / 'locale']
 # Permet /fr/... et /en/... OU le cookie/session
 USE_I18N = True
 USE_L10N = True
+

@@ -49,6 +49,7 @@
       <button onclick="togglePanel()" style="width:40px;height:40px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">🔔</button>
       {% if nb_notifs %}<span class="notif-badge">{{ nb_notifs }}</span>{% endif %}
     </div>
+    <a href="{% url 'creer_reception' %}" class="btn btn-accent">➕ Nouvelle réception</a>
 
 
   </div>
@@ -71,6 +72,7 @@
   <div style="padding:24px;text-align:center;color:var(--text-muted);">Aucune notification</div>
   {% endfor %}
 </div>
+
 
 
 <!-- KPI Guerite-->
@@ -213,6 +215,74 @@
 
   <!-- ═══ Véhicules présents ═══ -->
   
+
+
+<div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">
+      🚗 Véhicules présents pour réparation
+      {% if nb_a_traiter %}<span class="badge badge-danger" style="margin-left:6px;">{{ nb_a_traiter }} nouveau{{ nb_a_traiter|pluralize }}</span>{% endif %}
+    </div>
+
+    {% for entree in entrees %}
+    <div class="vcard {% if not entree.reception %}nouveau{% elif entree.reception.statut == 'TRAVAUX_TERMINES' or entree.reception.statut == 'BON_SORTIE_FAIT' %}termines{% elif entree.reception.statut == 'EN_ATELIER' or entree.reception.statut == 'PRESENT_ATELIER' or entree.reception.statut == 'TRAVAUX_EN_COURS' %}en-atelier{% endif %}">
+      <div style="display:flex;justify-content:space-between;gap:10px;">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+            <strong style="font-size:15px;">{{ entree.vehicule.immatriculation }}</strong>
+            {% if not entree.reception %}
+            <span class="badge badge-warning">🆕 Nouveau</span>
+            {% elif entree.reception.statut == 'EN_COURS' %}
+            <span class="badge badge-a-faire">En cours</span>
+            {% elif entree.reception.statut == 'RAPPORT_FAIT' %}
+            <span class="badge badge-info">Rapport fait</span>
+            {% elif entree.reception.statut == 'EN_ATELIER' %}
+            <span class="badge badge-en-cours">En atelier</span>
+            {% elif entree.reception.statut == 'PRESENT_ATELIER' %}
+            <span class="badge badge-ouvert">Présent atelier</span>
+            {% elif entree.reception.statut == 'TRAVAUX_EN_COURS' %}
+            <span class="badge badge-en-cours">Travaux en cours</span>
+            {% elif entree.reception.statut == 'TRAVAUX_TERMINES' %}
+            <span class="badge badge-success">✅ Terminé</span>
+            {% elif entree.reception.statut == 'BON_SORTIE_FAIT' %}
+            <span class="badge badge-cloture">📄 Bon créé</span>
+            {% endif %}
+          </div>
+          <div class="text-small text-muted">{{ entree.vehicule.marque }} {{ entree.vehicule.modele }} {{ entree.vehicule.annee }}</div>
+          <div class="text-small"><strong>{{ entree.vehicule.client }}</strong> — {{ entree.vehicule.client.telephone }}</div>
+          <div class="text-small text-muted">Entré {{ entree.date_entree|date:"d/m/Y H:i" }} ({{ entree.duree_sejour }})</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <a href="{% url 'detail_vehicule_rec' entree.vehicule.id %}" class="btn btn-info btn-sm">👁 Détails</a>
+          {% if not entree.reception %}
+          <a href="{% url 'creer_reception' %}?entree_id={{ entree.id }}" class="btn btn-primary btn-sm">➕ Réception</a>
+          {% else %}
+          <a href="{% url 'detail_reception' entree.reception.id %}" class="btn btn-outline btn-sm">📋 Voir</a>
+          {% if entree.reception.statut == 'TRAVAUX_TERMINES' %}
+          <a href="{% url 'creer_bon_sortie_rec' entree.reception.id %}" class="btn btn-success btn-sm">📄 Bon sortie</a>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+      <!-- Barre de progression si réception existe -->
+      {% if entree.reception %}
+      <div style="margin-top:10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+          <span class="text-small text-muted">Progression</span>
+          <span class="text-small font-bold">{{ entree.reception.progression_pct }}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:{{ entree.reception.progression_pct }}%;{% if entree.reception.progression_pct == 100 %}background:var(--success);{% endif %}"></div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:40px;color:var(--text-muted);background:var(--surface);border-radius:var(--radius);border:2px dashed var(--border);">
+      <div style="font-size:40px;margin-bottom:8px;">🔧</div>
+      Aucun véhicule en attente
+    </div>
+    {% endfor %}
+  </div>
 
   <!-- ═══ OR actifs ═══ -->
   <div>

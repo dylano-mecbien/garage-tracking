@@ -14,7 +14,7 @@ class Marque(models.Model):
 
     class Meta:
         ordering = ['nom']
-
+ 
 
 class Modele(models.Model):
     nom = models.CharField(max_length=100)
@@ -28,41 +28,48 @@ class Modele(models.Model):
         return f"{self.marque.nom} {self.nom}"
     
 
-class Client(models.Model):
+class ContactBase(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nom = models.CharField(max_length=100, verbose_name="Nom / Raison sociale")
+    prenom = models.CharField(max_length=100, blank=True, verbose_name="Prénom")
+    telephone = models.CharField(max_length=20, verbose_name="Téléphone principal")
+    telephone2 = models.CharField(max_length=20, blank=True, verbose_name="Téléphone secondaire")
+    email = models.EmailField(blank=True, verbose_name="Adresse email")
+    adresse = models.TextField(blank=True, verbose_name="Adresse")
+    notes = models.TextField(blank=True, verbose_name="Notes")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    # %(class)s_crees génère dynamiquement 'client_crees' et 'conducteur_crees'
+    created_by = models.ForeignKey(
+        'accounts.User', 
+        on_delete=models.SET_NULL,
+        null=True, 
+        blank=True,
+        related_name='%(class)s_crees'
+    )
+
+    class Meta:
+        abstract = True  # Ne crée AUCUNE table en base de données
+
+    def __str__(self):
+        if self.prenom:
+            return f"{self.prenom} {self.nom}".strip()
+        return self.nom.strip()
+
+
+class Client(ContactBase):
     TYPE_CLIENT = [('PARTICULIER', 'Particulier'), ('ENTREPRISE', 'Entreprise')]
     type_client = models.CharField(max_length=15, choices=TYPE_CLIENT, default='PARTICULIER')
-    # Particulier
-    nom = models.CharField(max_length=100, verbose_name="Nom / Raison sociale")
-    prenom = models.CharField(max_length=100, blank=True)
     nom_correspondant = models.CharField(max_length=100, blank=True)
-    # Coordonnées
-    telephone = models.CharField(max_length=20)
-    telephone2 = models.CharField(max_length=20, blank=True)
-    email = models.EmailField(blank=True)
-    adresse = models.TextField(blank=True)
     ville = models.CharField(max_length=100, blank=True)
-    # Entreprise
     ninea = models.CharField(max_length=50, blank=True, verbose_name="NINEA / RC")
-    # Fidélité
     numero_client = models.CharField(max_length=20, unique=True, blank=True)
-    notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(
-        'accounts.User', on_delete=models.SET_NULL,
-        null=True, related_name='clients_crees'
-    )
 
     class Meta:
         db_table = 'clients'
         verbose_name = "Client"
         ordering = ['nom']
-
-    def __str__(self):
-        if self.prenom:
-            return f"{self.prenom} {self.nom}"
-        return self.nom
 
     def save(self, *args, **kwargs):
         if not self.numero_client:
@@ -71,31 +78,25 @@ class Client(models.Model):
         super().save(*args, **kwargs)
 
 
-class Conducteur(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    nom = models.CharField(max_length=100, verbose_name="Nom")
-    prenom = models.CharField(max_length=100, verbose_name="Prénom")
-    telephone = models.CharField(max_length=20)
-    telephone2 = models.CharField(max_length=20, blank=True)
-    email = models.EmailField(blank=True)
+class Conducteur(ContactBase):
     cni = models.CharField(max_length=50, blank=True, verbose_name="N° CNI")
     permis = models.CharField(max_length=50, blank=True, verbose_name="N° Permis")
     categorie_permis = models.CharField(max_length=10, blank=True)
-    adresse = models.TextField(blank=True)
-    notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(
-        'accounts.User', on_delete=models.SET_NULL,
-        null=True, related_name='conducteurs_crees'
+    
+    # Lien optionnel vers un compte client (ex: chauffeur d'une entreprise)
+    client = models.ForeignKey(
+        Client, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='conducteurs',
+        verbose_name="Client rattaché"
     )
 
     class Meta:
         db_table = 'conducteurs'
         verbose_name = "Conducteur"
         ordering = ['nom', 'prenom']
-
-    def __str__(self):
-        return f"{self.prenom} {self.nom}"
 
 
 class Vehicule(models.Model):

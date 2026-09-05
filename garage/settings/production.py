@@ -132,3 +132,4 @@ SESSION_COOKIE_AGE = 28800  # 8h
 # ─── CORS strict en prod ─────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = config('CORS_ORIGINS', cast=Csv(), default='')
 CORS_ALLOW_ALL_ORIGINS = False
+

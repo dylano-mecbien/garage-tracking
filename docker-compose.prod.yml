@@ -4,6 +4,8 @@ services:
   db:
     image: postgres:15-alpine
     restart: always
+    ports:
+      - "127.0.0.1:5432:5432"
     container_name: garage_db_prod
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -20,6 +22,18 @@ services:
     # Pas de port exposé publiquement — uniquement réseau interne Docker
     networks:
       - garage_internal
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: garage_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
 
   # ─── Redis (cache, sessions) ────────────────────────────────────────────
   redis:

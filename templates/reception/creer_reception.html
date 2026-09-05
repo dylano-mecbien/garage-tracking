@@ -43,7 +43,7 @@
       <select name="entree_id" class="form-select" required>
         <option value="">— Sélectionner une entrée —</option>
         {% for e in entrees_dispo %}
-        <option value="{{ e.id }}">{{ e.numero }} — {{ e.vehicule.immatriculation }} — {{ e.vehicule.client }} ({{ e.date_entree|date:"d/m/Y H:i" }})</option>
+        <option value="{{ e.id }}">{{ e.vehicule.immatriculation }} — {{ e.vehicule.client }} ({{ e.date_entree|date:"d/m/Y H:i" }})</option>
         {% endfor %}
       </select>
       {% if not entrees_dispo %}
@@ -80,10 +80,7 @@
                   placeholder="Exemple : Kit de joint de culasse, Filtre à huile, Bougies d'allumage..."></textarea>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">⏱️ Temps estimé (heures)</label>
-        <input type="number" name="temps_estime" class="form-input" step="0.5" min="0" value="0">
-      </div>
+      
 
       <div class="form-group">
         <label class="form-label">💬 Observations complémentaires</label>
@@ -96,33 +93,6 @@
         <button type="submit" class="btn btn-success" style="padding:10px 20px;">
           📄 Créer bon de sortie et valider
         </button>
-      </div>
-    </form>
-  </div>
-
-  <!-- COLONNE DROITE : Transférer en atelier -->
-  <div class="card">
-    <div class="card-header">
-      <div class="card-title">🏭 Transférer en atelier</div>
-    </div>
-    <form method="post" id="form-transfert">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="transfert">
-      <input type="hidden" name="entree_id" value="{{ entree.id|default:'' }}">
-
-      <div class="form-group">
-        <label class="form-label">📝 Description du problème signalé *</label>
-        {{ form.description_probleme }}
-        {% if form.description_probleme.errors %}<div class="form-error">{{ form.description_probleme.errors.0 }}</div>{% endif %}
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">💬 Observations pour l'atelier</label>
-        {{ form.observations }}
-      </div>
-
-      <hr>
-      <div style="display:flex; justify-content:flex-end;">
         <button type="submit" class="btn btn-primary" style="padding:10px 20px;">
           ✅ Transférer à l'atelier
         </button>

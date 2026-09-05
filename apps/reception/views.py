@@ -192,7 +192,7 @@ def creer_reception(request):
         elif action == 'transfert': 
             # Comportement actuel : simple création de réception
             form = ReceptionForm(request.POST)
-            if form.is_valid():
+            if form.is_valid(): 
                 rec = form.save(commit=False)
                 rec.entree = ent
                 rec.vehicule = ent.vehicule
