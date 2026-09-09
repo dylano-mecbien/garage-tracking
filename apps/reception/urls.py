@@ -35,6 +35,11 @@ urlpatterns = [
     path('autocomplete/vehicules-presents/', views.autocomplete_vehicules_presents, name='autocomplete_vehicules_presents'),
     path('autocomplete/demandeur/', views.autocomplete_demandeur, name='autocomplete_demandeur'),
 path('demandeur/creer-ajax/', views.creer_demandeur_ajax, name='creer_demandeur_ajax'),
+      path('api_vehicules/',                    views.api_vehicules,      name='api_vehicules'),
+     path('api_entrees_vehicule/',             views.api_entrees_vehicule,      name='api_entrees_vehicule'),
+
+
+
 
 ]
  

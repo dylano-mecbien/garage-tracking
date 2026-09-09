@@ -35,7 +35,6 @@ from django.db.models import Case, IntegerField, Q, Value
 import datetime
  
 from django.http import HttpResponse
-from django.utils import timezone
  
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -947,10 +946,7 @@ def get_entrees_presentes_filtrees(request):
     qs = (
         EnregistrementEntree.objects
         .select_related("vehicule", "vehicule__client", "conducteur", "conducteur__client")
-        # ⚠️ 2. Condition "encore présent" — adapte à ton modèle réel.
-        # Exemples possibles selon ton design :
-        #   .filter(date_sortie__isnull=True)
-        #   .exclude(statut="SORTI")
+       
         .filter(date_sortie__isnull=True)
         .order_by("-date_entree")
     )

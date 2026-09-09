@@ -12,6 +12,9 @@ from .models import User, Role, LoginAttempt
 from .decorators import admin_required
 from apps.audit.service import log_action
 from apps.audit.models import ActionType
+from apps.vehicules.models import Vehicule, Client
+from apps.atelier.models import OrdreReparation, Atelier
+from apps.guerite.models import EnregistrementEntree, StatutEntree
 
 
 def index(request):
@@ -112,16 +115,19 @@ def profil(request):
 # ─── Admin: Gestion des utilisateurs ───────────────────────────────────────
 
 @admin_required
-def admin_dashboard(request):
+def admin_dashboard(request): 
     stats = {
         'total_users': User.objects.filter(is_active=True).count(),
         'users_par_role': User.objects.values('role').annotate(total=Count('id')).order_by('role'),
         'connexions_recentes': LoginAttempt.objects.filter(success=True).select_related().order_by('-timestamp')[:10],
         'echecs_recents': LoginAttempt.objects.filter(success=False).order_by('-timestamp')[:5],
     }
-    from apps.vehicules.models import Vehicule, Client
-    from apps.atelier.models import OrdreReparation, Atelier
-    from apps.guerite.models import EnregistrementEntree, StatutEntree
+
+    aujourd_hui = timezone.now().date()
+    entrees_today = EnregistrementEntree.objects.filter(date_entree__date=aujourd_hui)
+      
+    stats['nb_entrees_today'] = entrees_today.count()
+    stats['nb_sorties_today'] = entrees_today.filter(statut=StatutEntree.SORTI).count()
     stats['total_vehicules'] = Vehicule.objects.count()
     stats['total_clients'] = Client.objects.count()
     stats['vehicules_en_cours'] = EnregistrementEntree.objects.filter(statut=StatutEntree.EN_COURS).count()

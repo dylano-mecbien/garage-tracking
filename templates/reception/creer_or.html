@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Créer un ordre de réparation{% endblock %}
+{% block page_title %}🔧 Ordre de réparation{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_reception' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_receptions' %}" class="active"><span class="icon">📋</span> Réceptions</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.atelier-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; margin-top:10px; }
+.atelier-card {
+  border:2px solid var(--border); border-radius:var(--radius); padding:16px;
+  cursor:pointer; transition:all .2s; background:var(--surface); position:relative;
+}
+.atelier-card:hover { border-color:var(--primary-light); box-shadow:var(--shadow); }
+.atelier-card.selected { border-color:var(--primary); background:rgba(37,99,168,.07); }
+.atelier-card .check {
+  position:absolute; top:10px; right:10px; width:22px; height:22px;
+  border-radius:50%; border:2px solid var(--border); background:var(--surface);
+  display:flex; align-items:center; justify-content:center; font-size:11px;
+  transition:all .2s;
+}
+.atelier-card.selected .check { background:var(--primary); border-color:var(--primary); color:#fff; }
+.atelier-card .at-name   { font-weight:700; font-size:14px; margin-bottom:4px; }
+.atelier-card .at-loc    { font-size:12px; color:var(--text-muted); }
+.atelier-card .at-cap    { font-size:12px; margin-top:6px; }
+.at-selected-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; min-height:36px; }
+.at-tag {
+  display:flex; align-items:center; gap:6px;
+  background:var(--primary); color:#fff;
+  padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600;
+}
+.at-tag button { background:none; border:none; color:#fff; cursor:pointer; font-size:14px; padding:0 2px; }
+
+.urgence-btns { display:flex; gap:8px; }
+.urg-btn { flex:1; padding:10px; border:2px solid var(--border); border-radius:8px; cursor:pointer; text-align:center; font-size:13px; font-weight:600; transition:all .2s; background:var(--surface); }
+.urg-btn.sel-normal   { border-color:var(--info);    background:#dbeafe20; color:var(--info); }
+.urg-btn.sel-urgent   { border-color:var(--warning); background:#fef3c720; color:var(--warning); }
+.urg-btn.sel-critique { border-color:var(--danger);  background:#fee2e220; color:var(--danger); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Ordre de réparation</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'detail_reception' rec.id %}">{{ rec.numero }}</a> › Créer OR
+    </div>
+  </div>
+  <a href="{% url 'detail_reception' rec.id %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<!-- Infos réception -->
+<div class="card mb-2" style="border-left:4px solid var(--primary);">
+  <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px;">
+    <div>🚗 <strong>{{ rec.vehicule.immatriculation }}</strong> — {{ rec.vehicule.marque }} {{ rec.vehicule.modele }}</div>
+    <div>👤 {{ rec.vehicule.client }}</div>
+    <div>📋 Réception {{ rec.numero }}</div>
+    {% if rec.diagnostic %}
+    <div style="flex-basis:100%;color:var(--text-muted);">🔍 {{ rec.diagnostic|truncatechars:100 }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" id="or-form" style="max-width:760px;">
+  {% csrf_token %}
+  <input type="hidden" name="ateliers_ids" id="ateliers-ids-input" value="">
+  <input type="hidden" name="urgence" id="urgence-hidden" value="NORMAL">
+
+  <!-- ① Ateliers -->
+  <div class="card mb-2">
+    <div class="card-header">
+      <div class="card-title">① Ateliers de destination *</div>
+      <span class="text-small text-muted">Sélectionnez un ou plusieurs ateliers</span>
+    </div>
+
+    <!-- Tags sélectionnés -->
+    <div class="at-selected-list" id="at-selected">
+      <span class="text-muted text-small" id="no-select-msg">Aucun atelier sélectionné</span>
+    </div>
+
+    <div class="atelier-grid">
+      {% for atelier in ateliers %}
+      <div class="atelier-card" id="at-card-{{ atelier.id }}"
+           onclick="toggleAtelier('{{ atelier.id }}', '{{ atelier.nom }}')">
+        <div class="check" id="at-check-{{ atelier.id }}">✓</div>
+        <div style="font-size:22px;margin-bottom:6px;">🏭</div>
+        <div class="at-name">{{ atelier.nom }}</div>
+        <div class="at-loc">📍 {{ atelier.localisation }}</div>
+        <div class="at-cap">
+          {% with nb=atelier.or_actifs_count %}
+          <span style="color:{% if nb >= atelier.capacite %}var(--danger){% else %}var(--success){% endif %};">
+            {{ nb }} / {{ atelier.capacite }} OR actifs
+          </span>
+          {% endwith %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ② Description des travaux -->
+  <div class="card mb-2">
+    <div class="card-header"><div class="card-title">② Travaux demandés *</div></div>
+
+    <div class="form-group">
+      <label class="form-label">📝 Description des travaux *</label>
+      <textarea name="description_travaux" class="form-textarea" rows="4" required
+                placeholder="Décrivez précisément les travaux à effectuer dans chaque atelier sélectionné...">{% if rec.diagnostic %}{{ rec.diagnostic }}{% endif %}</textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">📅 Date de fin prévue</label>
+        <input type="datetime-local" name="date_fin_prevue" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">🚨 Urgence</label>
+        <div class="urgence-btns">
+          <div class="urg-btn sel-normal"   id="urg-n" onclick="setUrgence('NORMAL')">🟢 Normal</div>
+          <div class="urg-btn"              id="urg-u" onclick="setUrgence('URGENT')">🟡 Urgent</div>
+          <div class="urg-btn"              id="urg-c" onclick="setUrgence('CRITIQUE')">🔴 Critique</div>
+        </div>
+      </div>
+    </div>
+
+    {% if rec.pieces_recommandees %}
+    <div class="form-group">
+      <label class="form-label">🔩 Pièces recommandées (depuis diagnostic)</label>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text-muted);">
+        {{ rec.pieces_recommandees }}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Erreurs -->
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+  <div style="display:flex;gap:12px;">
+    <button type="submit" class="btn btn-primary" style="font-size:15px;padding:11px 28px;">
+      🔧 Créer l'ordre de réparation
+    </button>
+    <a href="{% url 'detail_reception' rec.id %}" class="btn btn-outline">Annuler</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const selected = {};
+
+function toggleAtelier(id, nom) {
+  const card  = document.getElementById('at-card-' + id);
+  const check = document.getElementById('at-check-' + id);
+  if (selected[id]) {
+    delete selected[id];
+    card.classList.remove('selected');
+    document.getElementById('tag-' + id)?.remove();
+  } else {
+    selected[id] = nom;
+    card.classList.add('selected');
+    const tag = document.createElement('div');
+    tag.className = 'at-tag'; tag.id = 'tag-' + id;
+    tag.innerHTML = `🏭 ${nom} <button type="button" onclick="toggleAtelier('${id}','${nom}')">×</button>`;
+    document.getElementById('at-selected').appendChild(tag);
+  }
+  const keys = Object.keys(selected);
+  document.getElementById('no-select-msg').style.display = keys.length ? 'none' : '';
+  document.getElementById('ateliers-ids-input').value = keys.join(',');
+}
+
+function setUrgence(val) {
+  document.getElementById('urgence-hidden').value = val;
+  document.getElementById('urg-n').className = 'urg-btn' + (val === 'NORMAL'    ? ' sel-normal'   : '');
+  document.getElementById('urg-u').className = 'urg-btn' + (val === 'URGENT'    ? ' sel-urgent'   : '');
+  document.getElementById('urg-c').className = 'urg-btn' + (val === 'CRITIQUE'  ? ' sel-critique' : '');
+}
+
+document.getElementById('or-form').addEventListener('submit', function(e) {
+  if (!Object.keys(selected).length) {
+    e.preventDefault();
+    alert('⚠️ Sélectionnez au moins un atelier.');
+  }
+});
+</script>
+{% endblock %}

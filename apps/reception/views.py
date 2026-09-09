@@ -1,6 +1,7 @@
 """
 Vues Réception — sans devis, sans facture
 """
+import datetime
 from decimal import Decimal
 import json
 from django.core.serializers.json import DjangoJSONEncoder
@@ -26,6 +27,7 @@ import qrcode
 from io import BytesIO
 from django.core.files.base import ContentFile
 
+
 # ─── Utilitaire notif ────────────────────────────────────────────────────────
 def _notifier(type_notif, titre, message, reception=None):
     from apps.accounts.models import User
@@ -36,11 +38,51 @@ def _notifier(type_notif, titre, message, reception=None):
         )
 
 
+
+def get_entrees_presentes_filtrees(request):
+    qs = (
+        EnregistrementEntree.objects
+        .select_related("vehicule", "vehicule__client", "conducteur", "conducteur__client")
+       
+        .filter(date_sortie__isnull=True)
+        .order_by("-date_entree")
+    )
+ 
+    q = request.GET.get("q")
+    motif = request.GET.get("motif")
+    date_debut = request.GET.get("date_debut", "").strip()
+    date_fin = request.GET.get("date_fin", "").strip()
+ 
+    if q:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(vehicule__immatriculation__icontains=q)
+            | Q(vehicule__client__nom__icontains=q)
+            | Q(vehicule__client__telephone__icontains=q)
+            | Q(conducteur__nom__icontains=q)
+        )
+ 
+    if motif:
+        qs = qs.filter(motif=motif)
+ 
+    if date_debut:
+        dt = datetime.strptime(date_debut, "%Y-%m-%d")
+        qs = qs.filter(date_entree__gte=timezone.make_aware(dt))
+ 
+    if date_fin:
+        dt = datetime.strptime(date_fin, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59
+        )
+        qs = qs.filter(date_entree__lte=timezone.make_aware(dt))
+ 
+    return qs
+
+ 
 # ─── DASHBOARD ───────────────────────────────────────────────────────────────
-@receptionniste_required
+@receptionniste_required 
 def dashboard(request):
     # Tous les véhicules présents pour réparation (guérite)
-    entrees = EnregistrementEntree.objects.exclude(
+    entreesReparation = EnregistrementEntree.objects.exclude(
     motif=MotifEntree.VISITE
     ).exclude(
     statut=StatutEntree.SORTI
@@ -71,8 +113,8 @@ def dashboard(request):
     ctx = {
         'nb_entrees_today': entrees_today.count(),
         'nb_sorties_today': entrees_today.filter(statut=StatutEntree.SORTI).count(),
-        'entrees':            entrees,
-        'entrees_sans_rec':   entrees.filter(reception__isnull=True),
+        'entrees':            entreesReparation[:5],
+        'entrees_sans_rec':   entreesReparation.filter(reception__isnull=True),
         'receptions':         receptions,
         'notifs':             notifs,
         'nb_notifs':          notifs.count(),
@@ -83,10 +125,11 @@ def dashboard(request):
         'entrees_recentes':   entrees_today.select_related('vehicule', 'conducteur').order_by('-date_entree')[:7],
 
         # Compteurs KPI
-        'nb_a_traiter':       entrees.filter(reception__isnull=True).count(),
+        'nb_a_traiter':       entreesReparation.filter(reception__isnull=True).count(),
         'nb_en_atelier':      receptions.filter(statut=StatutVehicule.EN_ATELIER).count(),
         'nb_presents':        receptions.filter(statut=StatutVehicule.PRESENT_ATELIER).count(),
         'nb_termines':        receptions.filter(statut=StatutVehicule.TRAVAUX_TERMINES).count(),
+        'entreesNbr' : get_entrees_presentes_filtrees(request),
 
     }
     return render(request, 'reception/dashboard.html', ctx)
@@ -133,82 +176,154 @@ def liste_receptions(request):
 
 
 
+
+
+
 @receptionniste_required
 def creer_reception(request):
+    from apps.guerite.models import EnregistrementEntree, StatutEntree, MotifEntree
+    from apps.vehicules.models import Vehicule
+ 
     entree_id = request.GET.get('entree_id')
     entree = None
     if entree_id:
         entree = get_object_or_404(
             EnregistrementEntree,
-            id=entree_id, motif=MotifEntree.REPARATION, statut=StatutEntree.EN_COURS
+            id=entree_id,
+            motif=MotifEntree.REPARATION,
+            statut=StatutEntree.EN_COURS,
         )
         if hasattr(entree, 'reception'):
             messages.warning(request, "Cette entrée a déjà une réception.")
             return redirect('detail_reception', rec_id=entree.reception.id)
-
-    entrees_dispo = EnregistrementEntree.objects.filter(
-        motif=MotifEntree.REPARATION,
-        statut=StatutEntree.EN_COURS,
-        reception__isnull=True
-    ).select_related('vehicule', 'vehicule__client').order_by('-date_entree')
-
-    # Initialisation du formulaire (peut rester vide)
-    form = ReceptionForm()
-
+ 
     if request.method == 'POST':
-        action = request.POST.get('action')  # 'controle' ou 'transfert'
-        eid = request.POST.get('entree_id') or (str(entree.id) if entree else None)
-        if not eid:
-            messages.error(request, "Sélectionnez une entrée.")
-            return redirect('creer_reception')
+        entree_id_post   = (request.POST.get('entree_id') or
+                            request.POST.get('entree_select', '')).strip()
+        vehicule_id_post = request.POST.get('vehicule_id', '').strip()
+        decision         = request.POST.get('decision', 'VERS_ATELIER')
+        observations     = request.POST.get('observations', '').strip()
+ 
+        error = None
+        vehicule = None
+ 
+        if not vehicule_id_post and not entree_id_post:
+            error = "Sélectionnez un véhicule ou une entrée guérite."
+        elif not observations:
+            error = "Les observations sont obligatoires."
+        else:
+            if entree_id_post:
+                try:
+                    ent = EnregistrementEntree.objects.get(id=entree_id_post)
+                    vehicule = ent.vehicule
+                    entree   = ent
+                except EnregistrementEntree.DoesNotExist:
+                    error = "Entrée introuvable."
+            elif vehicule_id_post:
+                try:
+                    vehicule = Vehicule.objects.get(id=vehicule_id_post)
+                except Vehicule.DoesNotExist:
+                    error = "Véhicule introuvable."
+ 
+        if error:
+            return render(request, 'reception/creer_reception.html', {
+                'entree': entree, 'error': error,
+            })
+ 
+        rec = Reception.objects.create(
+            entree         = entree,
+            vehicule       = vehicule,
+            statut         = StatutVehicule.RAPPORT_FAIT,
+            receptionniste = request.user,
+            observations   = observations,
+        )
+        log_action(request, ActionType.CREATION, 'RECEPTION', rec, {'decision': decision})
+        messages.success(request, f"Réception {rec.numero} créée.")
+ 
+        if decision == 'SORTIE_DIRECTE':
+            messages.info(request, "Sortie directe — créez le bon de sortie.")
+            return redirect('creer_bon_sortie_rec', rec_id=rec.id)
+ 
+        return redirect('creer_or_rec', rec_id=rec.id)
+ 
+    return render(request, 'reception/creer_reception.html', {'entree': entree})
 
-        ent = get_object_or_404(EnregistrementEntree, id=eid)
 
-        if action == 'controle':
-            # Récupération des champs du contrôle
-            diagnostic = request.POST.get('diagnostic', '').strip()
-            pieces_rec = request.POST.get('pieces_recommandees', '').strip()
-            temps_estime = request.POST.get('temps_estime', '0')
-            try:
-                temps_estime = Decimal(temps_estime)
-            except:
-                temps_estime = Decimal('0')
 
-            if not diagnostic:
-                messages.error(request, "Le diagnostic est obligatoire pour créer un bon de sortie.")
-                return redirect('creer_reception')
-                    
-            FicheTechnique.objects.create(
-                diagnostic=diagnostic,
-                entre_id= ent,
-                pieces_recommandees=pieces_rec,
-                temps_estime_heures=temps_estime,
-                cree_par=request.user
-            )
-            messages.success(request, f"fiche technique créées. Vous pouvez maintenant créer le bon de sortie.")
-            # Rediriger vers la création du bon de sortie (ou vers la fiche)
-            return redirect('creer_bon_sortie_rec', rec_id=ent.id)
 
-        elif action == 'transfert': 
-            # Comportement actuel : simple création de réception
-            form = ReceptionForm(request.POST)
-            if form.is_valid(): 
-                rec = form.save(commit=False)
-                rec.entree = ent
-                rec.vehicule = ent.vehicule
-                rec.receptionniste = request.user
-                rec.save()
-                log_action(request, ActionType.CREATION, 'RECEPTION', rec)
-                messages.success(request, f"Réception {rec.numero} créée et transférée à l'atelier.")
-                return redirect('detail_reception', rec_id=rec.id)
-            else:
-                messages.error(request, "Erreur dans le formulaire. Vérifiez les champs.")
 
-    return render(request, 'reception/creer_reception.html', {
-        'form': form,
-        'entree': entree,
-        'entrees_dispo': entrees_dispo,
-    })
+
+
+
+# ─── Autocomplete véhicules ───────────────────────────────────────────────────
+@guerite_required
+def api_vehicules(request):
+    from apps.vehicules.models import Vehicule
+ 
+    q        = request.GET.get('q', '').strip()
+    en_cours = request.GET.get('en_cours', '')
+ 
+    qs = Vehicule.objects.select_related('client').filter(is_active=True)
+    if q:
+        qs = qs.filter(
+            Q(immatriculation__icontains=q) |
+            Q(marque__icontains=q) |
+            Q(modele__icontains=q) |
+            Q(client__nom__icontains=q) |
+            Q(client__prenom__icontains=q) |
+            Q(client__telephone__icontains=q)
+        )
+ 
+    results = []
+    for v in qs[:12]:
+        entree_active = v.entrees.filter(statut='EN_COURS').order_by('-date_entree').first()
+        # Si filtre en_cours, on saute les véhicules sans entrée active
+        if en_cours == '1' and not entree_active:
+            continue
+        results.append({
+            'id':             str(v.id),
+            'immatriculation': v.immatriculation,
+            'marque':         v.marque,
+            'modele':         v.modele,
+            'annee':          v.annee,
+            'couleur':        v.couleur or '',
+            'client':         str(v.client),
+            'telephone':      v.client.telephone,
+            'en_cours':       bool(entree_active),
+            'date_entree':    entree_active.date_entree.strftime('%d/%m/%Y %H:%M') if entree_active else '',
+        })
+ 
+    return JsonResponse({'results': results})
+ 
+
+
+
+# ─── Entrées en cours pour un véhicule ───────────────────────────────────────
+@guerite_required
+def api_entrees_vehicule(request):
+    from .models import EnregistrementEntree
+ 
+    vehicule_id = request.GET.get('vehicule_id', '').strip()
+    if not vehicule_id:
+        return JsonResponse({'entrees': []})
+ 
+    entrees = EnregistrementEntree.objects.filter(
+        vehicule_id=vehicule_id,
+        statut='EN_COURS',
+        motif='REPARATION',
+        reception__isnull=True,   # Pas encore réceptionnées
+    ).order_by('-date_entree')
+ 
+    results = [{
+        'id':          str(e.id),
+        'numero':      e.numero,
+        'motif':       e.get_motif_display(),
+        'date_entree': e.date_entree.strftime('%d/%m/%Y %H:%M'),
+    } for e in entrees]
+ 
+    return JsonResponse({'entrees': results})
+ 
+
 
 
 
@@ -540,7 +655,7 @@ def detail_bon_sortie_guerite(request, bon_id):
         id=bon_id
     )
 
-    super_receptionniste = request.user.role == Role.SUPER_RECEPTIONNISTE
+    super_receptionniste = request.user.role in (Role.SUPER_RECEPTIONNISTE, Role.ADMIN)
 
     return render(
         request,
@@ -782,10 +897,9 @@ def creer_bon_sortie_direct(request):
 
 @guerite_required
 def liste_vehicules_presents(request):
-    entrees = EnregistrementEntree.objects.exclude(
-        statut=StatutEntree.SORTI          # exclut les sortis → reste les présents
-    ).select_related('vehicule', 'vehicule__client', 'conducteur').order_by('-date_entree')
-    return render(request, 'reception/vehicules_presents_rec.html', {'entrees': entrees})
+    entrees = get_entrees_presentes_filtrees(request)
+    return render(request, 'reception/vehicules_presents_rec.html', {'entrees': entrees, 'motifs': MotifEntree.choices})
+
 
  
 @guerite_required
@@ -811,7 +925,10 @@ def creer_bon_sortie_divers(request):
                 observations    = observations,
                 cree_par        = request.user,
             )
-            notifier_bon_sortie_cree(bon)
+            
+            est_super_ou_admin = request.user.role in (Role.SUPER_RECEPTIONNISTE, Role.ADMIN)
+            if not est_super_ou_admin:
+                notifier_bon_sortie_cree(bon)
             log_action(request, ActionType.CREATION, 'GUERITE', bon, {'type': 'DIVERS'})
             messages.success(request, f"Bon de sortie {bon.numero} créé avec succès.")
             return redirect('detail_bon_sortie_guerite', bon_id=bon.id)

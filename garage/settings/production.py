@@ -127,7 +127,7 @@ if SENTRY_DSN:
 
 # ─── Cache / Sessions via Redis (déjà dans base.py mais on confirme prod) ───
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-SESSION_COOKIE_AGE = 28800  # 8h
+SESSION_COOKIE_AGE = 604800  # 8h
 
 # ─── CORS strict en prod ─────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = config('CORS_ORIGINS', cast=Csv(), default='')

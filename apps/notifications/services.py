@@ -6,6 +6,8 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
 import logging
+from django.utils import timezone
+from django.utils import http
 
 from apps.notifications.models import DestinataireEmail
 
@@ -111,8 +113,10 @@ def _build_email_html(bon, objet_str):
     couleur    = "#7c3aed"
 
     cree_par   = bon.cree_par.full_name if bon.cree_par else "—"
-    from django.utils import timezone
-    date_str   = timezone.now().strftime("%d/%m/%Y à %H:%M")
+    
+    date_str = timezone.localtime(bon.created_at).strftime("%d/%m/%Y à %H:%M")
+
+    lien_validation= f"https://garage.laprudenceplus-cm.com/reception/bons-sortie/{bon.id}"
 
     return f"""
 <!DOCTYPE html>
@@ -124,8 +128,8 @@ def _build_email_html(bon, objet_str):
   <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
 
     <!-- Header -->
-    <tr><td style="background:{couleur};padding:24px 32px;">
-      <div style="color:#fff;font-size:22px;font-weight:800;">🚗 Garage Suivi</div>
+    <tr><td style="background:#2563eb;padding:24px 32px;">
+      <div style="color:#fff;font-size:22px;font-weight:800;">CENTRE AUTO LA PRUDENCE +</div>
       <div style="color:rgba(255,255,255,.8);font-size:13px;margin-top:4px;">Notification — Bon de sortie</div>
     </td></tr>
 
@@ -146,7 +150,7 @@ def _build_email_html(bon, objet_str):
         </tr>
         <tr style="border-bottom:1px solid #e2e8f0;">
           <td style="color:#64748b;font-weight:600;">Type</td>
-          <td><span style="background:{couleur}15;color:{couleur};padding:3px 10px;border-radius:20px;font-weight:700;">{type_label}</span></td>
+          <td><span style="background:#2563eb15;color:#2563eb;padding:3px 10px;border-radius:20px;font-weight:700;">{type_label}</span></td>
         </tr>
         <tr style="border-bottom:1px solid #e2e8f0;">
           <td style="color:#64748b;font-weight:600;">Objet</td>
@@ -167,12 +171,13 @@ def _build_email_html(bon, objet_str):
         </tr>
       </table>
 
-      <!-- CTA -->
+      <!-- CTA : lien cliquable -->
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr><td align="center" style="padding:8px 0 24px;">
-          <div style="background:{couleur};color:#fff;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:700;display:inline-block;">
+          <a href="{lien_validation}" 
+             style="background:#2563eb;color:#fff;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:700;display:inline-block;text-decoration:none;">
             📋 Accepter la sortie
-          </div>
+          </a>
         </td></tr>
       </table>
 
@@ -183,7 +188,7 @@ def _build_email_html(bon, objet_str):
 
     <!-- Footer -->
     <tr><td style="background:#f8fafc;padding:16px 32px;border-top:1px solid #e2e8f0;text-align:center;">
-      <span style="color:#94a3b8;font-size:12px;">© Garage Suivi — Système de gestion de garage</span>
+      <span style="color:#94a3b8;font-size:12px;">© CENTRE AUTO LA PRUDENCE + — Système de gestion de garage</span>
     </td></tr>
 
   </table>

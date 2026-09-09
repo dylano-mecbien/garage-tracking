@@ -5,114 +5,345 @@
 {% block sidebar_nav %}
 <div class="sidebar-section">Réception</div>
 <ul class="sidebar-nav">
-    <li><a href="{% url 'dashboard_reception' %}"><span class="icon">📊</span> Tableau de bord</a></li>
-    <li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
-    <li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
-    <li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
-    <li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+  <li><a href="{% url 'dashboard_reception' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
+  <li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+  <li><a href="{% url 'creer_reception' %}" class="active"><span class="icon">✏️</span> Créer Réception</a></li>
 </ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Étapes ── */
+.step-indicator { display:flex; align-items:center; margin-bottom:24px; }
+.step { display:flex; align-items:center; gap:8px; }
+.step-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+.step-dot.active { background:var(--primary); color:#fff; }
+.step-dot.done   { background:var(--success); color:#fff; }
+.step-dot.wait   { background:var(--border); color:var(--text-muted); }
+.step-label { font-size:12px; font-weight:600; }
+.step-line  { flex:1; height:2px; background:var(--border); margin:0 8px; }
+.step-line.done { background:var(--success); }
+
+/* ── Recherche véhicule ── */
+.veh-search-wrap { position:relative; }
+.veh-results {
+  position:absolute; top:calc(100% + 4px); left:0; right:0;
+  background:var(--surface); border:1.5px solid var(--primary-light);
+  border-radius:8px; box-shadow:var(--shadow-md); z-index:300;
+  max-height:280px; overflow-y:auto; display:none;
+}
+.veh-results.open { display:block; }
+.veh-item {
+  display:flex; align-items:center; gap:12px;
+  padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border);
+  transition:background .15s;
+}
+.veh-item:last-child { border-bottom:none; }
+.veh-item:hover { background:var(--surface2); }
+.veh-item .vi-immat { font-weight:800; font-size:14px; color:var(--primary); }
+.veh-item .vi-info  { font-size:12px; color:var(--text-muted); margin-top:1px; }
+.veh-badge { font-size:10px; padding:2px 8px; border-radius:10px; font-weight:700; }
+.veh-badge.libre   { background:#d1fae5; color:#065f46; }
+.veh-badge.present { background:#fee2e2; color:#991b1b; }
+
+/* Véhicule sélectionné */
+.veh-selected {
+  display:none; background:var(--surface2);
+  border:1.5px solid var(--success); border-radius:var(--radius);
+  padding:14px 16px; align-items:center; gap:14px;
+}
+.veh-selected.show { display:flex; }
+
+/* ── Décision ── */
+.decision-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:8px; }
+.decision-card {
+  border:2px solid var(--border); border-radius:var(--radius);
+  padding:20px; cursor:pointer; text-align:center;
+  transition:all .2s; background:var(--surface);
+}
+.decision-card:hover { border-color:var(--primary-light); transform:translateY(-2px); }
+.decision-card.selected { border-color:var(--primary); background:rgba(37,99,168,.07); }
+.decision-card .dc-icon  { font-size:36px; margin-bottom:8px; }
+.decision-card .dc-label { font-weight:700; font-size:14px; }
+.decision-card .dc-desc  { font-size:12px; color:var(--text-muted); margin-top:4px; }
+.decision-card.selected .dc-label { color:var(--primary); }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <div><h1>Nouvelle réception</h1></div>
+  <div>
+    <h1>Nouvelle réception</h1>
+    <div class="breadcrumb"><a href="{% url 'dashboard_reception' %}">Réception</a> › Créer</div>
+  </div>
   <a href="{% url 'dashboard_reception' %}" class="btn btn-outline">← Retour</a>
 </div>
 
-{% if entree %}
-<div class="card mb-2" style="border-left:4px solid var(--success); max-width:1000px;">
-  <div class="card-header"><div class="card-title">✅ Entrée sélectionnée</div></div>
-  <div style="display:flex; gap:26px; align-items:center; flex-wrap:wrap;">
-    <div><div class="text-muted text-small">Immatriculation</div><strong>{{ entree.vehicule.immatriculation }}</strong></div>
-    <div><div class="text-muted text-small">Véhicule</div>{{ entree.vehicule.marque }} {{ entree.vehicule.modele }}</div>
-    <div><div class="text-muted text-small">Client</div><strong>{{ entree.vehicule.client }}</strong></div>
-    <div><div class="text-muted text-small">Tél.</div>{{ entree.vehicule.client.telephone }}</div>
-    <div><div class="text-muted text-small">Entrée le</div>{{ entree.date_entree|date:"d/m/Y H:i" }}</div>
-    <div><a href="{% url 'detail_vehicule_rec' entree.vehicule.id %}" class="btn btn-info btn-sm">👁 Détails</a></div>
+<!-- Étapes -->
+<div class="step-indicator">
+  <div class="step">
+    <div class="step-dot done">✓</div>
+    <span class="step-label">Entrée guérite</span>
+  </div>
+  <div class="step-line done"></div>
+  <div class="step">
+    <div class="step-dot active">2</div>
+    <span class="step-label">Réception</span>
+  </div>
+  <div class="step-line"></div>
+  <div class="step">
+    <div class="step-dot wait">3</div>
+    <span class="step-label">Atelier / Sortie</span>
   </div>
 </div>
-{% endif %}
 
-<!-- Si aucune entrée n'est encore sélectionnée, afficher un sélecteur commun -->
-{% if not entree %}
-<div class="card mt-2" style="max-width:1000px;">
-  <div class="card-header"><div class="card-title">🚗 Sélectionner une entrée</div></div>
-  <form method="get">
+<form method="post" id="rec-form" style="max-width:760px;">
+  {% csrf_token %}
+  <input type="hidden" name="entree_id"  id="entree-id-hidden"  value="{{ entree.id|default:'' }}">
+  <input type="hidden" name="vehicule_id" id="vehicule-id-hidden" value="{{ entree.vehicule.id|default:'' }}">
+  <input type="hidden" name="decision"   id="decision-hidden"   value="VERS_ATELIER">
+
+  <!-- ① Recherche / sélection véhicule -->
+  <div class="card mb-2">
+    <div class="card-header"><div class="card-title">① Véhicule</div></div>
+
+    {% if entree %}
+    <!-- Véhicule prérempli depuis l'entrée guérite -->
+    <div class="veh-selected show" id="veh-box">
+      <div style="font-size:26px;">🚗</div>
+      <div style="flex:1;">
+        <div style="font-size:17px;font-weight:800;" id="veh-immat">{{ entree.vehicule.immatriculation }}</div>
+        <div class="text-small" id="veh-detail">{{ entree.vehicule.marque }} {{ entree.vehicule.modele }} {{ entree.vehicule.annee }}</div>
+        <div class="text-small text-muted" id="veh-client">
+          Propriétaire : <strong>{{ entree.vehicule.client }}</strong>
+          — {{ entree.vehicule.client.telephone }}
+          — Entré le {{ entree.date_entree|date:"d/m/Y H:i" }}
+        </div>
+      </div>
+      <a href="{% url 'recherche_vehicule' %}" class="btn btn-outline btn-sm">Changer</a>
+    </div>
+    {% else %}
+    <!-- Recherche libre -->
     <div class="form-group">
-      <label class="form-label">Entrée guérite (véhicule en réparation) *</label>
-      <select name="entree_id" class="form-select" required>
-        <option value="">— Sélectionner une entrée —</option>
-        {% for e in entrees_dispo %}
-        <option value="{{ e.id }}">{{ e.vehicule.immatriculation }} — {{ e.vehicule.client }} ({{ e.date_entree|date:"d/m/Y H:i" }})</option>
-        {% endfor %}
+      <label class="form-label">🔍 Rechercher le véhicule *</label>
+      <div class="veh-search-wrap">
+        <input type="text" id="veh-search" class="form-input"
+               placeholder="Immatriculation, propriétaire, marque..."
+               autocomplete="off">
+        <div class="veh-results" id="veh-results"></div>
+      </div>
+
+      <div class="veh-selected" id="veh-box" style="margin-top:10px;">
+        <div style="font-size:24px;">🚗</div>
+        <div style="flex:1;">
+          <div style="font-weight:800;font-size:15px;" id="veh-immat">—</div>
+          <div class="text-small text-muted" id="veh-detail">—</div>
+          <div class="text-small text-muted" id="veh-client">—</div>
+        </div>
+        <button type="button" onclick="clearVehicule()" class="btn btn-outline btn-sm">✕ Changer</button>
+      </div>
+      <div class="text-small text-muted mt-1">
+        Véhicule non trouvé ?
+        <a href="{% url 'creer_vehicule_guerite' %}">Créer un véhicule</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Entrée associée (si pas depuis guérite) -->
+    {% if not entree %}
+    <div class="form-group" id="entree-wrap" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+      <label class="form-label">🚪 Entrée guérite associée</label>
+      <select name="entree_select" id="entree-select" class="form-select">
+        <option value="">— Sélectionner une entrée en cours —</option>
       </select>
-      {% if not entrees_dispo %}
-      <div class="text-small text-muted mt-1">⚠️ Aucune entrée réparation disponible.</div>
-      {% endif %}
+      <div class="text-small text-muted mt-1">Entrées actives de ce véhicule</div>
     </div>
-    <button type="submit" class="btn btn-primary">Charger l'entrée</button>
-  </form>
-</div>
-{% endif %}
-
-<!-- Grille 2 colonnes -->
-<div class="grid-2" style="max-width:1000px; gap:24px;">
-  
-  <!-- COLONNE GAUCHE : Effectuer le contrôle -->
-  <div class="card">
-    <div class="card-header">
-      <div class="card-title">🔧 Effectuer le contrôle</div>
-    </div>
-    <form method="post" id="form-controle">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="controle">
-      <input type="hidden" name="entree_id" value="{{ entree.id|default:'' }}">
-
-      <div class="form-group">
-        <label class="form-label">📝 Diagnostic (liste séparée par des ;)</label>
-        <textarea name="diagnostic" class="form-textarea" rows="4" 
-                  placeholder="Exemple :&#10;Contrôle du moteur : fuite d'huile;Usure des plaquettes de frein;Sonde lambda défectueuse" required></textarea>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">🔩 Pièces recommandées</label>
-        <textarea name="pieces_recommandees" class="form-textarea" rows="3" 
-                  placeholder="Exemple : Kit de joint de culasse, Filtre à huile, Bougies d'allumage..."></textarea>
-      </div>
-
-      
-
-      <div class="form-group">
-        <label class="form-label">💬 Observations complémentaires</label>
-        <textarea name="observations_transfert" class="form-textarea" rows="2" 
-                  placeholder="Remarques éventuelles..."></textarea>
-      </div>
-
-      <hr>
-      <div style="display:flex; justify-content:flex-end;">
-        <button type="submit" class="btn btn-success" style="padding:10px 20px;">
-          📄 Créer bon de sortie et valider
-        </button>
-        <button type="submit" class="btn btn-primary" style="padding:10px 20px;">
-          ✅ Transférer à l'atelier
-        </button>
-      </div>
-    </form>
+    {% endif %}
   </div>
 
-</div>
+  <!-- ② Observations -->
+  <div class="card mb-2">
+    <div class="card-header"><div class="card-title">② Observations</div></div>
 
+    <div class="form-group">
+      <label class="form-label">📝 Observations *</label>
+      <textarea name="observations" class="form-textarea" rows="5" required
+                placeholder="Décrivez le problème constaté, les symptômes, la demande du client, l'état général du véhicule..."></textarea>
+      <div class="text-small text-muted mt-1">
+        Ce champ sera transmis à l'atelier avec l'ordre de réparation.
+      </div>
+    </div>
+  </div>
 
+  <!-- ③ Décision -->
+  <div class="card mb-2">
+    <div class="card-header"><div class="card-title">③ Décision *</div></div>
 
+    <div class="decision-grid">
+      <div class="decision-card" id="card-sortie" onclick="setDecision('SORTIE_DIRECTE')">
+        <div class="dc-icon">🚗</div>
+        <div class="dc-label">Sortie directe</div>
+        <div class="dc-desc">Le véhicule repart sans réparation<br>→ créer le bon de sortie</div>
+      </div>
+      <div class="decision-card selected" id="card-atelier" onclick="setDecision('VERS_ATELIER')">
+        <div class="dc-icon">🏭</div>
+        <div class="dc-label">Transfert en atelier</div>
+        <div class="dc-desc">Le véhicule nécessite une réparation<br>→ créer un ordre de réparation</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Erreurs -->
+  {% if form.errors or error %}
+  <div class="alert alert-error" style="margin-bottom:12px;">
+    {% if error %}{{ error }}{% endif %}
+    {% for field, errors in form.errors.items %}
+      {% for e in errors %}<div>{{ e }}</div>{% endfor %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div style="display:flex;gap:12px;margin-top:20px;">
+    <button type="submit" class="btn btn-primary" style="font-size:15px;padding:11px 28px;">
+      ✅ Créer la réception
+    </button>
+    <a href="{% url 'dashboard_reception' %}" class="btn btn-outline">Annuler</a>
+  </div>
+</form>
 {% endblock %}
 
-<!-- Petit script pour maintenir la cohérence : si un formulaire est soumis, l'autre non -->
+{% block extra_js %}
 <script>
-  // Optionnel : désactiver l'autre formulaire lors de la soumission (évite les doubles envois)
-  document.getElementById('form-controle')?.addEventListener('submit', function() {
-    document.getElementById('form-transfert')?.querySelectorAll('input, textarea, button').forEach(el => el.disabled = true);
+// ── Décision ──────────────────────────────────────────────────
+function setDecision(val) {
+  document.getElementById('decision-hidden').value = val;
+  document.getElementById('card-sortie').classList.toggle('selected',  val === 'SORTIE_DIRECTE');
+  document.getElementById('card-atelier').classList.toggle('selected', val === 'VERS_ATELIER');
+}
+
+{% if not entree %}
+// ── Recherche véhicule ────────────────────────────────────────
+let dbt;
+document.getElementById('veh-search').addEventListener('input', function() {
+  clearTimeout(dbt);
+  const q = this.value.trim();
+  if (q.length < 2) { closeVehRes(); return; }
+  dbt = setTimeout(() => searchVehicule(q), 300);
+});
+
+async function searchVehicule(q) {
+  try {
+    const r    = await fetch(`/api_vehicules/?q=${encodeURIComponent(q)}&en_cours=1`);
+    const data = await r.json();
+    renderVehResults(data.results || []);
+  } catch(e) { console.error(e); }
+}
+
+function renderVehResults(results) {
+  const box = document.getElementById('veh-results');
+  box.innerHTML = '';
+  if (!results.length) {
+    box.innerHTML = `<div style="padding:12px 14px;color:var(--text-muted);font-size:13px;">
+      Aucun véhicule trouvé —
+      <a href="/guerite/entree/creer-vehicule/" style="color:var(--primary);">Créer</a>
+    </div>`;
+    box.classList.add('open'); return;
+  }
+  results.forEach(v => {
+    const d = document.createElement('div');
+    d.className = 'veh-item';
+    d.innerHTML = `
+      <span style="font-size:22px;">🚗</span>
+      <div style="flex:1;">
+        <div class="vi-immat">${v.immatriculation}
+          <span class="veh-badge ${v.en_cours ? 'present' : 'libre'}">${v.en_cours ? '🔴 Présent' : '✅ Libre'}</span>
+        </div>
+        <div class="vi-info">${v.marque} ${v.modele} ${v.annee} — ${v.client}</div>
+        ${v.en_cours ? `<div class="vi-info" style="color:var(--warning);">Entré le ${v.date_entree}</div>` : ''}
+      </div>`;
+    d.onclick = () => selectVehicule(v);
+    box.appendChild(d);
   });
-  document.getElementById('form-transfert')?.addEventListener('submit', function() {
-    document.getElementById('form-controle')?.querySelectorAll('input, textarea, button').forEach(el => el.disabled = true);
-  });
+  box.classList.add('open');
+}
+
+function selectVehicule(v) {
+  document.getElementById('vehicule-id-hidden').value = v.id;
+  document.getElementById('veh-immat').textContent  = v.immatriculation;
+  document.getElementById('veh-detail').textContent = `${v.marque} ${v.modele} ${v.annee}`;
+  document.getElementById('veh-client').textContent = `Propriétaire : ${v.client} — ${v.telephone}`;
+  document.getElementById('veh-box').classList.add('show');
+  document.getElementById('veh-search').style.display = 'none';
+  closeVehRes();
+
+  // Charger les entrées en cours pour ce véhicule
+  if (v.en_cours) {
+    loadEntrees(v.id);
+  }
+}
+
+function clearVehicule() {
+  document.getElementById('vehicule-id-hidden').value = '';
+  document.getElementById('entree-id-hidden').value   = '';
+  document.getElementById('veh-box').classList.remove('show');
+  document.getElementById('veh-search').style.display = '';
+  document.getElementById('veh-search').value = '';
+  document.getElementById('entree-wrap').style.display = 'none';
+}
+
+function closeVehRes() {
+  document.getElementById('veh-results').classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.veh-search-wrap')) closeVehRes();
+});
+
+async function loadEntrees(vehiculeId) {
+  try {
+    const r    = await fetch(`/api_entrees_vehicule/?vehicule_id=${vehiculeId}`);
+    const data = await r.json();
+    const sel  = document.getElementById('entree-select');
+    const wrap = document.getElementById('entree-wrap');
+    sel.innerHTML = '<option value="">— Sélectionner une entrée en cours —</option>';
+    (data.entrees || []).forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = `${e.numero} — ${e.motif} — ${e.date_entree}`;
+      sel.appendChild(opt);
+    });
+    if (data.entrees && data.entrees.length) {
+      wrap.style.display = '';
+      // Auto-select si une seule entrée
+      if (data.entrees.length === 1) {
+        sel.value = data.entrees[0].id;
+        document.getElementById('entree-id-hidden').value = data.entrees[0].id;
+      }
+    }
+    sel.addEventListener('change', function() {
+      document.getElementById('entree-id-hidden').value = this.value;
+    });
+  } catch(e) { console.error(e); }
+}
+{% endif %}
+
+// ── Validation ────────────────────────────────────────────────
+document.getElementById('rec-form').addEventListener('submit', function(e) {
+  {% if not entree %}
+  if (!document.getElementById('vehicule-id-hidden').value) {
+    e.preventDefault();
+    alert('⚠️ Veuillez sélectionner un véhicule.');
+    return;
+  }
+  {% endif %}
+  const obs = document.querySelector('textarea[name="observations"]').value.trim();
+  if (!obs) {
+    e.preventDefault();
+    alert('⚠️ Les observations sont obligatoires.');
+  }
+});
 </script>
+{% endblock %}

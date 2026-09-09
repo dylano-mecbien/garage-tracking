@@ -40,6 +40,44 @@
     <div class="breadcrumb">{{ entrees|length }} véhicule{{ entrees|length|pluralize }} actuellement dans le local</div>
 </div>
 </div>
+
+
+
+<div class="card mb-2">
+  <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+    <div>
+      <label class="form-label">Recherche</label>
+      <input type="text" name="q" value="{{ request.GET.q }}" class="form-input" placeholder="Immat., client, n°..." style="width:200px;">
+    </div>
+    <div>
+      <label class="form-label">Motif</label>
+      <select name="motif" class="form-select" style="width:150px;">
+        <option value="">Tous</option>
+        {% for v, l in motifs %}
+          <option value="{{ v }}" {% if request.GET.motif == v %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Du</label>
+      <input type="date" name="date_debut" value="{{ request.GET.date_debut }}" class="form-input" style="width:140px;">
+    </div>
+    <div>
+      <label class="form-label">Au</label>
+      <input type="date" name="date_fin" value="{{ request.GET.date_fin }}" class="form-input" style="width:140px;">
+    </div>
+    <div>
+      <button class="btn btn-primary">🔍 Filtrer</button>
+      <a href="{% url 'vehicules_presents_rec' %}" class="btn btn-outline">✕</a>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:8px;">
+      <a href="{% url 'export_presents_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">📊 Exporter Excel</a>
+      <a href="{% url 'export_presents_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger">📄 Exporter PDF</a>
+    </div>
+  </form>
+</div>
+
+
 <div class="card">
   <div class="table-wrap">
     <table>

@@ -9,6 +9,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle, Paragraph,
                                  Spacer, HRFlowable, Image)
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from django.utils import timezone
 
 COULEUR_PRIMAIRE = colors.HexColor('#1a3a5c')
 COULEUR_ACCENT = colors.HexColor('#e67e22')
@@ -22,6 +23,15 @@ COULEUR_APPROBATION_BG = colors.HexColor('#fef3c7')
 COULEUR_APPROBATION_TEXTE = colors.HexColor('#92400e')
 COULEUR_CREER_BG = colors.HexColor('#e5e7eb')
 COULEUR_CREER_TEXTE = colors.HexColor('#374151')
+
+
+def format_datetime(dt):
+    """Convertit un datetime aware en heure locale et le formate."""
+    if not dt:
+        return "—"
+    if timezone.is_aware(dt):
+        dt = timezone.localtime(dt)
+    return dt.strftime('%d/%m/%Y %H:%M')
 
 
 def _badge_etat(etat):
@@ -66,10 +76,10 @@ def _header_table(titre, numero, date, vehicule=None, client=None):
     ligne_client = f"<b>Client:</b> {client}" if client else ""
 
     data = [
-        [Paragraph("<b><font size=14 color='#1a3a5c'>GARAGE AUTO LA PRUDENCE +</font></b>", styles['Normal']),
+        [Paragraph("<b><font size=14 color='#1a3a5c'>CENTRE AUTO LA PRUDENCE +</font></b>", styles['Normal']),
          Paragraph(f"<b><font size=16 color='#e67e22'>{titre}</font></b>", ParagraphStyle('', alignment=TA_RIGHT))],
         [Paragraph("BP 9060 - Douala, Cameroun<br/>Tél: +237 650 99 75 09", styles['Normal']),
-         Paragraph(f"<b>N°:</b> {numero}<br/><b>Date:</b> {date.strftime('%d/%m/%Y %H:%M')}", ParagraphStyle('', alignment=TA_RIGHT))],
+         Paragraph(f"<b>N°:</b> {numero}<br/><b>Date:</b> {format_datetime(date)}", ParagraphStyle('', alignment=TA_RIGHT))],
         [Paragraph(ligne_vehicule, styles['Normal']),
          Paragraph(ligne_client, ParagraphStyle('', alignment=TA_RIGHT))],
     ]
@@ -200,7 +210,6 @@ def _mention_legale():
     return t
 
 
-
 def generer_pdf_bon_sortie(bon):
     """
     Génère le PDF d'un bon de sortie (véhicule ou divers) au même
@@ -246,7 +255,7 @@ def generer_pdf_bon_sortie(bon):
         ("Type", "Véhicule" if bon.types == 'VEHICULE' else "Divers"),
         ("Demandeur", bon.nom_demandeur or "—"),
         ("Créé par", bon.cree_par.full_name if bon.cree_par else "—"),
-        ("Créé le", bon.created_at.strftime('%d/%m/%Y %H:%M')),
+        ("Créé le", format_datetime(bon.created_at)),
     ]
 
     # Dates d'entrée/sortie : récupérées depuis l'EnregistrementEntree lié
@@ -254,14 +263,12 @@ def generer_pdf_bon_sortie(bon):
     if bon.types == 'VEHICULE':
         entree = bon.entrees_liees.first()
         if entree:
-            date_entree_str = entree.date_entree.strftime('%d/%m/%Y %H:%M') if entree.date_entree else "—"
-            date_sortie_str = entree.date_sortie.strftime('%d/%m/%Y %H:%M') if entree.date_sortie else "—"
-            info_rows.append(("Date entrée", date_entree_str))
-            info_rows.append(("Date sortie", date_sortie_str))
+            info_rows.append(("Date entrée", format_datetime(entree.date_entree)))
+            info_rows.append(("Date sortie", format_datetime(entree.date_sortie)))
 
     if bon.est_valide:
         info_rows.append(("Validé par", bon.valide_par.full_name if bon.valide_par else "—"))
-        info_rows.append(("Validé le", bon.date_validation.strftime('%d/%m/%Y %H:%M') if bon.date_validation else "—"))
+        info_rows.append(("Validé le", format_datetime(bon.date_validation)))
 
     elements.append(_section_titre("Informations"))
     elements.append(Spacer(1, 3 * mm))
@@ -310,14 +317,12 @@ def generer_pdf_bon_sortie(bon):
         elements.append(_section_titre("Signature du demandeur"))
         elements.append(Spacer(1, 4 * mm))
         try:
-            # signature_client est une image encodée en base64 (data URL) via le pad JS
             import base64
             header, encoded = bon.signature_client.split(',', 1)
             img_data = base64.b64decode(encoded)
             img_buffer = BytesIO(img_data)
             elements.append(Image(img_buffer, width=60 * mm, height=30 * mm))
         except Exception:
-            # Si le format n'est pas exploitable, on ignore l'image plutôt que de casser le PDF
             elements.append(Paragraph("Signature enregistrée (aperçu indisponible)", styles['Normal']))
         elements.append(Spacer(1, 8 * mm))
     else:
