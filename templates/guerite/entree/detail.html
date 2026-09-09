@@ -17,15 +17,15 @@
 
 <div class="page-header">
   <div>
-    
     <h1>Entrée {{ entree.vehicule.immatriculation  }}</h1>
-                       
 
     <div class="breadcrumb">
       Enregistrée le {{ entree.date_entree|date:"d/m/Y à H:i" }}
     </div>
   </div> 
+   <a href="{% url 'modifier_vehicule' entree.vehicule.id %}" class="btn btn-outline btn-sm">✏️ Modifier</a>
 </div>
+
 
 {% if entree.statut != 'SORTI' %}
 <div style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);border-radius:12px;padding:24px;margin-bottom:20px;border-left:5px solid var(--success);max-width:700px;">
@@ -33,7 +33,7 @@
     ✅ Entrée enregistrée avec succès
   </div>
   <div style="color:#047857;font-size:15px;">
-    N° <strong>{{ entree.numero }}</strong> — {{ entree.date_entree|date:"d/m/Y H:i" }}
+    Date : <strong>{{ entree.date_entree|date:"d/m/Y H:i" }}</strong>
   </div>
 </div>
 {% endif %}
@@ -178,7 +178,7 @@
 <!-- BOUTONS TOUJOURS VISIBLES -->
 <div style="display:flex;gap:8px; margin-top:20px;">
   <a href="{% url 'dashboard_guerite' %}" class="btn btn-outline">← Retour</a>
-  {% if entree.statut != 'SORTI' and entree.statut == 'BON_SORTIE_FAIT'  %}
+  {% if entree.motif == 'VISITE' or entree.statut == 'BON_SORTIE_FAIT'  %}
     <a href="{% url 'enregistrer_sortie' entree.id %}" class="btn btn-warning">
       📤 Enregistrer SORTI
     </a>

@@ -56,7 +56,7 @@ def dashboard(request):
     # Notifications non lues
     notifs = Notification.objects.filter(
         destinataire=request.user, lue=False
-    ).select_related('reception')[:20]
+    ).select_related('reception')[:15]
 
     # OR actifs liés aux réceptions
     or_actifs = OrdreReparation.objects.filter(
@@ -79,8 +79,8 @@ def dashboard(request):
         'or_actifs':          or_actifs,
         'vehicules_presents': EnregistrementEntree.objects.exclude(statut=StatutEntree.SORTI).select_related(
             'vehicule', 'vehicule__client', 'conducteur'
-        ).order_by('-date_entree')[:20],
-        'entrees_recentes':   entrees_today.select_related('vehicule', 'conducteur').order_by('-date_entree')[:10],
+        ).order_by('-date_entree')[:7],
+        'entrees_recentes':   entrees_today.select_related('vehicule', 'conducteur').order_by('-date_entree')[:7],
 
         # Compteurs KPI
         'nb_a_traiter':       entrees.filter(reception__isnull=True).count(),

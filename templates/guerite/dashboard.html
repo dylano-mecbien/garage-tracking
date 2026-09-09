@@ -35,7 +35,7 @@
   </div>
   <div class="kpi-card accent">
     <div class="kpi-label">🚗 Véhicules présents</div>
-    <div class="kpi-value">{{ vehicules_presents|length }}</div>
+    <div class="kpi-value">{{ entrees|length }}</div>
     <div class="kpi-sub">Dans le local actuellement</div>
   </div>
 </div>
@@ -95,7 +95,7 @@
       </table>
     </div>
   </div>
-
+ 
   <!-- Entrées récentes du jour -->
   <div class="card">
     <div class="card-header">
@@ -132,6 +132,7 @@
   <div class="card-header"><div class="card-title">⚡ Actions rapides</div></div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;">
     <a href="{% url 'recherche_vehicule' %}" class="btn btn-info">🔍 Rechercher un véhicule</a>
+    <a href="{% url 'modifier_vehicule_recherche' %}" class="btn btn-outline">✏️ Modifier véhicule</a>
     
     <a href="{% url 'creer_client_guerite' %}" class="btn btn-outline">👤 Nouveau client</a>
     <a href="{% url 'creer_vehicule_guerite' %}" class="btn btn-outline">🚗 Nouveau véhicule</a>

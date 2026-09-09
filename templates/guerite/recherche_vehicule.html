@@ -23,7 +23,7 @@
       <input type="text" name="q" value="{{ query }}" class="form-input" placeholder="Immatriculation, marque, modèle, client..." autofocus style="flex:1;">
       <button type="submit" class="btn btn-primary">🔍 Rechercher</button>
     </div>
-    <div class="text-small text-muted mt-1">Ex: AA-123-BB, Toyota, Dupont...</div>
+    <div class="text-small text-muted mt-1">Ex: AA 123 BB, Toyota, Dupont...</div>
   </form>
 </div>
 
@@ -40,7 +40,7 @@
         {% for v in vehicules %}
         <tr>
           <td><strong style="font-size:15px;">{{ v.immatriculation }}</strong></td>
-          <td>{{ v.marque }} {{ v.modele }}<br><span class="text-small text-muted">{{ v.get_type_carburant_display }} — {{ v.couleur }}</span></td>
+          <td>{{ v.marque }} {{ v.modele }}<br></td>
           <td>{{ v.annee }}</td>
           <td><strong>{{ v.client }}</strong></td>
           <td>{{ v.client.telephone }}</td>

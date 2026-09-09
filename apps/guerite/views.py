@@ -9,9 +9,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from django.db.models import Q, Count
+from django.db.models import  Count, When
 from django.views.decorators.http import require_POST
-
 import os
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
@@ -25,38 +24,71 @@ from apps.audit.models import ActionType
 from itertools import chain
 from ..reception.views import dashboard as reception_dashboard
 from django.http import Http404, JsonResponse
-from django.http import HttpResponse
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill
-import datetime
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from django.http import HttpResponse
-from django.db.models import Q
+from django.db.models import Case, IntegerField, Q, Value
+import datetime
+ 
+from django.http import HttpResponse
+from django.utils import timezone
+ 
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from reportlab.lib.enums import TA_CENTER
 
+
+
+ 
 @guerite_required
 def dashboard(request):
     # 👉 si réceptionniste → appeler autre view
     if request.user.role == 'RECEPTIONNISTE':
         return reception_dashboard(request)
-    
+
     aujourd_hui = timezone.now().date()
-    entrees_today = EnregistrementEntree.objects.filter(date_entree__date=aujourd_hui)
-    ctx = { 
+    entrees_today = EnregistrementEntree.objects.filter(
+        date_entree__date=aujourd_hui
+    )
+
+    # Requête avec tri prioritaire (Bon de sortie fait OU Visite) + limite à 7
+    vehicules_presents = (
+        EnregistrementEntree.objects.exclude(statut=StatutEntree.SORTI)
+        .annotate(
+            priorite=Case(
+                When(
+                    Q(statut='BON_SORTIE_FAIT') | Q(motif='VISITE'),
+                    then=Value(0),
+                ),
+                default=Value(1),
+                output_field=IntegerField(),
+            )
+        )
+        .select_related(
+            'vehicule',
+            'vehicule__client',
+            'conducteur',
+            'conducteur__client',
+        )
+        .order_by('priorite', '-date_entree')[:7]
+    )
+    ctx = {
         'nb_entrees_today': entrees_today.count(),
-        'nb_sorties_today': entrees_today.filter(statut=StatutEntree.SORTI).count(),
-        
-        'vehicules_presents': EnregistrementEntree.objects.exclude(statut=StatutEntree.SORTI).select_related(
-            'vehicule', 'vehicule__client', 'conducteur'
-        ).order_by('-date_entree')[:20],
-        'entrees_recentes': entrees_today.select_related('vehicule', 'conducteur').order_by('-date_entree')[:10],
+        'nb_sorties_today': entrees_today.filter(
+            statut=StatutEntree.SORTI
+        ).count(),
+        'entrees' : get_entrees_presentes_filtrees(request),
+        'vehicules_presents': vehicules_presents,
+        'entrees_recentes': entrees_today.select_related(
+            'vehicule', 'conducteur'
+        ).order_by('-date_entree')[:7],
     }
 
     return render(request, 'guerite/dashboard.html', ctx)
-
 
 
 @guerite_required
@@ -95,6 +127,105 @@ def nouvelle_entree(request):
     if vehicule_id:
         vehicule = get_object_or_404(Vehicule, id=vehicule_id)
     return render(request, 'guerite/entree/choix.html', {'vehicule': vehicule})
+
+
+
+
+
+
+
+
+PHOTO_FIELDS = ['photo1', 'photo2', 'photo3']  # ⚠️ adapte si tes champs s'appellent autrement
+
+
+def modifier_vehicule(request, vehicule_id=None):
+    """
+    Sans vehicule_id  -> affiche uniquement l'étape 1 (recherche par matricule).
+    Avec vehicule_id  -> affiche le formulaire préempli, et traite le POST.
+    """
+    vehicule = None
+    if vehicule_id:
+        vehicule = get_object_or_404(Vehicule, pk=vehicule_id)
+
+    if request.method == 'POST':
+        if not vehicule:
+            # Sécurité : impossible de POSTer sans avoir d'abord choisi un véhicule
+            return redirect('modifier_vehicule_recherche')
+
+        form = VehiculeForm(request.POST, request.FILES, instance=vehicule)
+        if form.is_valid():
+            v = form.save(commit=False)
+
+            client_id = request.POST.get('client')
+            if client_id:
+                v.client_id = client_id
+
+            # Gestion des 3 emplacements photo : suppression demandée ou remplacement
+            for i, field_name in enumerate(PHOTO_FIELDS):
+                if request.POST.get(f'remove_photo_{i}') == '1':
+                    photo = getattr(v, field_name)
+                    if photo:
+                        photo.delete(save=False)
+                    setattr(v, field_name, None)
+                uploaded = request.FILES.get(f'photo_{i}')
+                if uploaded:
+                    setattr(v, field_name, uploaded)
+
+            v.save()
+            messages.success(request, f"Véhicule {v.immatriculation} mis à jour avec succès.")
+            return redirect('modifier_vehicule', vehicule_id=v.id)
+    else:
+        form = VehiculeForm(instance=vehicule) if vehicule else VehiculeForm()
+
+    return render(request, 'guerite/modifier_vehicule.html', {
+        'form': form,
+        'vehicule': vehicule,
+    })
+
+
+def modifier_vehicule_recherche(request):
+    """Vue "étape 1 seule" — pratique pour le lien '🔎 Changer de véhicule'."""
+    return render(request, 'guerite/modifier_vehicule.html', {
+        'form': VehiculeForm(),
+        'vehicule': None,
+    })
+
+
+def autocomplete_vehicules(request):
+    """Recherche de véhicules par immatriculation, pour l'étape 1 du formulaire."""
+    q = request.GET.get('q', '').strip()
+    results = []
+    if len(q) >= 2:
+        qs = (
+            Vehicule.objects
+            .filter(immatriculation__icontains=q)
+            .select_related('client')
+            .order_by('immatriculation')[:10]
+        )
+        results = [
+            {
+                'id': v.id,
+                'immatriculation': v.immatriculation,
+                'marque': v.marque,
+                'modele': v.modele,
+                'client': str(v.client) if v.client else '',
+            }
+            for v in qs
+        ]
+    return JsonResponse({'results': results})
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -477,19 +608,6 @@ def modifier_motif_entree(request, entree_id):
     return redirect("detail_entree", entree_id=entree.id)
 
 
-@guerite_required
-def liste_vehicules_presents(request):
-    entrees = (
-        EnregistrementEntree.objects.exclude(statut=StatutEntree.SORTI)
-        .select_related(
-            'vehicule',
-            'vehicule__client',
-            'conducteur',
-            'conducteur__client',  # Inclus le client rattaché au conducteur
-        )
-        .order_by('-date_entree')
-    )
-    return render(request, 'guerite/vehicules_presents.html', {'entrees': entrees})
 
 
 def get_entree_non_sortie(entree_id):
@@ -599,6 +717,8 @@ def historique_entrees(request):
         'motifs': MotifEntree.choices,
     })
 
+
+
 def get_filtered_entrees(request):
     entrees = EnregistrementEntree.objects.select_related(
         'vehicule', 'vehicule__client', 'conducteur', 'agent_entree'
@@ -610,11 +730,10 @@ def get_filtered_entrees(request):
     date_fin = request.GET.get('date_fin')
     q = request.GET.get('q', '')
 
-
     if statut == 'SORTI':
         entrees = entrees.filter(statut='SORTI')
     if statut == 'PRESENT':
-        entrees = entrees.exclude(statut='SORTI')    
+        entrees = entrees.exclude(statut='SORTI')
     if motif:
         entrees = entrees.filter(motif=motif)
     if date_debut:
@@ -630,8 +749,6 @@ def get_filtered_entrees(request):
     return entrees  # retourne tout, pas de limite 100
 
 
-
-
 def export_entrees_excel(request):
     # Récupérer les mêmes filtres que dans historique_entrees
     entrees = get_filtered_entrees(request)  # on factorise la logique
@@ -641,11 +758,15 @@ def export_entrees_excel(request):
     ws.title = "Historique entrées"
 
     # En-têtes
-    headers = ['N°', 'Immatriculation', 'Client', 'Téléphone client', 'Conducteur', 'Motif', 'Statut', 'Date entrée', 'Date sortie', 'Agent entrée', 'Observations']
+    headers = [
+        'N°', 'Immatriculation', 'Client', 'Téléphone client', 'Conducteur',
+        'Motif', 'Statut', 'Date entrée', 'Date sortie', 'Agent entrée',
+        'Observations',
+    ]
     ws.append(headers)
+
     # Mise en forme des en-têtes
     for cell in ws[1]:
-        cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
         cell.font = Font(color="FFFFFF", bold=True)
         cell.alignment = Alignment(horizontal='center')
@@ -662,7 +783,7 @@ def export_entrees_excel(request):
             e.date_entree.strftime("%d/%m/%Y %H:%M") if e.date_entree else '',
             e.date_sortie.strftime("%d/%m/%Y %H:%M") if e.date_sortie else '',
             e.agent_entree.full_name if e.agent_entree else '',
-            e.observations or ''
+            e.observations or '',
         ])
 
     # Ajuster la largeur des colonnes
@@ -673,69 +794,90 @@ def export_entrees_excel(request):
             try:
                 if len(str(cell.value)) > max_length:
                     max_length = len(str(cell.value))
-            except:
+            except Exception:
                 pass
         adjusted_width = min(max_length + 2, 30)
         ws.column_dimensions[col_letter].width = adjusted_width
 
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename=historique_entrees_{datetime.date.today()}.xlsx'
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename=historique_entrees_{timezone.localdate()}.xlsx'
     wb.save(response)
     return response
 
 
-import csv
+BRAND_COLOR = colors.HexColor('#366092')
 
-def export_entrees_csv(request):
-    entrees = get_filtered_entrees(request)
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename=historique_entrees_{datetime.date.today()}.csv'
-    writer = csv.writer(response)
-    writer.writerow(['N°', 'Immatriculation', 'Client', 'Conducteur', 'Motif', 'Statut', 'Date entrée', 'Date sortie', 'Agent'])
-    for e in entrees:
-        writer.writerow([
-            e.numero, e.vehicule.immatriculation, str(e.vehicule.client), str(e.conducteur),
-            e.get_motif_display(), e.get_statut_display(),
-            e.date_entree.strftime("%d/%m/%Y %H:%M") if e.date_entree else '',
-            e.date_sortie.strftime("%d/%m/%Y %H:%M") if e.date_sortie else '',
-            e.agent_entree.full_name if e.agent_entree else ''
-        ])
-    return response
+
+def _footer(canvas, doc):
+    """Pied de page : numéro de page + date de génération, sur chaque page."""
+    canvas.saveState()
+    canvas.setFont('Helvetica', 7)
+    canvas.setFillColor(colors.HexColor('#999999'))
+    canvas.drawString(
+        1 * cm, 0.7 * cm,
+        f"Généré le {timezone.localtime().strftime('%d/%m/%Y à %H:%M')}",
+    )
+    canvas.drawRightString(
+        landscape(A4)[0] - 1 * cm, 0.7 * cm,
+        f"Page {doc.page}",
+    )
+    canvas.restoreState()
 
 
 def export_entrees_pdf(request):
     entrees = get_filtered_entrees(request)
 
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename=historique_entrees_{datetime.date.today()}.pdf'
+    response['Content-Disposition'] = f'attachment; filename=historique_entrees_{timezone.localdate()}.pdf'
 
-    doc = SimpleDocTemplate(response, pagesize=landscape(A4), rightMargin=20, leftMargin=20, topMargin=30, bottomMargin=20)
+    doc = SimpleDocTemplate(
+        response, pagesize=landscape(A4),
+        rightMargin=1 * cm, leftMargin=1 * cm,
+        topMargin=1.2 * cm, bottomMargin=1.2 * cm,
+    )
     elements = []
+    styles = getSampleStyleSheet()
 
     # Titre
-    styles = getSampleStyleSheet()
-    title_style = styles['Heading1']
-    title_style.alignment = 1  # centre
+    title_style = ParagraphStyle(
+        'Titre', parent=styles['Heading1'], alignment=TA_CENTER,
+        textColor=BRAND_COLOR, fontSize=16, spaceAfter=2,
+    )
     elements.append(Paragraph("Historique des entrées", title_style))
-    elements.append(Spacer(1, 12))
 
-    # Sous-titre (filtres appliqués)
+    # Sous-titre : nombre de résultats
+    meta_style = ParagraphStyle(
+        'Meta', parent=styles['Normal'], alignment=TA_CENTER,
+        fontSize=9, textColor=colors.HexColor('#666666'),
+    )
+    elements.append(Paragraph(
+        f"{entrees.count()} mouvement(s) trouvé(s)", meta_style,
+    ))
+    elements.append(Spacer(1, 8))
+
+    # Filtres appliqués (affichés seulement s'il y en a)
     filters = []
     if request.GET.get('q'):
-        filters.append(f"Recherche: {request.GET['q']}")
+        filters.append(f"Recherche : {request.GET['q']}")
     if request.GET.get('statut'):
-        filters.append(f"Statut: {dict(StatutEntree.choices).get(request.GET['statut'], '')}")
+        filters.append(f"Statut : {dict(StatutEntree.choices).get(request.GET['statut'], '')}")
     if request.GET.get('motif'):
-        filters.append(f"Motif: {dict(MotifEntree.choices).get(request.GET['motif'], '')}")
+        filters.append(f"Motif : {dict(MotifEntree.choices).get(request.GET['motif'], '')}")
     if request.GET.get('date_debut'):
-        filters.append(f"Du: {request.GET['date_debut']}")
+        filters.append(f"Du : {request.GET['date_debut']}")
     if request.GET.get('date_fin'):
-        filters.append(f"Au: {request.GET['date_fin']}")
+        filters.append(f"Au : {request.GET['date_fin']}")
+
     if filters:
-        filter_text = "Filtres : " + ", ".join(filters)
-        filter_style = ParagraphStyle('FilterStyle', parent=styles['Normal'], fontSize=9, textColor=colors.gray)
-        elements.append(Paragraph(filter_text, filter_style))
-        elements.append(Spacer(1, 10))
+        filter_style = ParagraphStyle(
+            'FilterStyle', parent=styles['Normal'], alignment=TA_CENTER,
+            fontSize=8.5, textColor=colors.HexColor('#888888'), spaceAfter=4,
+        )
+        elements.append(Paragraph("Filtres : " + " · ".join(filters), filter_style))
+
+    elements.append(Spacer(1, 10))
 
     # Données du tableau
     data = [['Immat.', 'Client', 'Motif', 'Statut', 'Entrée', 'Sortie', 'Agent']]
@@ -745,24 +887,262 @@ def export_entrees_pdf(request):
             str(e.vehicule.client)[:30],
             e.get_motif_display(),
             e.get_statut_display(),
-            e.date_entree.strftime("%d/%m %H:%M") if e.date_entree else '',
-            e.date_sortie.strftime("%d/%m %H:%M") if e.date_sortie else '',
-            e.agent_entree.full_name.split()[0] if e.agent_entree else ''
+            e.date_entree.strftime("%d/%m %H:%M") if e.date_entree else '—',
+            e.date_sortie.strftime("%d/%m %H:%M") if e.date_sortie else '—',
+            e.agent_entree.full_name.split()[0] if e.agent_entree else '—',
         ])
 
-    # Création du tableau
-    table = Table(data, repeatRows=1, colWidths=[ 70, 100, 60, 55, 70, 70, 70])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#366092')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,0), (-1,0), 6),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ]))
-    elements.append(table)
+    if len(data) == 1:
+        elements.append(Paragraph("Aucun mouvement ne correspond à ces critères.", styles['Normal']))
+    else:
+        table = Table(
+            data, repeatRows=1,
+            colWidths=[2.2 * cm, 4.5 * cm, 2.8 * cm, 2.8 * cm, 2.6 * cm, 2.6 * cm, 2.6 * cm],
+        )
+        table.setStyle(TableStyle([
+            # En-tête
+            ('BACKGROUND', (0, 0), (-1, 0), BRAND_COLOR),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 7),
+            # Corps (lignes zébrées)
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F2F6FA')]),
+            ('TOPPADDING', (0, 1), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
+            # Global
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+        ]))
+        elements.append(table)
 
+    doc.build(elements, onFirstPage=_footer, onLaterPages=_footer)
+    return response
+
+
+
+
+
+
+
+@guerite_required
+def liste_vehicules_presents(request):
+    entrees = get_entrees_presentes_filtrees(request)
+    return render(request, 'guerite/vehicules_presents.html', {'entrees': entrees,
+                                                               'motifs': MotifEntree.choices})
+
+
+MOTIF_LABELS = {
+    "REPARATION": "🔧 Réparation",
+    "VISITE": "👁 Visite",
+}
+ 
+
+# Filtre partagé — utilisé par vehicules_presents() ET les deux exports,
+# pour garantir que "ce qu'on exporte" == "ce qu'on voit à l'écran".
+# ---------------------------------------------------------------------------
+def get_entrees_presentes_filtrees(request):
+    qs = (
+        EnregistrementEntree.objects
+        .select_related("vehicule", "vehicule__client", "conducteur", "conducteur__client")
+        # ⚠️ 2. Condition "encore présent" — adapte à ton modèle réel.
+        # Exemples possibles selon ton design :
+        #   .filter(date_sortie__isnull=True)
+        #   .exclude(statut="SORTI")
+        .filter(date_sortie__isnull=True)
+        .order_by("-date_entree")
+    )
+ 
+    q = request.GET.get("q")
+    motif = request.GET.get("motif")
+    date_debut = request.GET.get("date_debut", "").strip()
+    date_fin = request.GET.get("date_fin", "").strip()
+ 
+    if q:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(vehicule__immatriculation__icontains=q)
+            | Q(vehicule__client__nom__icontains=q)
+            | Q(vehicule__client__telephone__icontains=q)
+            | Q(conducteur__nom__icontains=q)
+        )
+ 
+    if motif:
+        qs = qs.filter(motif=motif)
+ 
+    if date_debut:
+        dt = datetime.strptime(date_debut, "%Y-%m-%d")
+        qs = qs.filter(date_entree__gte=timezone.make_aware(dt))
+ 
+    if date_fin:
+        dt = datetime.strptime(date_fin, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59
+        )
+        qs = qs.filter(date_entree__lte=timezone.make_aware(dt))
+ 
+    return qs
+ 
+
+
+ 
+def _ligne_entree(entree):
+    """Une ligne de données commune aux deux exports."""
+    vehicule = entree.vehicule
+    client = vehicule.client
+    return [
+        vehicule.immatriculation,
+        f"{vehicule.marque} {vehicule.modele}".strip(),
+        str(client) if client else "—",
+        getattr(client, "telephone", "") or "—",
+        str(entree.conducteur) if entree.conducteur else "—",
+        MOTIF_LABELS.get(entree.motif, entree.get_motif_display()),
+        timezone.localtime(entree.date_entree).strftime("%d/%m/%Y %H:%M"),
+        str(entree.duree_sejour),
+    ]
+ 
+ 
+ENTETES = [
+    "Immatriculation", "Véhicule", "Propriétaire", "Téléphone",
+    "Conducteur", "Motif", "Entrée le", "Durée",
+]
+ 
+ 
+# ---------------------------------------------------------------------------
+# Export Excel
+# ---------------------------------------------------------------------------
+def export_presents_excel(request):
+    entrees = get_entrees_presentes_filtrees(request)
+ 
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Véhicules présents"
+ 
+    # Titre
+    ws.merge_cells("A1:H1")
+    titre = ws["A1"]
+    titre.value = "Véhicules présents dans le local"
+    titre.font = Font(size=14, bold=True, color="FFFFFF")
+    titre.alignment = Alignment(horizontal="center", vertical="center")
+    titre.fill = PatternFill("solid", fgColor="1F4E78")
+    ws.row_dimensions[1].height = 26
+ 
+    ws.merge_cells("A2:H2")
+    sous_titre = ws["A2"]
+    sous_titre.value = (
+        f"Généré le {timezone.localtime().strftime('%d/%m/%Y à %H:%M')} — "
+        f"{entrees.count()} véhicule(s)"
+    )
+    sous_titre.font = Font(size=9, italic=True, color="666666")
+    sous_titre.alignment = Alignment(horizontal="center")
+ 
+    # En-têtes (ligne 4)
+    header_row = 4
+    header_fill = PatternFill("solid", fgColor="2E75B6")
+    header_font = Font(bold=True, color="FFFFFF")
+    thin_border = Border(*(Side(style="thin", color="CCCCCC"),) * 4)
+ 
+    for col, entete in enumerate(ENTETES, start=1):
+        cell = ws.cell(row=header_row, column=col, value=entete)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thin_border
+ 
+    # Données
+    zebra_fill = PatternFill("solid", fgColor="F2F6FA")
+    for i, entree in enumerate(entrees, start=1):
+        row = header_row + i
+        for col, valeur in enumerate(_ligne_entree(entree), start=1):
+            cell = ws.cell(row=row, column=col, value=valeur)
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical="center", wrap_text=False)
+            if i % 2 == 0:
+                cell.fill = zebra_fill
+ 
+    # Largeurs de colonnes auto (approx.)
+    largeurs = [16, 22, 22, 15, 18, 16, 17, 12]
+    for col, largeur in enumerate(largeurs, start=1):
+        ws.column_dimensions[get_column_letter(col)].width = largeur
+ 
+    ws.freeze_panes = f"A{header_row + 1}"
+    ws.auto_filter.ref = f"A{header_row}:H{header_row}"
+ 
+    response = HttpResponse(
+        content_type=(
+            "application/vnd.openxmlformats-officedocument"
+            ".spreadsheetml.sheet"
+        )
+    )
+    filename = f"vehicules_presents_{timezone.localtime().strftime('%Y%m%d_%H%M')}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+ 
+ 
+# ---------------------------------------------------------------------------
+# Export PDF (ReportLab, cohérent avec le reste du projet)
+# ---------------------------------------------------------------------------
+def export_presents_pdf(request):
+    entrees = get_entrees_presentes_filtrees(request)
+ 
+    response = HttpResponse(content_type="application/pdf")
+    filename = f"vehicules_presents_{timezone.localtime().strftime('%Y%m%d_%H%M')}.pdf"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+ 
+    doc = SimpleDocTemplate(
+        response,
+        pagesize=landscape(A4),
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm,
+        leftMargin=1 * cm,
+        rightMargin=1 * cm,
+    )
+ 
+    styles = getSampleStyleSheet()
+    titre_style = ParagraphStyle(
+        "Titre", parent=styles["Title"], fontSize=16, alignment=TA_CENTER,
+        textColor=colors.HexColor("#1F4E78"),
+    )
+    sous_titre_style = ParagraphStyle(
+        "SousTitre", parent=styles["Normal"], fontSize=9, alignment=TA_CENTER,
+        textColor=colors.HexColor("#666666"),
+    )
+ 
+    elements = [
+        Paragraph("Véhicules présents dans le local", titre_style),
+        Paragraph(
+            f"Généré le {timezone.localtime().strftime('%d/%m/%Y à %H:%M')} — "
+            f"{entrees.count()} véhicule(s)",
+            sous_titre_style,
+        ),
+        Spacer(1, 0.5 * cm),
+    ]
+ 
+    data = [ENTETES] + [_ligne_entree(e) for e in entrees]
+ 
+    if len(data) == 1:
+        elements.append(Paragraph("Aucun véhicule dans le local.", styles["Normal"]))
+    else:
+        col_widths = [3.0, 4.2, 4.2, 3.0, 3.4, 3.2, 3.4, 2.3]
+        col_widths = [w * cm for w in col_widths]
+        table = Table(data, colWidths=col_widths, repeatRows=1)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E75B6")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+             [colors.white, colors.HexColor("#F2F6FA")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(table)
+ 
     doc.build(elements)
     return response
+ 

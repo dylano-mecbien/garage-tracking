@@ -5,9 +5,15 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard_guerite'),
     path('recherche/', views.recherche_vehicule, name='recherche_vehicule'),
     path('vehicules-presents/', views.liste_vehicules_presents, name='vehicules_presents'),
+    path('vehicules-presents/export/excel/', views.export_presents_excel, name='export_presents_excel'),
+    path('vehicules-presents/export/pdf/', views.export_presents_pdf, name='export_presents_pdf'),
     path('historique/', views.historique_entrees, name='historique_entrees'),
     path('historique/export/excel/', views.export_entrees_excel, name='export_entrees_excel'),
     path('historique/export/pdf/', views.export_entrees_pdf, name='export_entrees_pdf'),
+
+    path('vehicules/modifier/', views.modifier_vehicule_recherche, name='modifier_vehicule_recherche'),
+    path('vehicules/modifier/<uuid:vehicule_id>/', views.modifier_vehicule, name='modifier_vehicule'),
+    path('vehicules/autocomplete/', views.autocomplete_vehicules, name='autocomplete_vehicules'),
 
     # Nouvelle entrée
     path('entree/recherche/', views.recherche_vehicule, name='nouvelle_entree'),

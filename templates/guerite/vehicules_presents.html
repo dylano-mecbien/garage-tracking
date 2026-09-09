@@ -1,54 +1,113 @@
 {% extends "base.html" %}
 {% block title %}Véhicules présents{% endblock %}
 {% block page_title %}🚗 Véhicules dans le local{% endblock %}
+
 {% block sidebar_nav %}
-
-
 <div class="sidebar-section">Guérite</div>
 <ul class="sidebar-nav">
-  <li><a href="{% url 'dashboard_guerite' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'dashboard_guerite' %}"><span class="icon">📊</span> Tableau de bord</a></li>
   <li><a href="{% url 'vehicules_presents' %}" class="active"><span class="icon">🚗</span> Véhicules présents</a></li>
   <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
 </ul>
+{% endblock %}
 
-
-{% endblock %} 
 {% block content %}
+
 <div class="page-header">
-  <div><h1>Véhicules présents</h1><div class="breadcrumb">{{ entrees|length }} véhicule{{ entrees|length|pluralize }} actuellement dans le local</div></div>
+  <div>
+    <h1>Véhicules présents</h1>
+    <div class="breadcrumb">{{ entrees|length }} véhicule{{ entrees|length|pluralize }} actuellement dans le local</div>
+  </div>
   <a href="{% url 'nouvelle_entree' %}" class="btn btn-primary">➕ Nouvelle entrée</a>
 </div>
+
+<div class="card mb-2">
+  <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+    <div>
+      <label class="form-label">Recherche</label>
+      <input type="text" name="q" value="{{ request.GET.q }}" class="form-input" placeholder="Immat., client, n°..." style="width:200px;">
+    </div>
+    <div>
+      <label class="form-label">Motif</label>
+      <select name="motif" class="form-select" style="width:150px;">
+        <option value="">Tous</option>
+        {% for v, l in motifs %}
+          <option value="{{ v }}" {% if request.GET.motif == v %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Du</label>
+      <input type="date" name="date_debut" value="{{ request.GET.date_debut }}" class="form-input" style="width:140px;">
+    </div>
+    <div>
+      <label class="form-label">Au</label>
+      <input type="date" name="date_fin" value="{{ request.GET.date_fin }}" class="form-input" style="width:140px;">
+    </div>
+    <div>
+      <button class="btn btn-primary">🔍 Filtrer</button>
+      <a href="{% url 'vehicules_presents' %}" class="btn btn-outline">✕</a>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:8px;">
+      <a href="{% url 'export_presents_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">📊 Exporter Excel</a>
+      <a href="{% url 'export_presents_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger">📄 Exporter PDF</a>
+    </div>
+  </form>
+</div>
+
 <div class="card">
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Immatriculation°</th></th><th>Véhicule</th><th>Propriétaire</th><th>Conducteur</th><th>Motif</th><th>Entrée le</th><th>Durée</th><th>Actions</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Immatriculation</th>
+          <th>Véhicule</th>
+          <th>Propriétaire</th>
+          <th>Conducteur</th>
+          <th>Motif</th>
+          <th>Entrée le</th>
+          <th>Durée</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
       <tbody>
         {% for entree in entrees %}
         <tr>
           <td><a href="{% url 'detail_entree' entree.id %}"><strong>{{ entree.vehicule.immatriculation }}</strong></a></td>
           <td>{{ entree.vehicule.marque }} {{ entree.vehicule.modele }}</td>
-          <td>{{ entree.vehicule.client }}<br><span class="text-small text-muted">{{ entree.vehicule.client.telephone }}</span></td>
+          <td>
+            {{ entree.vehicule.client }}<br>
+            <span class="text-small text-muted">{{ entree.vehicule.client.telephone }}</span>
+          </td>
           <td>{{ entree.conducteur|default:"—" }}</td>
           <td>
-            {% if entree.motif == 'REPARATION' %}<span class="badge badge-reparation">🔧 Réparation</span>
-            {% elif entree.motif == 'VISITE' %}<span class="badge badge-visite">👁 Visite</span>
-            {% else %}<span class="badge badge-secondary">{{ entree.get_motif_display }}</span>{% endif %}
+            {% if entree.motif == 'REPARATION' %}
+              <span class="badge badge-reparation">🔧 Réparation</span>
+            {% elif entree.motif == 'VISITE' %}
+              <span class="badge badge-visite">👁 Visite</span>
+            {% else %}
+              <span class="badge badge-secondary">{{ entree.get_motif_display }}</span>
+            {% endif %}
           </td>
           <td class="text-muted text-small">{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
           <td><strong>{{ entree.duree_sejour }}</strong></td>
-
           <td>
- <a href="{% url 'enregistrer_sortie' entree.id %}"
-   class="btn {% if entree.statut == 'BON_SORTIE_FAIT' or entree.motif == 'VISITE' %}btn-success{% else %}btn-warning{% endif %} btn-sm">
-    📤 Sortie
-</a>          </td>
-
+            <a href="{% url 'enregistrer_sortie' entree.id %}"
+               class="btn {% if entree.statut == 'BON_SORTIE_FAIT' or entree.motif == 'VISITE' %}btn-success{% else %}btn-warning{% endif %} btn-sm">
+              📤 Sortie
+            </a>
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" class="text-center text-muted" style="padding:40px;">Aucun véhicule dans le local</td></tr>
+        <tr>
+          <td colspan="8" class="text-center text-muted" style="padding:40px;">Aucun véhicule dans le local</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+
 {% endblock %}
+
+

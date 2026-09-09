@@ -53,7 +53,7 @@ class ConnexionForm(forms.Form):
                     user_obj.failed_login_count += 1
                     if user_obj.failed_login_count >= 5: 
                         from datetime import timedelta
-                        user_obj.locked_until = timezone.now() + timedelta(minutes=15)
+                        user_obj.locked_until = timezone.now() + timedelta(minutes=2)
                     user_obj.save(update_fields=['failed_login_count', 'locked_until'])
                 except User.DoesNotExist:
                     pass
