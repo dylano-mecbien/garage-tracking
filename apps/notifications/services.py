@@ -36,9 +36,12 @@ def envoyer_notification_bon_sortie(bon):
 
     # Infos véhicule
     
-    objet_str = f"{bon.observations or 'Non précisé'}"
-
-    sujet = f"[Garage] Bon de sortie {bon.numero} — validation requise"
+    objet_str = (
+        f"{bon.vehicule.immatriculation if bon.vehicule else 'Non précisé'}"
+        if bon.types == 'VEHICULE'
+        else f"{bon.observations or 'Non précisé'}"
+      )
+    sujet = f"[Garage] Bon de sortie {bon.numero}  validation requise"
 
     # Corps HTML
     html_message = _build_email_html(bon, objet_str)
@@ -84,7 +87,7 @@ def envoyer_email_test(email_test=None):
     if not destinataires:
         return False, "Aucun destinataire actif configuré."
 
-    sujet = "[Garage] ✅ Test de notification — bon de sortie"
+    sujet = "[Garage] ✅ Test de notification  bon de sortie"
     texte = (
         "Ceci est un email de test.\n\n"
         "Si vous recevez cet email, la configuration est correcte.\n"
@@ -109,7 +112,7 @@ def envoyer_email_test(email_test=None):
 
 def _build_email_html(bon, objet_str):
     """Génère le corps HTML de l'email de notification."""
-    type_label =  "📦 Divers"
+    type_label = bon.types if bon.types == 'VEHICULE' else "📦 Divers"
     couleur    = "#7c3aed"
 
     cree_par   = bon.cree_par.full_name if bon.cree_par else "—"
@@ -160,7 +163,6 @@ def _build_email_html(bon, objet_str):
           <td style="color:#64748b;font-weight:600;">Demandeur</td>
           <td style="color:#0f172a;">{bon.nom_demandeur or '—'}</td>
         </tr>
-        {'<tr style="border-bottom:1px solid #e2e8f0;"><td style="color:#64748b;font-weight:600;">Origine</td><td style="color:#0f172a;">' + (bon.Origine_demande or '—') + '</td></tr>' if bon.Origine_demande else ''}
         <tr style="border-bottom:1px solid #e2e8f0;">
           <td style="color:#64748b;font-weight:600;">Créé par</td>
           <td style="color:#0f172a;">{cree_par}</td>
@@ -188,7 +190,7 @@ def _build_email_html(bon, objet_str):
 
     <!-- Footer -->
     <tr><td style="background:#f8fafc;padding:16px 32px;border-top:1px solid #e2e8f0;text-align:center;">
-      <span style="color:#94a3b8;font-size:12px;">© CENTRE AUTO LA PRUDENCE + — Système de gestion de garage</span>
+      <span style="color:#94a3b8;font-size:12px;">© CENTRE AUTO LA PRUDENCE + Système de gestion de garage</span>
     </td></tr>
 
   </table>

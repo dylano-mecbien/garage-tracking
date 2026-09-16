@@ -5,7 +5,7 @@
 {% block sidebar_nav %}
 <div class="sidebar-section">Guérite</div>
 <ul class="sidebar-nav">
-  <li><a href="{% url 'dashboard_guerite' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
   <li><a href="{% url 'vehicules_presents' %}" class="active"><span class="icon">🚗</span> Véhicules présents</a></li>
   <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
 </ul>
@@ -91,9 +91,9 @@
           </td>
           <td class="text-muted text-small">{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
           <td><strong>{{ entree.duree_sejour }}</strong></td>
-          <td>
+          <td> 
             <a href="{% url 'enregistrer_sortie' entree.id %}"
-               class="btn {% if entree.statut == 'BON_SORTIE_FAIT' or entree.motif == 'VISITE' %}btn-success{% else %}btn-warning{% endif %} btn-sm">
+               class="btn {% if entree.bon_sortie.etats == 'APPROBATION' or entree.motif == 'VISITE' %}btn-success{% else %}btn-warning{% endif %} btn-sm">
               📤 Sortie
             </a>
           </td>

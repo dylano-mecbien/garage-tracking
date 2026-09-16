@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+{% block title %}Véhicules — Administration{% endblock %}
+{% block page_title %}🚗 Véhicules{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section"></div>
+
+<ul class="sidebar-nav">
+<li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+<li class="sidebar-section">Administration</li>
+<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+<li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
+
+<li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'admin_vehicules' %}" class="active"><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+
+</li>
+<li class="sidebar-section">Mouvements</li>
+<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
+<li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.filter-bar{background:var(--surface);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;box-shadow:var(--shadow);}
+.filter-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto auto;gap:10px;align-items:flex-end;}
+@media(max-width:900px){.filter-grid{grid-template-columns:1fr 1fr;}}
+
+.presence-tabs {
+  display: flex;
+  gap: 4px;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 5px;
+  margin-bottom: 16px;
+  width: fit-content;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, .06);
+}
+
+.ptab {
+  padding: 9px 20px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  transition: all .2s ease;
+  border: 2px solid transparent;
+  background: transparent;
+  letter-spacing: .2px;
+}
+
+.ptab:hover {
+  background: rgba(37, 99, 168, .1);
+  color: #2563a8;
+  border-color: rgba(37, 99, 168, .3);
+}
+
+.ptab.active {
+  background: #2563a8;
+  color: #ffffff;
+  border-color: #1e40af;
+  box-shadow: 0 2px 8px rgba(37, 99, 168, .35);
+  transform: translateY(-1px);
+}
+
+.ptab.active:hover {
+  background: #1e40af;
+  color: #ffffff;
+}
+
+/* Badge statut présence */
+.sp-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+.sp-local    {background:#fee2e2;color:#991b1b;}
+.sp-atelier  {background:#fef3c7;color:#92400e;}
+.sp-hors     {background:var(--surface2);color:var(--text-muted);}
+.sp-both     {background:#ede9fe;color:#5b21b6;}
+
+/* Drawer mouvements */
+.mvt-drawer{display:none;background:var(--surface2);border-top:2px solid var(--primary-light);}
+.mvt-drawer.open{display:table-row;}
+.mvt-drawer td{padding:12px 20px;}
+.mvt-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.mvt-item:last-child{border-bottom:none;}
+.mvt-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+
+.export-wrap{position:relative;}
+.export-menu{display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-md);min-width:150px;z-index:100;}
+.export-menu.open{display:block;}
+.export-item{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);transition:background .15s;}
+.export-item:last-child{border-bottom:none;}
+.export-item:hover{background:var(--surface2);}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Gestion des véhicules</h1>
+   
+  </div>
+  <div style="display:flex;gap:8px;">
+    <div class="export-wrap">
+      <button onclick="document.getElementById('exp-menu').classList.toggle('open')" class="btn btn-outline">📤 Exporter ▾</button>
+      <div class="export-menu" id="exp-menu">
+        <div class="export-item" onclick="exportCSV()">📊 CSV</div>
+        <div class="export-item" onclick="window.print()">🖨️ Imprimer</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;"> {{ stats.total }} total</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;">{{ stats.presents }} présent{{ stats.presents|pluralize }}</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;"> {{ stats.en_atelier }} en atelier</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;"> {{ stats.libres }} Hors garage{{ stats.libres|pluralize }}</div>
+</div>
+
+<!-- Onglets présence -->
+<div class="presence-tabs">
+  <button class="ptab {% if filtre_presence == 'tous' or not filtre_presence %}active{% endif %}"  onclick="filtrerPresence('tous')">Tous</button>
+  <button class="ptab {% if filtre_presence == 'presents' %}active{% endif %}" onclick="filtrerPresence('presents')">🔴 Présents</button>
+  <button class="ptab {% if filtre_presence == 'atelier' %}active{% endif %}"  onclick="filtrerPresence('atelier')">🏭 En atelier</button>
+  <button class="ptab {% if filtre_presence == 'libres' %}active{% endif %}"   onclick="filtrerPresence('libres')">⚪ Hors garage</button>
+</div>
+
+<!-- Filtres -->
+<div class="filter-bar">
+  <form method="get" id="filter-form">
+    <input type="hidden" name="presence" id="presence-input" value="{{ filtre_presence|default:'tous' }}">
+    <div class="filter-grid">
+      <div>
+        <label class="form-label">🔍 Recherche</label>
+        <input type="text" name="q" value="{{ filters.q }}" class="form-input"
+               placeholder="Immatriculation, marque, client, châssis..."
+               oninput="debounceSubmit()">
+      </div>
+      <div>
+        <label class="form-label">Carburant</label>
+        <select name="carburant" class="form-select" onchange="this.form.submit()">
+          <option value="">Tous</option>
+          <option value="DIESEL"     {% if filters.carburant == 'DIESEL' %}selected{% endif %}>Diesel</option>
+          <option value="ESSENCE"    {% if filters.carburant == 'ESSENCE' %}selected{% endif %}>Essence</option>
+          <option value="HYBRIDE"    {% if filters.carburant == 'HYBRIDE' %}selected{% endif %}>Hybride</option>
+          <option value="ELECTRIQUE" {% if filters.carburant == 'ELECTRIQUE' %}selected{% endif %}>Électrique</option>
+          <option value="GPL"        {% if filters.carburant == 'GPL' %}selected{% endif %}>GPL</option>
+          <option value="NON_DEFINI" {% if filters.carburant == 'NON_DEFINI' %}selected{% endif %}>Non défini</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Propriétaire</label>
+        <select name="type_client" class="form-select" onchange="this.form.submit()">
+          <option value="">Tous</option>
+          <option value="PARTICULIER" {% if filters.type_client == 'PARTICULIER' %}selected{% endif %}>Particulier</option>
+          <option value="ENTREPRISE"  {% if filters.type_client == 'ENTREPRISE' %}selected{% endif %}>Entreprise</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Assurance</label>
+        <select name="assurance" class="form-select" onchange="this.form.submit()">
+          <option value="">Toutes</option>
+          <option value="expiree" {% if filters.assurance == 'expiree' %}selected{% endif %}>⚠️ Expirée</option>
+          <option value="valide"  {% if filters.assurance == 'valide' %}selected{% endif %}>✅ Valide</option>
+        </select>
+      </div>
+      <div><label class="form-label" style="opacity:0">.</label><button type="submit" class="btn btn-primary w-full">Filtrer</button></div>
+      <div><label class="form-label" style="opacity:0">.</label><a href="{% url 'admin_vehicules' %}" class="btn btn-outline w-full">✕ Reset</a></div>
+    </div>
+  </form>
+</div>
+
+<!-- Tableau -->
+<div class="card">
+  <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+    <strong>{{ vehicules|length }}</strong> résultat{{ vehicules|length|pluralize }}
+    {% if filters.q or filters.carburant or filters.type_client %}<span style="color:var(--accent);">(filtré)</span>{% endif %}
+  </div>
+
+  <div class="table-wrap">
+    <table id="veh-table">
+      <thead>
+        <tr>
+          <th>Présence</th>
+          <th>Immatriculation</th>
+          <th>Véhicule</th>
+          <th>Propriétaire</th>
+          <th>Carburant</th>
+          <th>Assurance</th>
+          <th>Visite tech.</th>
+          <th>Passages</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vehicules %}
+        <tr id="row-{{ v.id }}">
+
+          <!-- Présence — utilise statut_presence du modèle -->
+          <td>
+            {% if v.en_local and v.en_atelier %}
+              <span class="sp-badge sp-both">🏭 Local + Atelier</span>
+            {% elif v.en_local %}
+              <span class="sp-badge sp-local">🔴 Présent local</span>
+            {% elif v.en_atelier %}
+              <span class="sp-badge sp-atelier">🟡 En atelier</span>
+            {% else %}
+              <span class="sp-badge sp-hors">⚪ Hors garage</span>
+            {% endif %}
+          </td>
+
+          <!-- Immatriculation -->
+          <td>
+            <strong style="font-size:14px;letter-spacing:.3px;">{{ v.immatriculation }}</strong>
+            {% if v.numero_chassis %}
+            <div class="text-small text-muted">{{ v.numero_chassis }}</div>
+            {% endif %}
+          </td>
+
+          <!-- Véhicule -->
+          <td>
+            <div class="font-bold text-small">{{ v.marque }} {{ v.modele }}</div>
+            <div class="text-small text-muted">
+              {% if v.annee %}{{ v.annee }}{% else %}—{% endif %}
+              
+            </div>
+            {% if v.transmission and v.transmission != 'NON_DEFINI' %}
+            <div class="text-small text-muted">{{ v.get_transmission_display }}</div>
+            {% endif %}
+          </td>
+
+          <!-- Propriétaire -->
+          <td>
+            <div class="text-small font-bold">
+              {% if v.client.type_client == 'PARTICULIER' %}{{ v.client.prenom }} {% endif %}{{ v.client.nom }}
+            </div>
+            <div class="text-small text-muted">
+             
+               {{ v.client.telephone }}
+            </div>
+          </td>
+
+          <!-- Carburant -->
+          <td class="text-small">
+            {% if v.type_carburant == 'NON_DEFINI' %}
+            <span class="text-muted">—</span>
+            {% else %}
+            {{ v.get_type_carburant_display }}
+            {% endif %}
+          </td>
+
+          <!-- Assurance -->
+          <td>
+            {% if v.expiry_assurance %}
+              {% if v.expiry_assurance < today %}
+              <span class="badge badge-danger" style="font-size:10px;">⚠️ Expirée</span>
+              {% else %}
+              <span class="badge badge-success" style="font-size:10px;">✅ Valide</span>
+              {% endif %}
+              <div class="text-small text-muted">{{ v.expiry_assurance|date:"d/m/Y" }}</div>
+            {% else %}
+            <span class="text-muted text-small">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Visite technique -->
+          <td>
+            {% if v.date_visite %}
+              {% if v.date_visite < today %}
+              <span class="badge badge-warning" style="font-size:10px;">⚠️ À renouveler</span>
+              {% else %}
+              <span class="badge badge-success" style="font-size:10px;">✅</span>
+              {% endif %}
+              <div class="text-small text-muted">{{ v.date_visite|date:"d/m/Y" }}</div>
+            {% else %}
+            <span class="text-muted text-small">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Passages -->
+          <td class="text-center">
+            <strong>{{ v.entrees.count }}</strong>
+            {% with d=v.derniere_entree %}
+            {% if d %}<div class="text-small text-muted">{{ d.date_entree|date:"d/m/Y" }}</div>{% endif %}
+            {% endwith %}
+          </td>
+
+          <!-- Actions -->
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              <button onclick="toggleMvt('{{ v.id }}')" class="btn btn-info btn-sm" title="Mouvements">📋</button>
+              <a href="{% url 'admin_modifier_vehicule' v.id %}" class="btn btn-outline btn-sm" title="Modifier">✏️</a>
+              <a href="{% url 'detail_vehicule_admin' v.id %}" class="btn btn-outline btn-sm" title="Fiche">🔍</a>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Drawer mouvements -->
+        <tr class="mvt-drawer" id="mvt-{{ v.id }}">
+          <td colspan="9">
+            <div style="font-weight:700;font-size:13px;margin-bottom:8px;">
+              📋 Mouvements — <strong>{{ v.immatriculation }}</strong>
+              <span class="text-muted text-small">· {{ v.statut_presence }}</span>
+            </div>
+            <div id="mvt-content-{{ v.id }}"><div class="text-small text-muted">Chargement...</div></div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="9" style="text-align:center;padding:50px;color:var(--text-muted);">
+            <div style="font-size:40px;margin-bottom:10px;">🚗</div>
+            Aucun véhicule trouvé
+            {% if filters.q %}<br><a href="{% url 'admin_vehicules' %}">Voir tous</a>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if vehicules|length >= 100 %}
+  <div style="text-align:center;padding:14px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted);">
+    Affichage limité à 100 — utilisez les filtres pour affiner
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filtrerPresence(val){
+  document.getElementById('presence-input').value=val;
+  document.getElementById('filter-form').submit();
+}
+let dbt;
+function debounceSubmit(){clearTimeout(dbt);dbt=setTimeout(()=>document.getElementById('filter-form').submit(),500);}
+document.addEventListener('click',e=>{if(!e.target.closest('.export-wrap'))document.getElementById('exp-menu').classList.remove('open');});
+
+function exportCSV(){
+  const rows=[['Immat.','Marque','Modèle','Année','Couleur','Carburant','Transmission','Propriétaire','Téléphone','Présence','Assurance exp.','Visite tech.']];
+  document.querySelectorAll('#veh-table tbody tr:not(.mvt-drawer)').forEach(tr=>{
+    const c=tr.querySelectorAll('td');if(c.length<9)return;
+    rows.push([
+      c[1].innerText.split('\n')[0].trim(),
+      c[2].innerText.split('\n')[0].trim(),
+      '',c[2].innerText.split('\n')[1]?.trim()||'',c[2].innerText.split('\n')[2]?.trim()||'',
+      c[4].innerText.trim(),
+      '',
+      c[3].innerText.split('\n')[0].trim(),
+      c[3].innerText.split('\n')[1]?.replace(/[🏢🧑—]/g,'').trim()||'',
+      c[0].innerText.trim(),
+      c[5].innerText.split('\n')[1]?.trim()||'',
+      c[6].innerText.split('\n')[1]?.trim()||'',
+    ]);
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`vehicules-${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+
+const openDrawers=new Set();
+function toggleMvt(id){
+  const drawer=document.getElementById('mvt-'+id);
+  const content=document.getElementById('mvt-content-'+id);
+  if(openDrawers.has(id)){drawer.classList.remove('open');openDrawers.delete(id);}
+  else{drawer.classList.add('open');openDrawers.add(id);loadMvt(id,content);}
+}
+
+
+const urlTemplate = "{% url 'admin_mouvements_vehicule' '00000000-0000-0000-0000-000000000000' %}";
+
+async function loadMvt(vehiculeId,container){
+   const url = urlTemplate.replace('00000000-0000-0000-0000-000000000000', vehiculeId);
+  if(container.dataset.loaded)return;
+
+  try{
+    const r=await fetch(url);
+    
+    const data=await r.json();
+    container.dataset.loaded='1';
+    if(!data.mouvements||!data.mouvements.length){
+      container.innerHTML='<div class="text-small text-muted">Aucun mouvement enregistré.</div>';return;
+    }
+    container.innerHTML=data.mouvements.map(m=>`
+      <div class="mvt-item">
+        <div class="mvt-icon" style="background:${m.statut==='SORTI'?'#d1fae5':'#dbeafe'};">${m.statut==='SORTI'?'🚪':'🚗'}</div>
+        <div style="flex:1;">
+          <div class="font-bold">${m.motif} — ${m.statut==='SORTI'?'Sorti':'Présent'}</div>
+          <div class="text-muted" style="font-size:11px;">
+            Entrée : ${m.date_entree}${m.date_sortie?' → Sortie : '+m.date_sortie:''}
+          </div>
+          ${m.reception?`<div style="font-size:11px;color:var(--primary);">📋 Réception ${m.reception}</div>`:''}
+        </div>
+        <span style="font-size:11px;color:var(--text-muted);">${m.numero}</span>
+      </div>`).join('');
+    if(data.stats){
+      container.innerHTML+=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:16px;font-size:12px;color:var(--text-muted);">
+        <span>🔁 ${data.stats.total_passages} passage${data.stats.total_passages>1?'s':''}</span>
+        <span>🔧 ${data.stats.reparations} réparation${data.stats.reparations>1?'s':''}</span>
+        <span style="color:var(--primary);font-weight:600;">📍 ${data.statut_presence||''}</span>
+      </div>`;
+    }
+  }catch(e){container.innerHTML='<div class="text-small text-danger">Erreur de chargement.</div>';}
+}
+</script>
+<style>@media print{.sidebar,.topbar,.filter-bar,.presence-tabs,td:last-child,th:last-child,.export-wrap{display:none!important;}}</style>
+{% endblock %}

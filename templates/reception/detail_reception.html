@@ -5,7 +5,7 @@
 <div class="sidebar-section">Réception</div>
 <ul class="sidebar-nav">
     <li>
-        <a href="{% url 'dashboard_reception' %}">
+        <a href="{% url 'index' %}">
             <span class="icon">📊</span> Tableau de bord
         </a>
     </li>
@@ -47,10 +47,10 @@
 <div class="page-header">
   <div>
     <h1>{{ rec.numero }}</h1>
-    <div class="breadcrumb"><a href="{% url 'dashboard_reception' %}">Réception</a> › {{ rec.vehicule.immatriculation }}</div>
+    <div class="breadcrumb"><a href="{% url 'index' %}">Réception</a> › {{ rec.vehicule.immatriculation }}</div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <a href="{% url 'dashboard_reception' %}" class="btn btn-outline">← Retour</a>
+    <a href="{% url 'index' %}" class="btn btn-outline">← Retour</a>
     <a href="{% url 'detail_vehicule_rec' rec.vehicule.id %}" class="btn btn-info">👁 Détails véhicule</a>
     {% if not rapport %}<a href="{% url 'creer_rapport' rec.id %}" class="btn btn-primary">📝 Faire le rapport</a>{% endif %}
     {% if rec.statut != 'EN_COURS' and rec.statut != 'SORTI' %}

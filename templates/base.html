@@ -368,6 +368,52 @@
 
 
 
+/* Sous-menu */
+.has-submenu > .submenu-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;              /* ← espace entre icône, texte et flèche */
+    cursor: pointer;
+    padding: 0.5rem 0.8rem; /* ← ajustez le padding global si besoin */
+}
+
+/* Réduire la marge de l'icône (si elle a un margin-right par défaut) */
+.has-submenu > .submenu-toggle .icon {
+    margin-right: 0;
+}
+
+/* Pousser la flèche à droite (garde l'alignement) */
+.has-submenu > .submenu-toggle .arrow {
+    margin-left: auto;
+    font-size: 0.7em;
+    transition: transform 0.25s ease;
+}
+
+.has-submenu.open .arrow {
+    transform: rotate(180deg);
+}
+
+.submenu {
+    display: none;
+    list-style: none;
+    padding-left: 1rem;    /* ← réduit de 1.5rem à 1rem */
+    margin: 0.15rem 0;     /* ← réduit l'espace vertical */
+}
+
+.has-submenu.open > .submenu {
+    display: block;
+}
+
+.submenu li a {
+    padding: 0.35rem 0.6rem;  /* ← réduit de 0.45/0.8 */
+    font-size: 0.95em;
+    opacity: 0.9;
+    gap: 6px;                 /* ← si .submenu li a est en flex */
+    display: flex;
+    align-items: center;
+}
+
 
 
   </style>
@@ -466,6 +512,15 @@
 </div>
 
 <script>
+
+
+document.querySelectorAll('.submenu-toggle').forEach(toggle => {
+    toggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        this.parentElement.classList.toggle('open');
+    });
+});
+
 
 // ── Anti-flash theme ─────────────────────
 (function(){

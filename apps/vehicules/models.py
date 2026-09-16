@@ -32,7 +32,7 @@ class ContactBase(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     nom = models.CharField(max_length=100, verbose_name="Nom / Raison sociale")
     prenom = models.CharField(max_length=100, blank=True, verbose_name="Prénom")
-    telephone = models.CharField(max_length=20, verbose_name="Téléphone principal")
+    telephone = models.CharField(max_length=20,blank=True, verbose_name="Téléphone principal")
     telephone2 = models.CharField(max_length=20, blank=True, verbose_name="Téléphone secondaire")
     email = models.EmailField(blank=True, verbose_name="Adresse email")
     adresse = models.TextField(blank=True, verbose_name="Adresse")
@@ -122,7 +122,7 @@ class Vehicule(models.Model):
         Client, on_delete=models.PROTECT,
         related_name='vehicules', verbose_name="Propriétaire"
     )
-    # Photo 
+    # Photo  
     photo = models.ImageField(upload_to='vehicules/photos/', null=True, blank=True)
     
     photos = models.CharField(max_length=500, blank=True, null=True) # stocke les chemins séparés par ;

@@ -26,7 +26,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
-    'drf_yasg',
+    'drf_spectacular',
     'django_filters',
     # Local apps
     
@@ -54,6 +54,33 @@ MIDDLEWARE = [
     'apps.audit.middleware.AuditMiddleware',
     'garage.middleware.SlowRequestMiddleware',
 ]
+
+
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Garage Suivi API',
+    'DESCRIPTION': 'API complète de gestion de garage automobile',
+    'VERSION': '1.0.0',
+    'CONTACT': {'email': 'contact@laprudenceplus-cm.com'},
+    'SERVE_INCLUDE_SCHEMA': False,
+
+    # Regroupement par tags (facultatif, rend le Swagger plus lisible)
+    'TAGS': [
+        {'name': 'Auth',      'description': 'Authentification & comptes'},
+        {'name': 'Véhicules', 'description': 'Gestion des véhicules & clients'},
+        {'name': 'Guérite',   'description': 'Entrées / sorties guérite'},
+        {'name': 'Réception', 'description': 'Réception atelier'},
+        {'name': 'Atelier',   'description': 'Travaux et suivi atelier'},
+    ],
+
+    # Affichage
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,
+        'displayOperationId': False,
+        'filter': True,
+    },
+    'COMPONENT_SPLIT_REQUEST': True,
+}
 
 ROOT_URLCONF = 'garage.urls'
 
@@ -148,6 +175,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',

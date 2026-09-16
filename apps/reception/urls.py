@@ -18,31 +18,23 @@ urlpatterns = [
     path('bon/<uuid:bon_id>/pdf/',               views.pdf_bon_sortie,     name='pdf_bon_sortie_rec'),
     path('notifs/json/',                         views.notifs_json,        name='notifs_json_rec'),
     path('notifs/lues/',                         views.marquer_lues,       name='marquer_lues_rec'),
-     path('vehicules-presents/', views.liste_vehicules_presents, name='vehicules_presents_rec'),
-
+    path('vehicules-presents/', views.liste_vehicules_presents, name='vehicules_presents_rec'),
     path('<uuid:rec_id>/bon-sortie/',            views.creer_bon_sortie,   name='creer_bon_sortie_rec'),
-
     path('bons-sortie/creer/',                        views.creer_bon_sortie_direct,   name='creer_bon_sortie_direct'),
     path('entree/<uuid:entree_id>/', views.detail_entree, name='detail_entree_rec'),
-
-
         # ── Bons de sortie ──────────────────────────────────────────
     path('bons-sortie/',                              views.liste_bons_sortie,         name='liste_bons_sortie'),
     path('bons-sortie/<uuid:bon_id>/',                views.detail_bon_sortie_guerite, name='detail_bon_sortie_guerite'),
-    path('bons-sortie/<uuid:bon_id>/valider/',        views.valider_bon_sortie_guerite,name='valider_bon_sortie_guerite'),
+    path('bons-sortie/<uuid:bon_id>/valider/',        views.valider_bon_sortie_divers,name='valider_bon_sortie_guerite'),
+    path('bons-sortie/<uuid:bon_id>/validerAdmin/',        views.valider_bon_sortie_vehicule,name='valider_bon_sortie_super'),
+
     path('bons-sortie/<uuid:bon_id>/pdf/',            views.pdf_bon_sortie_guerite,    name='pdf_bon_sortie_guerite'),
     path('bons-sortie/creer-divers/',            views.creer_bon_sortie_divers,    name='creer_bon_sortie_divers'),
     path('autocomplete/vehicules-presents/', views.autocomplete_vehicules_presents, name='autocomplete_vehicules_presents'),
     path('autocomplete/demandeur/', views.autocomplete_demandeur, name='autocomplete_demandeur'),
-path('demandeur/creer-ajax/', views.creer_demandeur_ajax, name='creer_demandeur_ajax'),
-      path('api_vehicules/',                    views.api_vehicules,      name='api_vehicules'),
-     path('api_entrees_vehicule/',             views.api_entrees_vehicule,      name='api_entrees_vehicule'),
-
-
-
+    path('demandeur/creer-ajax/', views.creer_demandeur_ajax, name='creer_demandeur_ajax'),
+    path('api_vehicules/',                    views.api_vehicules,      name='api_vehicules'),
+    path('api_entrees_vehicule/',             views.api_entrees_vehicule,      name='api_entrees_vehicule'),
 
 ]
- 
-
-
- 
+  

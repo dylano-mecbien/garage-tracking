@@ -63,7 +63,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     pass_default = models.BooleanField(default=True)
-
+    signature = models.ImageField(upload_to='users/signatures/', null=True, blank=True)
     date_joined = models.DateTimeField(default=timezone.now)
 
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
@@ -109,7 +109,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def get_dashboard_url(self):
         urls = {
-            Role.ADMIN: '/admin/admin-garage/dashboard/',
+            Role.ADMIN: '/admin/dashboard/',
             Role.GUERITE: '/guerite/dashboard/',
             Role.RECEPTIONNISTE: '/reception/dashboard/',
             Role.SUPER_RECEPTIONNISTE: '/reception/dashboard/',

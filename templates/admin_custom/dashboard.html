@@ -3,16 +3,64 @@
 {% block page_title %}🛡️ Administration Système{% endblock %}
 
 {% block sidebar_nav %}
-<div class="sidebar-section">Administration</div>
 <ul class="sidebar-nav">
-  <li><a href="{% url 'admin_dashboard' %}" class="active"><span class="icon">📊</span> Tableau de bord</a></li>
-  <li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
-  <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
-      <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+<li><a href="{% url 'index' %}" class="active"><span class="icon">📊</span> Tableau de bord</a></li>
+<li class="sidebar-section">Administration</li>
+<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+<li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
 
+<li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
 </ul>
 
+</li>
+<li class="sidebar-section">Mouvements</li>
+<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
+<li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+</ul>
+
+
 {% endblock %}
+
+
+{% block extra_css %}
+<style>
+.kpi-card {
+  position: relative;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s;
+  text-decoration: none !important;
+  display: block;
+}
+.kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+.kpi-card::after {
+  content: '→';
+  position: absolute;
+  bottom: 10px;
+  right: 14px;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity .2s, right .2s;
+  color: currentColor;
+}
+.kpi-card:hover::after {
+  opacity: .5;
+  right: 10px;
+}
+</style>
+{% endblock %}
+
 
 {% block content %}
 <div class="page-header">
@@ -24,40 +72,59 @@
 
 <!-- KPI globaux -->
 <div class="kpi-grid">
-  <div class="kpi-card">
+ 
+  <!-- Utilisateurs actifs -->
+  <a href="{% url 'liste_utilisateurs' %}" class="kpi-card" style="text-decoration:none;color:inherit;">
     <div class="kpi-label">👥 Utilisateurs actifs</div>
     <div class="kpi-value">{{ total_users }}</div>
     <div class="kpi-sub">Tous rôles confondus</div>
-  </div>
-  <div class="kpi-card accent">
+  </a>
+ 
+  <!-- Total véhicules -->
+  <a href="{% url 'admin_vehicules' %}" class="kpi-card accent" style="text-decoration:none;color:inherit;">
     <div class="kpi-label">🚗 Total véhicules</div>
     <div class="kpi-value">{{ total_vehicules }}</div>
-  </div>
-  <div class="kpi-card success">
+    <div class="kpi-sub">Enregistrés dans le système</div>
+  </a>
+ 
+  <!-- Clients enregistrés -->
+  <a href="{% url 'admin_clients' %}" class="kpi-card success" style="text-decoration:none;color:inherit;">
     <div class="kpi-label">🏢 Clients enregistrés</div>
     <div class="kpi-value">{{ total_clients }}</div>
-  </div>
-  <div class="kpi-card info">
+    <div class="kpi-sub">Particuliers et entreprises</div>
+  </a>
+ 
+  <!-- Véhicules en cours -->
+  <a href="{% url 'admin_vehicules' %}?presence=presents" class="kpi-card info" style="text-decoration:none;color:inherit;">
     <div class="kpi-label">🚙 Véhicules en cours</div>
     <div class="kpi-value">{{ vehicules_en_cours }}</div>
     <div class="kpi-sub">Dans le garage actuellement</div>
-  </div>
-  <div class="kpi-card warning">
+  </a>
+ 
+  <!-- OR actifs -->
+  <a href="{% url 'index' %}" class="kpi-card warning" style="text-decoration:none;color:inherit;">
     <div class="kpi-label">🔧 OR actifs</div>
     <div class="kpi-value">{{ or_en_cours }}</div>
     <div class="kpi-sub">En atelier</div>
-  </div>
-
-  <div class="kpi-card success">
+  </a>
+ 
+  <!-- Entrées aujourd'hui -->
+<a href="{% url 'historique_entrees_admin' %}?statut=EN_COURS&date_debut={{ today|date:'Y-m-d' }}&date_fin={{ today|date:'Y-m-d' }}"
+   class="kpi-card success" style="text-decoration:none;color:inherit;">
     <div class="kpi-label">📥 Entrées aujourd'hui</div>
     <div class="kpi-value">{{ nb_entrees_today }}</div>
-  </div>
-  <div class="kpi-card info">
+    <div class="kpi-sub">Véhicules entrés ce jour</div>
+</a>
+  <!-- Sorties aujourd'hui -->
+  <a href="{% url 'historique_entrees_admin' %}?statut=SORTI&date_debut={{ today|date:'Y-m-d' }}&date_fin={{ today|date:'Y-m-d' }}"
+     class="kpi-card info" style="text-decoration:none;color:inherit;">
     <div class="kpi-label">📤 Sorties aujourd'hui</div>
     <div class="kpi-value">{{ nb_sorties_today }}</div>
-  </div>
-  
+    <div class="kpi-sub">Véhicules sortis ce jour</div>
+  </a>
+ 
 </div>
+
 
 <div class="grid-2">
   <!-- Utilisateurs par rôle -->

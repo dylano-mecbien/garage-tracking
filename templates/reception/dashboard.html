@@ -7,7 +7,7 @@
 <div class="sidebar-section">Réception</div>
 <ul class="sidebar-nav">
     <li>
-        <a href="{% url 'dashboard_reception' %}" class="active">
+        <a href="{% url 'index' %}" class="active">
             <span class="icon">📊</span> Tableau de bord
         </a>
     </li>
@@ -32,6 +32,14 @@
             <span class="icon">📄</span> Bons de sortie
         </a>
     </li>
+
+    <li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+</ul>
+</li>
 </ul>
 
 {% endblock %}

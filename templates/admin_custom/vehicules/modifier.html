@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Modifier {{ v.immatriculation }}{% endblock %}
+{% block page_title %}✏️ Modifier le véhicule{% endblock %}
+{% block sidebar_nav %}
+<div class="sidebar-section"></div>
+
+<ul class="sidebar-nav">
+<li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+<li class="sidebar-section">Administration</li>
+<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+<li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
+
+<li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'admin_vehicules' %}" class="active"><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+
+</li>
+<li class="sidebar-section">Mouvements</li>
+<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
+<li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ v.immatriculation }}</h1>
+    <div class="breadcrumb"><a href="{% url 'admin_vehicules' %}">Véhicules</a> › Modifier</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'detail_vehicule_admin' v.id %}" class="btn btn-info btn-sm">🔍 Fiche complète</a>
+ <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+  </div>
+</div>
+
+<!-- Statut présence (lecture seule) -->
+<div style="margin-bottom:16px;padding:12px 16px;border-radius:8px;font-size:13px;font-weight:600;
+  background:{% if v.en_local %}#fee2e2{% else %}#d1fae5{% endif %};
+  color:{% if v.en_local %}#991b1b{% else %}#065f46{% endif %};
+  border:1px solid {% if v.en_local %}#fca5a5{% else %}#6ee7b7{% endif %};">
+  📍 {{ v.statut_presence }}
+</div>
+
+<div class="card" style="max-width:680px;">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Immatriculation *</label>
+        <input type="text" name="immatriculation" class="form-input"
+               value="{{ v.immatriculation }}" required style="text-transform:uppercase;font-weight:700;font-size:15px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">N° Châssis</label>
+        <input type="text" name="numero_chassis" class="form-input"
+               value="{{ v.numero_chassis|default:'' }}" placeholder="Optionnel">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Marque *</label>
+        <input type="text" name="marque" class="form-input" value="{{ v.marque }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Modèle *</label>
+        <input type="text" name="modele" class="form-input" value="{{ v.modele }}" required>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Année</label>
+        <input type="number" name="annee" class="form-input"
+               value="{{ v.annee|default:'' }}" min="1940" max="2030" placeholder="—">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Couleur</label>
+        <input type="text" name="couleur" class="form-input"
+               value="{{ v.couleur|default:'' }}" placeholder="—">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Puissance (CV)</label>
+        <input type="number" name="puissance" class="form-input"
+               value="{{ v.puissance|default:'' }}" placeholder="—" min="0">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Carburant</label>
+        <select name="type_carburant" class="form-select">
+          {% for val, lbl in carburants %}
+          <option value="{{ val }}" {% if v.type_carburant == val %}selected{% endif %}>{{ lbl }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Transmission</label>
+        <select name="transmission" class="form-select">
+          {% for val, lbl in transmissions %}
+          <option value="{{ val }}" {% if v.transmission == val %}selected{% endif %}>{{ lbl }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">N° Assurance</label>
+        <input type="text" name="num_assurance" class="form-input"
+               value="{{ v.num_assurance|default:'' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Expiration assurance</label>
+        <input type="date" name="expiry_assurance" class="form-input"
+               value="{{ v.expiry_assurance|date:'Y-m-d'|default:'' }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">🔧 Date visite technique</label>
+      <input type="date" name="date_visite" class="form-input"
+             value="{{ v.date_visite|date:'Y-m-d'|default:'' }}" style="max-width:220px;">
+      {% if v.date_visite %}
+      <div class="text-small {% if v.date_visite < today %}text-danger{% else %}text-muted{% endif %} mt-1">
+        {% if v.date_visite < today %}⚠️ Expirée le {{ v.date_visite|date:"d/m/Y" }}{% else %}Valide jusqu'au {{ v.date_visite|date:"d/m/Y" }}{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea name="notes" class="form-textarea" rows="2">{{ v.notes|default:'' }}</textarea>
+    </div>
+
+    <!-- Photo -->
+    {% if v.photo %}
+    <div class="form-group">
+      <label class="form-label">Photo actuelle</label>
+      <img src="{{ v.photo.url }}" alt="photo"
+           style="height:90px;border-radius:8px;border:1px solid var(--border);object-fit:cover;">
+    </div>
+    {% endif %}
+    <div class="form-group">
+      <label class="form-label">{% if v.photo %}Changer la photo{% else %}Ajouter une photo{% endif %}</label>
+      <input type="file" name="photo" class="form-input" accept="image/*">
+    </div>
+
+    <!-- Propriétaire (lecture seule) -->
+    <div style="background:var(--surface2);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:16px;">
+      <div class="form-label">Propriétaire</div>
+      <div class="font-bold">
+        {% if v.client.type_client == 'PARTICULIER' %}{{ v.client.prenom }} {% endif %}{{ v.client.nom }}
+      </div>
+      <div class="text-small text-muted">
+        {{ v.client.telephone }}
+        {% if v.client.email %} — {{ v.client.email }}{% endif %}
+        — <a href="{% url 'admin_modifier_client' v.client.id %}" style="color:var(--primary);">Modifier le client</a>
+      </div>
+    </div>
+
+    <hr>
+    <div style="display:flex;gap:10px;">
+      <button type="submit" class="btn btn-primary" style="padding:10px 24px;">💾 Enregistrer</button>
+      <a href="{% url 'admin_vehicules' %}" class="btn btn-outline">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

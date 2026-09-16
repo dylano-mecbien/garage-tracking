@@ -7,7 +7,7 @@
 <div class="sidebar-section">Réception</div>
 <ul class="sidebar-nav">
     <li>
-        <a href="{% url 'dashboard_reception' %}" >
+        <a href="{% url 'index' %}" >
             <span class="icon">📊</span> Tableau de bord
         </a>
     </li>
@@ -57,7 +57,7 @@
     <div><label class="form-label">Au</label><input type="date" name="date_fin" value="{{ request.GET.date_fin }}" class="form-input" style="width:140px;"></div>
    <div>
       <button class="btn btn-primary">🔍 Filtrer</button>
-      <a href="{% url 'historique_entrees' %}" class="btn btn-outline">✕</a>
+      <a href="{% url 'historique_entrees_rec' %}" class="btn btn-outline">✕</a>
     </div>
       <div style="margin-left:auto; display:flex; gap:8px;">
       <a href="{% url 'export_entrees_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">📊 Exporter Excel</a>

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Véhicules présents{% endblock %}
+{% block page_title %}🚗 Véhicules dans le local{% endblock %}
+{% block sidebar_nav %}
+
+<ul class="sidebar-nav">
+<li><a href="{% url 'index' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
+<li class="sidebar-section">Administration</li>
+<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+<li><a href="{% url 'admin_nettoyage' %}" ><span class="icon">🧹</span> Nettoyage</a></li>
+
+<li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'admin_conducteurs' %}" ><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+
+</li>
+<li class="sidebar-section">Mouvements</li>
+<li><a href="{% url 'vehicules_presents_admin' %}" class="active"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
+<li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+</ul>
+
+{% endblock %} 
+{% block content %}
+<div class="page-header">
+  <div><h1>Véhicules présents</h1>
+    <div class="breadcrumb">{{ entrees|length }} véhicule{{ entrees|length|pluralize }} actuellement dans le local</div>
+</div>
+</div>
+
+
+
+<div class="card mb-2">
+  <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+    <div>
+      <label class="form-label">Recherche</label>
+      <input type="text" name="q" value="{{ request.GET.q }}" class="form-input" placeholder="Immat., client, n°..." style="width:200px;">
+    </div>
+    <div>
+      <label class="form-label">Motif</label>
+      <select name="motif" class="form-select" style="width:150px;">
+        <option value="">Tous</option>
+        {% for v, l in motifs %}
+          <option value="{{ v }}" {% if request.GET.motif == v %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Du</label>
+      <input type="date" name="date_debut" value="{{ request.GET.date_debut }}" class="form-input" style="width:140px;">
+    </div>
+    <div>
+      <label class="form-label">Au</label>
+      <input type="date" name="date_fin" value="{{ request.GET.date_fin }}" class="form-input" style="width:140px;">
+    </div>
+
+    {# ─── NOUVEAU : filtre durée ─── #}
+    <div>
+      <label class="form-label">Durée ≥</label>
+      <div style="display:flex;gap:4px;">
+        <input type="number" name="duree_valeur" value="{{ request.GET.duree_valeur }}"
+               class="form-input" placeholder="0" min="0" style="width:80px;">
+        <select name="duree_unite" class="form-select" style="width:80px;">
+          <option value="h" {% if request.GET.duree_unite == 'h' %}selected{% endif %}>h</option>
+          <option value="j" {% if request.GET.duree_unite == 'j' or not request.GET.duree_unite %}selected{% endif %}>j</option>
+          <option value="m" {% if request.GET.duree_unite == 'm' %}selected{% endif %}>m</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <button class="btn btn-primary">🔍 Filtrer</button>
+      <a href="{% url 'vehicules_presents_admin' %}" class="btn btn-outline">✕</a>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:8px;">
+      <a href="{% url 'export_presents_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">📊 Exporter Excel</a>
+      <a href="{% url 'export_presents_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger">📄 Exporter PDF</a>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Immatriculation°</th><th>Véhicule</th><th>Propriétaire</th><th>Conducteur</th><th>Motif</th><th>Entrée le</th><th>Durée</th><th>Actions</th></tr></thead>
+      <tbody>
+
+        {% for entree in entrees %}
+        <tr>
+          <td><a href="{% url 'detail_entree_admin' entree.id %}">{{ entree.vehicule.immatriculation }}</a></td>
+          
+          <td>{{ entree.vehicule.marque }} {{ entree.vehicule.modele }}</td>
+          <td>{{ entree.vehicule.client }}<br><span class="text-small text-muted">{{ entree.vehicule.client.telephone }}</span></td>
+          <td>{{ entree.conducteur|default:"—" }}</td>
+          <td>
+            {% if entree.motif == 'REPARATION' %}<span class="badge badge-reparation">🔧 Réparation</span>
+            {% elif entree.motif == 'VISITE' %}<span class="badge badge-visite">👁 Visite</span>
+            {% else %}<span class="badge badge-secondary">{{ entree.get_motif_display }}</span>{% endif %}
+          </td>
+          <td class="text-muted text-small">{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
+          <td><strong>{{ entree.duree_sejour }}</strong></td>
+
+          {% if entree.statut != 'BON_SORTIE_FAIT' and entree.motif == 'REPARATION'  %}
+
+
+          <td>
+
+
+
+                <a href="{% url 'creer_sortie_lien_admin' entree.id %}" class="btn btn-primary">
+    ➕ Créer un bon de sortie
+</a>
+
+</td> 
+
+{% endif %}
+
+
+
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-center text-muted" style="padding:40px;">Aucun véhicule dans le local</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

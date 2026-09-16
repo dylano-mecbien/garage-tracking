@@ -8,6 +8,8 @@ from django.utils import timezone
 
 class MotifEntree(models.TextChoices):
     VISITE = 'VISITE', 'Visite'
+    STATIONNEMENT = 'STATIONNEMENT', 'Stationnement'
+    INTERNE = 'INTERNE', 'Interne'
     REPARATION = 'REPARATION', 'Réparation'
 
 
@@ -76,13 +78,23 @@ class EnregistrementEntree(models.Model):
             self.numero = f"ENT-{now.strftime('%Y%m%d')}-{count:03d}"
         super().save(*args, **kwargs)
 
+
     @property
     def duree_sejour(self):
         fin = self.date_sortie or timezone.now()
-        delta = fin - self.date_entree
-        heures = delta.total_seconds() // 3600
-        return f"{int(heures)}h"
+        total_secondes = (fin - self.date_entree).total_seconds()
 
+        if total_secondes < 24 * 3600:
+          return f"{int(total_secondes // 3600)}h"
+
+        if total_secondes < 30 * 24 * 3600:
+            jours = int(total_secondes // (24 * 3600))
+            heures = int((total_secondes % (24 * 3600)) // 3600)
+            return f"{jours}j {heures}h"
+
+        mois = int(total_secondes // (30 * 24 * 3600))
+        jours = int((total_secondes % (30 * 24 * 3600)) // (24 * 3600))
+        return f"{mois} mois {jours}j"
 
 
 
@@ -153,11 +165,20 @@ class BonSortie(models.Model):
     )
 
     # Signature numérique
-    signature_client = models.TextField(
+    signature_client = models.ImageField(
+        upload_to='bons_sortie/signatures/',
+        null=True,
         blank=True,
-        verbose_name="Signature client (base64)"
+        verbose_name="Signature client"
     )
-
+    # Signature numérique
+    signature_admin = models.ImageField(
+        upload_to='bons_sortie/signatures/',
+        null=True,
+        blank=True,
+        verbose_name="Signature admin"
+    )
+    
     # PDF
     pdf = models.FileField(
         upload_to='bons_sortie/pdf/',
@@ -178,12 +199,21 @@ class BonSortie(models.Model):
         blank=True,
         related_name='bons_valides'
     )
-
+    approuve_par = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bons_approuves'
+    )
     date_validation = models.DateTimeField(
         null=True,
         blank=True
     )
-
+    date_approbation = models.DateTimeField(
+        null=True,
+        blank=True
+    )
     # Création
     cree_par = models.ForeignKey(
         'accounts.User',

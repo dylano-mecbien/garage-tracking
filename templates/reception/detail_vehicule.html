@@ -6,7 +6,7 @@
 <div class="sidebar-section">Réception</div>
 <ul class="sidebar-nav">
     <li>
-        <a href="{% url 'dashboard_reception' %}">
+        <a href="{% url 'index' %}">
             <span class="icon">📊</span> Tableau de bord
         </a>
     </li>
@@ -46,39 +46,19 @@
 
 {% block content %}
 <div class="page-header">
-  <div>
+  <div> 
     <h1>{{ v.immatriculation }}</h1>
     <div class="breadcrumb">
-      <a href="{% url 'dashboard_reception' %}">Réception</a> › Fiche véhicule
+      <a href="{% url 'index' %}">Réception</a> › Fiche véhicule
     </div>
   </div>
   <div style="display:flex;gap:8px;">
     <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
-    {% if entree_active %}
-    <a href="{% url 'creer_reception' %}?entree_id={{ entree_active.id }}" class="btn btn-primary">
-      ➕ Créer réception
-    </a>
-    {% endif %}
+   
   </div>
 </div>
 
-<!-- Statut en cours -->
-{% if entree_active %}
-<div style="background:linear-gradient(135deg,var(--accent),var(--accent-light));border-radius:var(--radius);padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-  <div style="display:flex;align-items:center;gap:10px;color:#fff;">
-    <span style="font-size:24px;">🔴</span>
-    <div>
-      <div style="font-weight:700;font-size:15px;">Véhicule actuellement dans le garage</div>
-      <div style="opacity:.85;font-size:13px;">Entré le {{ entree_active.date_entree|date:"d/m/Y à H:i" }} — {{ entree_active.get_motif_display }} — {{ entree_active.duree_sejour }}</div>
-    </div>
-  </div>
-  {% if not entree_active.reception %}
-  <a href="{% url 'creer_reception' %}?entree_id={{ entree_active.id }}" class="btn" style="background:#fff;color:var(--accent);font-weight:700;">➕ Créer réception</a>
-  {% else %}
-  <a href="{% url 'detail_reception' entree_active.reception.id %}" class="btn" style="background:#fff;color:var(--accent);font-weight:700;">📋 Voir réception</a>
-  {% endif %}
-</div>
-{% endif %}
+
 
 <div class="grid-2">
 
@@ -86,10 +66,9 @@
   <div class="card">
     <div class="card-header">
       <div class="card-title">🚗 Informations véhicule</div>
-      {% if v.en_atelier %}
-      <span class="badge badge-en-cours">En atelier</span>
-      {% else %}
-      <span class="badge badge-success">à la reception</span>
+      {% if v.en_local %}
+      <span class="badge badge-en-cours">Dans le Local</span>
+
       {% endif %}
     </div>
 

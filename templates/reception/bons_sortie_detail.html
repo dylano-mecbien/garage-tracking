@@ -4,34 +4,21 @@
 {% block page_title %}📄 Bon de sortie{% endblock %}
 
 {% block sidebar_nav %}
-<div class="sidebar-section">Réception</div>
+<div class="sidebar-section"></div>
 <ul class="sidebar-nav">
     <li>
-        <a href="{% url 'dashboard_reception' %}">
+        <a href="{% url 'index' %}">
             <span class="icon">📊</span> Tableau de bord
         </a>
     </li>
 
-    <li>
-        <a href="{% url 'liste_receptions' %}">
-            <span class="icon">📋</span> Historique des Réceptions
-        </a>
-    </li>
-    <li>
-        <a href="{% url 'vehicules_presents_rec' %}">
-            <span class="icon">🚗</span> Véhicules présents
-        </a>
-    </li>
-    <li>
-        <a href="{% url 'historique_entrees_rec' %}">
-            <span class="icon">📋</span> Historique des mouvements
-        </a>
-    </li>
-     <li>
-        <a href="{% url 'liste_bons_sortie' %}">
-            <span class="icon">📄</span> Bons de sortie
-        </a>
-    </li>
+  
+
+    {% if request.user.is_admin %}
+    <a href="{% url 'liste_bons_admin' %}"> <span class="icon">📄</span> Bons de sortie </a>
+{% else %}
+    <a href="{% url 'liste_bons_sortie' %}"> <span class="icon">📄</span>  Bons de sortie </a>
+{% endif %}
 </ul>
 {% endblock %}
 
@@ -87,7 +74,6 @@
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
- <a href="{% url 'liste_bons_sortie' %}" class="btn btn-outline">← Retour</a>
 <a href="{% url 'pdf_bon_sortie_guerite' bon.id %}" class="btn btn-primary">🖨️ Imprimer / PDF</a>
 
   </div>
@@ -201,66 +187,95 @@
   </div>
 </div>
 
-<!-- ── Zone de signature ── -->
-{% if not bon.est_valide %}
-
-    {% if super and bon.types != 'VEHICULE' %}
-        <!-- ── Zone de signature ── -->
-         <div style="background:#fef9c3;border-radius:8px;padding:16px;margin-bottom:20px;">
-
-        
-            <div class="card-header">
-                <div class="card-title">✍️ Signature pour la sortie</div>
-            </div>
-
-            <div class="text-small text-muted" style="margin-bottom:12px;">
-                signez  ci-dessous puis validez le bon.
-            </div>
-
-      <canvas id="sig-canvas" width="100%" height="160" style="width:100%;border:2px dashed var(--border);border-radius:8px;background:#fff;display:block;"></canvas>
 
 
-            <div class="sig-actions">
-                <button type="button"
-                        onclick="clearSig()"
-                        class="btn btn-outline btn-sm">
-                    🗑 Effacer
-                </button>
-            </div>
 
-            <form method="post"
-                  action="{% url 'valider_bon_sortie_guerite' bon.id %}"
-                  id="sig-form"
-                  style="margin-top:14px;">
+
+
+
+<!-- ── Zone de signature (Admin uniquement) ── -->
+{% if super and bon.etats == 'CREER' %}
+
+<div style="background:#fef9c3;border-radius:8px;padding:16px;margin-bottom:20px;">
+    <div class="card-header">
+        <div class="card-title">✍️ Signature pour la sortie</div>
+    </div>
+
+    {% if request.user.signature %}
+        <!-- L'admin a déjà une signature stockée → juste le bouton -->
+        <div class="text-small text-muted" style="margin-bottom:12px;">
+            Votre signature est déjà enregistrée. Cliquez sur Valider pour l'appliquer au bon.
+        </div>
+
+        <div style="margin-bottom:14px;">
+            <img src="{{ request.user.signature.url }}"
+                 alt="Votre signature"
+                 style="max-width:280px;border:1px solid var(--border);border-radius:6px;background:#fff;">
+        </div>
+
+        {% if bon.types == 'DIVERS' %}
+            <form method="post" action="{% url 'valider_bon_sortie_guerite' bon.id %}">
                 {% csrf_token %}
-                <input type="hidden"
-                       name="signature_client"
-                       id="sig-data">
-
-                <button type="button"
-                        onclick="submitSig()"
-                        class="btn btn-success"
-                        style="width:100%;padding:12px;font-size:15px;">
-                    ✅ Valider et signer le bon de sortie
+                <button type="submit" class="btn btn-success" style="width:100%;padding:12px;font-size:15px;">
+                    ✅ Valider avec ma signature
                 </button>
             </form>
-        </div>
-    {% endif %}
+        {% else %}
+            <form method="post" action="{% url 'valider_bon_sortie_super' bon.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success" style="width:100%;padding:12px;font-size:15px;">
+                    ✅ Approuver avec ma signature
+                </button>
+            </form>
+        {% endif %}
 
-{% elif bon.signature_client %}
-    <!-- Signature déjà faite -->
+    {% else %}
+        <!-- L'admin n'a pas encore de signature → il doit signer -->
+        <div class="text-small text-muted" style="margin-bottom:12px;">
+            Vous n'avez pas encore de signature enregistrée. Signez ci-dessous (elle sera sauvegardée pour les prochains bons).
+        </div>
+
+        <canvas id="sig-canvas" width="100%" height="160"
+                style="width:100%;border:2px dashed var(--border);border-radius:8px;background:#fff;display:block;"></canvas>
+
+        <div class="sig-actions" style="margin-top:8px;">
+            <button type="button" onclick="clearSig()" class="btn btn-outline btn-sm">🗑 Effacer</button>
+        </div> 
+
+        {% if bon.types == 'DIVERS' %}
+            <form method="post" action="{% url 'valider_bon_sortie_guerite' bon.id %}" id="sig-form" style="margin-top:14px;">
+                {% csrf_token %}
+                <input type="hidden" name="signature_admin" id="sig-data">
+                <button type="button" onclick="submitSig()" class="btn btn-success" style="width:100%;padding:12px;font-size:15px;">
+                    ✅ Valider et enregistrer ma signature
+                </button>
+            </form>
+        {% else %}
+            <form method="post" action="{% url 'valider_bon_sortie_super' bon.id %}" id="sig-form" style="margin-top:14px;">
+                {% csrf_token %}
+                <input type="hidden" name="signature_admin" id="sig-data">
+                <button type="button" onclick="submitSig()" class="btn btn-success" style="width:100%;padding:12px;font-size:15px;">
+                    ✅ Approuver et enregistrer ma signature
+                </button>
+            </form>
+        {% endif %}
+    {% endif %}
+</div>
+
+{% elif bon.signature_admin %}
+    <!-- Affichage de la signature déjà présente sur le bon -->
     <div class="card mt-2">
         <div class="card-header">
             <div class="card-title">✍️ Signature</div>
             <span class="badge badge-success">✅ Signée</span>
         </div>
-
-        <img src="{{ bon.signature_client }}"
-             alt="Signature"
-             style="max-width:300px;border:1px solid var(--border);border-radius:6px;"
-             onerror="this.style.display='none'">
+        <img src="{{ bon.signature_admin.url }}"
+             alt="Signature admin"
+             style="max-width:280px;border:1px solid var(--border);border-radius:6px;">
     </div>
 {% endif %}
+
+
 {% endblock %}
 
 {% block extra_js %}

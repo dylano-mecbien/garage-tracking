@@ -9,12 +9,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from django.db.models import  Count, When
+from django.db.models import  F, Count, When
 from django.views.decorators.http import require_POST
 import os
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-
+from django.db.models.functions import Coalesce
 from .models import EnregistrementEntree, BonSortie, EtatBon, StatutEntree, MotifEntree, StatutViewHinstorisue
 from .forms import RechercheVehiculeForm, VehiculeForm, ClientForm, ConducteurForm, EntreeForm, SortieForm
 from apps.vehicules.models import Marque, Modele, Vehicule, Client, Conducteur
@@ -22,7 +22,7 @@ from apps.accounts.decorators import guerite_required
 from apps.audit.service import log_action
 from apps.audit.models import ActionType
 from itertools import chain
-from ..reception.views import dashboard as reception_dashboard
+from ..reception.views import dashboard as reception_dashboard, save_signature_from_dataurl
 from django.http import Http404, JsonResponse
 from openpyxl import Workbook
 from reportlab.lib.pagesizes import landscape, A4
@@ -33,14 +33,12 @@ from reportlab.lib.units import cm
 from django.http import HttpResponse
 from django.db.models import Case, IntegerField, Q, Value
 import datetime
- 
+from datetime import datetime
 from django.http import HttpResponse
  
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from reportlab.lib.enums import TA_CENTER
-
-
 
  
 @guerite_required
@@ -53,38 +51,43 @@ def dashboard(request):
     entrees_today = EnregistrementEntree.objects.filter(
         date_entree__date=aujourd_hui
     )
-
+    sorties_today = EnregistrementEntree.objects.filter(
+            date_sortie__date=aujourd_hui
+        )
+    LIMITE = 7
     # Requête avec tri prioritaire (Bon de sortie fait OU Visite) + limite à 7
     vehicules_presents = (
-        EnregistrementEntree.objects.exclude(statut=StatutEntree.SORTI)
-        .annotate(
-            priorite=Case(
-                When(
-                    Q(statut='BON_SORTIE_FAIT') | Q(motif='VISITE'),
-                    then=Value(0),
-                ),
-                default=Value(1),
-                output_field=IntegerField(),
-            )
+    EnregistrementEntree.objects
+    .exclude(statut=StatutEntree.SORTI)
+    .annotate(
+        priorite=Case(
+            When(
+                Q(bon_sortie__etats='APPROBATION') | Q(motif=MotifEntree.VISITE),
+                then=Value(0),
+            ),
+            default=Value(1),
+            output_field=IntegerField(),
         )
-        .select_related(
-            'vehicule',
-            'vehicule__client',
-            'conducteur',
-            'conducteur__client',
-        )
-        .order_by('priorite', '-date_entree')[:7]
+    )
+    .select_related(
+        'vehicule', 'vehicule__client', 
+        'conducteur', 'conducteur__client',
+    )
+    .order_by('priorite', '-date_entree')[:LIMITE]
+    ) 
+
+    entrees = (
+        EnregistrementEntree.objects
+        .select_related('vehicule', 'vehicule__client', 'conducteur', 'agent_entree')
+        .annotate(date_tri=Coalesce('date_sortie', 'date_entree'))
+        .order_by(F('date_tri').desc())
     )
     ctx = {
         'nb_entrees_today': entrees_today.count(),
-        'nb_sorties_today': entrees_today.filter(
-            statut=StatutEntree.SORTI
-        ).count(),
+        'nb_sorties_today': sorties_today.count(),
         'entrees' : get_entrees_presentes_filtrees(request),
         'vehicules_presents': vehicules_presents,
-        'entrees_recentes': entrees_today.select_related(
-            'vehicule', 'conducteur'
-        ).order_by('-date_entree')[:7],
+        'entrees_recentes': entrees[:9],
     }
 
     return render(request, 'guerite/dashboard.html', ctx)
@@ -528,7 +531,7 @@ def creer_vehicule(request):
                       ext = os.path.splitext(photo_file.name)[1]
                       immat_clean = vehicule.immatriculation.replace(' ', '').replace('-', '').upper()
                       filename = f"vehicules/photos/{immat_clean}_{i}{ext}"
-                      saved_path = default_storage.save(filename, ContentFile(photo_file.read()))
+                      saved_path = default_storage.save(filename, ContentFile(photo_file.read())) 
                       photos_paths.append(saved_path)
 
                       if photos_paths:
@@ -618,6 +621,9 @@ def get_entree_non_sortie(entree_id):
 # Utilisation
 
 
+
+
+
 @guerite_required
 def enregistrer_sortie(request, entree_id):
     entree = get_entree_non_sortie(entree_id)
@@ -627,6 +633,7 @@ def enregistrer_sortie(request, entree_id):
     if entree.motif == MotifEntree.REPARATION:
         bons = BonSortie.objects.filter(
             vehicule=entree.vehicule,
+            etats=EtatBon.APPROBATION,
             est_valide=False
         )
         if bons.exists():
@@ -653,6 +660,21 @@ def enregistrer_sortie(request, entree_id):
                 }
             )
 
+        # Récupération de la signature client
+        signature_data = request.POST.get('signature_client')
+
+        if not signature_data:
+            messages.error(request, "Le client doit signer avant de confirmer la sortie.")
+            return render(
+                request,
+                'guerite/sortie/enregistrer.html',
+                {
+                    'entree': entree,
+                    'form': form,
+                    'bon_sortie': bon_sortie
+                }
+            )
+
         # Enregistrement de la sortie
         entree.statut = StatutEntree.SORTI
         entree.date_sortie = timezone.now()
@@ -660,8 +682,20 @@ def enregistrer_sortie(request, entree_id):
 
         # Mise à jour du bon uniquement pour une réparation
         if entree.motif == MotifEntree.REPARATION and bon_sortie:
+            # Sauvegarde de la signature client sur le bon
+            if not save_signature_from_dataurl(bon_sortie, signature_data, 'signature_client'):
+                messages.error(request, "Erreur lors de l'enregistrement de la signature.")
+                return render(
+                    request,
+                    'guerite/sortie/enregistrer.html',
+                    {
+                        'entree': entree,
+                        'form': form,
+                        'bon_sortie': bon_sortie
+                    }
+                )
+
             bon_sortie.est_valide = True
-            bon_sortie.valide_par = request.user
             bon_sortie.date_validation = timezone.now()
             bon_sortie.etats = EtatBon.VALIDER
             bon_sortie.save()
@@ -695,6 +729,8 @@ def enregistrer_sortie(request, entree_id):
         }
     )
 
+
+
 @guerite_required
 def consulter_bon_sortie(request):
     numero = request.GET.get('numero', '').strip()
@@ -722,7 +758,13 @@ def get_filtered_entrees(request):
     entrees = EnregistrementEntree.objects.select_related(
         'vehicule', 'vehicule__client', 'conducteur', 'agent_entree'
     ).order_by('-date_entree')
-
+    entrees = (
+        EnregistrementEntree.objects
+        .select_related('vehicule', 'vehicule__client', 'conducteur', 'agent_entree')
+        .annotate(date_tri=Coalesce('date_sortie', 'date_entree'))
+        .order_by(F('date_tri').desc())
+    )
+    
     statut = request.GET.get('statut')
     motif = request.GET.get('motif')
     date_debut = request.GET.get('date_debut')
@@ -938,7 +980,7 @@ MOTIF_LABELS = {
     "VISITE": "👁 Visite",
 }
  
-
+ 
 # Filtre partagé — utilisé par vehicules_presents() ET les deux exports,
 # pour garantir que "ce qu'on exporte" == "ce qu'on voit à l'écran".
 # ---------------------------------------------------------------------------
@@ -997,14 +1039,11 @@ def _ligne_entree(entree):
         timezone.localtime(entree.date_entree).strftime("%d/%m/%Y %H:%M"),
         str(entree.duree_sejour),
     ]
- 
- 
+
 ENTETES = [
     "Immatriculation", "Véhicule", "Propriétaire", "Téléphone",
     "Conducteur", "Motif", "Entrée le", "Durée",
 ]
- 
- 
 # ---------------------------------------------------------------------------
 # Export Excel
 # ---------------------------------------------------------------------------
@@ -1075,8 +1114,6 @@ def export_presents_excel(request):
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response
- 
- 
 # ---------------------------------------------------------------------------
 # Export PDF (ReportLab, cohérent avec le reste du projet)
 # ---------------------------------------------------------------------------

@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% block title %}Clients — Administration{% endblock %}
+{% block page_title %}👤 Clients{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav">
+<li><a href="{% url 'index' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
+<li class="sidebar-section">Administration</li>
+<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+<li><a href="{% url 'admin_nettoyage' %}" ><span class="icon">🧹</span> Nettoyage</a></li>
+
+<li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+<li><a href="{% url 'admin_clients' %}" class="active"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'admin_conducteurs' %}" ><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+
+</li>
+<li class="sidebar-section">Mouvements</li>
+<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_receptions_admin' %}" ><span class="icon">📥</span> Historique des réceptions</a></li>
+<li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.filter-bar { background:var(--surface); border-radius:var(--radius); padding:16px 20px; margin-bottom:16px; box-shadow:var(--shadow); }
+.filter-grid { display:grid; grid-template-columns:2fr 1fr 1fr auto auto; gap:10px; align-items:flex-end; }
+@media(max-width:900px){ .filter-grid{ grid-template-columns:1fr 1fr; } }
+
+.type-tabs {
+  display: flex;
+  gap: 4px;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 5px;
+  margin-bottom: 16px;
+  width: fit-content;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, .06);
+}
+
+.ttab {
+  padding: 9px 20px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  transition: all .2s ease;
+  border: 2px solid transparent;
+  background: transparent;
+  letter-spacing: .2px;
+}
+
+.ttab:hover {
+  background: rgba(37, 99, 168, .1);
+  color: #2563a8;
+  border-color: rgba(37, 99, 168, .3);
+}
+
+.ttab.active {
+  background: #2563a8;
+  color: #ffffff;
+  border-color: #1e40af;
+  box-shadow: 0 2px 8px rgba(37, 99, 168, .35);
+  transform: translateY(-1px);
+}
+
+.ttab.active:hover {
+  background: #1e40af;
+  color: #ffffff;
+}
+
+/* Véhicules drawer */
+.veh-drawer { display:none; background:var(--surface2); border-top:2px solid var(--primary-light); }
+.veh-drawer.open { display:table-row; }
+.veh-drawer td { padding:12px 20px; }
+
+.veh-mini-card {
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:8px; padding:8px 12px; margin:4px;
+  font-size:13px; cursor:pointer; transition:all .2s;
+}
+.veh-mini-card:hover { border-color:var(--primary); box-shadow:var(--shadow); }
+.veh-mini-card.present { border-color:var(--danger); background:#fee2e210; }
+.veh-mini-card .vmc-immat { font-weight:800; color:var(--primary); }
+.veh-mini-card .vmc-info  { font-size:11px; color:var(--text-muted); }
+
+.export-wrap { position:relative; }
+.export-menu { display:none; position:absolute; top:calc(100% + 4px); right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); min-width:150px; z-index:100; }
+.export-menu.open { display:block; }
+.export-item { display:flex; align-items:center; gap:8px; padding:10px 14px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--border); transition:background .15s; }
+.export-item:last-child { border-bottom:none; }
+.export-item:hover { background:var(--surface2); }
+.avatar-entreprise  { background: #5b21b6; }
+.avatar-particulier { background: #2563a8; }
+.client-avatar {
+  width:38px; height:38px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; font-weight:800; color:#fff;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Gestion des clients</h1>
+    <div class="breadcrumb">
+      {{ clients|length }} client{{ clients|length|pluralize }} —
+      {{ stats.particuliers }} particulier{{ stats.particuliers|pluralize }},
+      {{ stats.entreprises }} entreprise{{ stats.entreprises|pluralize }}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <div class="export-wrap">
+      <button onclick="document.getElementById('exp-menu').classList.toggle('open')" class="btn btn-outline">📤 Exporter ▾</button>
+      <div class="export-menu" id="exp-menu">
+        <div class="export-item" onclick="exportCSV()">📊 CSV</div>
+        <div class="export-item" onclick="window.print()">🖨️ Imprimer</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;">
+     {{ stats.total }} total
+  </div>
+  <div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#1e40af;">
+    {{ stats.particuliers }} particulier{{ stats.particuliers|pluralize }}
+  </div>
+  <div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#5b21b6;">
+     {{ stats.entreprises }} entreprise{{ stats.entreprises|pluralize }}
+  </div>
+  <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#065f46;">
+     {{ stats.total_vehicules }} véhicule{{ stats.total_vehicules|pluralize }}
+  </div>
+</div>
+
+<!-- Onglets type -->
+<div class="type-tabs">
+  <button class="ttab {% if not filtre_type or filtre_type == 'tous' %}active{% endif %}"
+          onclick="filtrerType('tous')">Tous</button>
+  <button class="ttab {% if filtre_type == 'PARTICULIER' %}active{% endif %}"
+          onclick="filtrerType('PARTICULIER')">🧑 Particuliers</button>
+  <button class="ttab {% if filtre_type == 'ENTREPRISE' %}active{% endif %}"
+          onclick="filtrerType('ENTREPRISE')">🏢 Entreprises</button>
+</div>
+
+<!-- Filtres -->
+<div class="filter-bar">
+  <form method="get" id="filter-form">
+    <input type="hidden" name="type" id="type-input" value="{{ filtre_type|default:'tous' }}">
+    <div class="filter-grid">
+      <div>
+        <label class="form-label">🔍 Recherche</label>
+        <input type="text" name="q" value="{{ filters.q }}" class="form-input"
+               placeholder="Nom, téléphone, email, NINEA, ville..."
+               oninput="debounceSubmit()">
+      </div>
+      <div>
+        <label class="form-label">Ville</label>
+        <select name="ville" class="form-select" onchange="this.form.submit()">
+          <option value="">Toutes les villes</option>
+          {% for v in villes %}
+          <option value="{{ v }}" {% if filters.ville == v %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Véhicules</label>
+        <select name="avec_vehicule" class="form-select" onchange="this.form.submit()">
+          <option value="">Tous</option>
+          <option value="1" {% if filters.avec_vehicule == '1' %}selected{% endif %}>Avec véhicule(s)</option>
+          <option value="0" {% if filters.avec_vehicule == '0' %}selected{% endif %}>Sans véhicule</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label" style="opacity:0">.</label>
+        <button type="submit" class="btn btn-primary w-full">Filtrer</button>
+      </div>
+      <div>
+        <label class="form-label" style="opacity:0">.</label>
+        <a href="{% url 'admin_clients' %}" class="btn btn-outline w-full">✕ Reset</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Tableau -->
+<div class="card">
+  <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+    <strong>{{ clients|length }}</strong> client{{ clients|length|pluralize }}
+    {% if filters.q or filtre_type %}<span style="color:var(--accent);">(filtré)</span>{% endif %}
+  </div>
+
+  <div class="table-wrap">
+    <table id="clients-table">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Type</th>
+          <th>Contact</th>
+          <th>Ville</th>
+          <th>Véhicules</th>
+          <th>Passages</th>
+          <th>Créé le</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clients %}
+
+
+        <tr id="row-client-{{ c.id }}">
+
+          <!-- Client -->
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="client-avatar"
+                   style="background:{% if c.type_client == 'ENTREPRISE' %}#5b21b6{% else %}#2563a8{% endif %};">
+                {{ c.nom|first|upper }}
+              </div>
+              <div>
+                <div class="font-bold" style="font-size:14px;">
+                  {% if c.type_client == 'PARTICULIER' %}{{ c.prenom }} {% endif %}{{ c.nom }}
+                </div>
+                {% if c.numero_client %}
+                <div class="text-small text-muted">N° {{ c.numero_client }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+
+          <!-- Type -->
+          <td>
+            {% if c.type_client == 'ENTREPRISE' %}
+            <span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">Entreprise</span>
+            {% if c.ninea %}<div class="text-small text-muted">{{ c.ninea }}</div>{% endif %}
+            {% else %}
+            <span class="badge" style="background:#dbeafe;color:#1e40af;font-size:11px;">Particulier</span>
+            {% endif %}
+          </td>
+
+          <!-- Contact -->
+          <td>
+            <div class="text-small">
+              📞 <a href="tel:{{ c.telephone }}" style="color:var(--primary);">{{ c.telephone }}</a>
+            </div>
+            {% if c.telephone2 %}
+            <div class="text-small text-muted">📞 {{ c.telephone2 }}</div>
+            {% endif %}
+            {% if c.email %}
+            <div class="text-small text-muted">✉️ {{ c.email }}</div>
+            {% endif %}
+          </td>
+
+          <!-- Ville -->
+          <td class="text-small text-muted">{{ c.ville|default:"—" }}</td>
+
+          <!-- Véhicules -->
+          <td>
+            {% if c.vehicules.count %}
+            <button onclick="toggleVeh('{{ c.id }}')"
+                    class="btn btn-outline btn-sm"
+                    style="font-size:12px;">
+              🚗 {{ c.vehicules.count }} véhicule{{ c.vehicules.count|pluralize }}
+            </button>
+            {% else %}
+            <span class="text-small text-muted">Aucun</span>
+            {% endif %}
+          </td>
+
+          <!-- Passages totaux -->
+          <td class="text-center">
+            <strong>{{ c.nb_passages }}</strong>
+            <div class="text-small text-muted">passage{{ c.nb_passages|pluralize }}</div>
+          </td>
+
+          <!-- Créé le -->
+          <td class="text-small text-muted">{{ c.created_at|date:"d/m/Y" }}</td>
+
+          <!-- Actions -->
+          <td>
+            <div style="display:flex;gap:4px;">
+              <a href="{% url 'admin_modifier_client' c.id %}"
+                 class="btn btn-outline btn-sm" title="Modifier">✏️</a>
+              <a href="{% url 'admin_detail_client' c.id %}"
+                 class="btn btn-info btn-sm" title="Fiche complète">🔍</a>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Drawer véhicules -->
+        <tr class="veh-drawer" id="veh-drawer-{{ c.id }}">
+          <td colspan="8">
+            <div style="font-weight:700;font-size:13px;margin-bottom:10px;">
+              🚗 Véhicules de {{ c.nom }} ({{ c.vehicules.count }})
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+              {% for v in c.vehicules.all %}
+              {% with entree=v.entrees.filter %}
+              <div class="veh-mini-card {% if v.en_cours %}present{% endif %}">
+                <div>
+                  <div class="vmc-immat">{{ v.immatriculation }}</div>
+                  <div class="vmc-info">{{ v.marque }} {{ v.modele }} {{ v.annee }}</div>
+                  <div class="vmc-info">{{ v.get_type_carburant_display }} · {{ v.couleur|default:"—" }}</div>
+                  {% if v.en_cours %}
+                  <div style="font-size:10px;color:var(--danger);font-weight:700;">🔴 Présent sur site</div>
+                  {% endif %}
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <a href="{% url 'admin_modifier_vehicule' v.id %}" class="btn btn-outline btn-sm" style="font-size:11px;">✏️</a>
+                  <a href="{% url 'detail_vehicule_rec' v.id %}" class="btn btn-info btn-sm" style="font-size:11px;">🔍</a>
+                </div>
+              </div>
+              {% endwith %}
+              {% endfor %}
+            </div>
+          </td>
+        </tr>
+       
+        {% empty %}
+        <tr>
+          <td colspan="8" style="text-align:center;padding:50px;color:var(--text-muted);">
+            <div style="font-size:40px;margin-bottom:10px;">👤</div>
+            Aucun client trouvé
+            {% if filters.q %}<br><a href="{% url 'admin_clients' %}">Voir tous</a>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if clients|length >= 100 %}
+  <div style="text-align:center;padding:14px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted);">
+    Affichage limité à 100 résultats — utilisez les filtres
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filtrerType(val) {
+  document.getElementById('type-input').value = val;
+  document.getElementById('filter-form').submit();
+}
+
+let dbt;
+function debounceSubmit() {
+  clearTimeout(dbt);
+  dbt = setTimeout(() => document.getElementById('filter-form').submit(), 500);
+}
+
+const openVeh = new Set();
+function toggleVeh(id) {
+  const drawer = document.getElementById('veh-drawer-' + id);
+  if (openVeh.has(id)) {
+    drawer.classList.remove('open');
+    openVeh.delete(id);
+  } else {
+    drawer.classList.add('open');
+    openVeh.add(id);
+  }
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.export-wrap'))
+    document.getElementById('exp-menu')?.classList.remove('open');
+});
+
+function exportCSV() {
+  const rows = [['Nom','Type','Téléphone','Email','Ville','NINEA','Nb véhicules','Passages','Créé le']];
+  document.querySelectorAll('#clients-table tbody tr:not(.veh-drawer)').forEach(tr => {
+    const c = tr.querySelectorAll('td');
+    if (c.length < 8) return;
+    rows.push([
+      c[0].innerText.trim().split('\n')[0],
+      c[1].innerText.trim().split('\n')[0],
+      c[2].innerText.replace(/[📞✉️]/g,'').trim().split('\n')[0],
+      c[2].innerText.replace(/[📞✉️]/g,'').trim().split('\n')[2] || '',
+      c[3].innerText.trim(),
+      '',
+      c[4].innerText.replace(/véhicule[s]?/,'').trim(),
+      c[5].innerText.trim().split('\n')[0],
+      c[6].innerText.trim(),
+    ]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'}));
+  a.download = `clients-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+<style>@media print { .sidebar,.topbar,.filter-bar,.type-tabs,td:last-child,th:last-child { display:none!important; } }</style>
+{% endblock %}

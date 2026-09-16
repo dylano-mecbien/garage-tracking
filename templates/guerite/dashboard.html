@@ -5,7 +5,7 @@
 {% block sidebar_nav %}
 <div class="sidebar-section">Guérite</div>
 <ul class="sidebar-nav">
-  <li><a href="{% url 'dashboard_guerite' %}" class="active"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'index' %}" class="active"><span class="icon">📊</span> Tableau de bord</a></li>
   <li><a href="{% url 'vehicules_presents' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
   <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
 </ul>
@@ -82,11 +82,11 @@
     <td onclick="event.stopPropagation();">
               
                  <a href="{% url 'enregistrer_sortie' entree.id %}"
-   class="btn {% if entree.statut == 'BON_SORTIE_FAIT' or entree.motif == 'VISITE' %}btn-success{% else %}btn-warning{% endif %} btn-sm">
+   class="btn {% if entree.bon_sortie.etats == 'APPROBATION' or entree.motif == 'VISITE' %}btn-success{% else %}btn-warning{% endif %} btn-sm">
     📤 Sortie
 </a>
 
-          
+           
     </td>
 </tr>
 {% endfor %}

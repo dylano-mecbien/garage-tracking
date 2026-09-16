@@ -5,7 +5,7 @@
 {% block sidebar_nav %}
 <div class="sidebar-section">Guérite</div>
 <ul class="sidebar-nav">
-  <li><a href="{% url 'dashboard_guerite' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
   <li><a href="{% url 'nouvelle_entree' %}" class="active"><span class="icon">➕</span> Nouvelle entrée</a></li>
   <li><a href="{% url 'recherche_vehicule' %}"><span class="icon">🔍</span> Rechercher</a></li>
 </ul>
@@ -16,7 +16,7 @@
   <div>
     <h1>Nouveau conducteur</h1>
     <div class="breadcrumb">
-      <a href="{% url 'dashboard_guerite' %}">Guérite</a> ›
+      <a href="{% url 'index' %}">Guérite</a> ›
       <a href="{% url 'nouvelle_entree' %}">Nouvelle entrée</a> ›
       Créer conducteur
     </div>

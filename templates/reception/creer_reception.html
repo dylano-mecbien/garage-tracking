@@ -5,7 +5,7 @@
 {% block sidebar_nav %}
 <div class="sidebar-section">Réception</div>
 <ul class="sidebar-nav">
-  <li><a href="{% url 'dashboard_reception' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
   <li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
   <li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
   <li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
@@ -77,9 +77,9 @@
 <div class="page-header">
   <div>
     <h1>Nouvelle réception</h1>
-    <div class="breadcrumb"><a href="{% url 'dashboard_reception' %}">Réception</a> › Créer</div>
+    <div class="breadcrumb"><a href="{% url 'index' %}">Réception</a> › Créer</div>
   </div>
-  <a href="{% url 'dashboard_reception' %}" class="btn btn-outline">← Retour</a>
+  <a href="{% url 'index' %}" class="btn btn-outline">← Retour</a>
 </div>
 
 <!-- Étapes -->
@@ -210,7 +210,7 @@
     <button type="submit" class="btn btn-primary" style="font-size:15px;padding:11px 28px;">
       ✅ Créer la réception
     </button>
-    <a href="{% url 'dashboard_reception' %}" class="btn btn-outline">Annuler</a>
+    <a href="{% url 'index' %}" class="btn btn-outline">Annuler</a>
   </div>
 </form>
 {% endblock %}

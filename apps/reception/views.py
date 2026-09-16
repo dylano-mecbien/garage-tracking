@@ -1,21 +1,27 @@
 """
 Vues Réception — sans devis, sans facture
 """
+
+from django.db.models import Count
+from django.utils import timezone
+from datetime import timedelta
 import datetime
 from decimal import Decimal
 import json
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db import models
+from django.db import models, transaction
+from django.db.models.functions import Coalesce
+from django.db.models import F
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Q, Sum
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, request
 from django.views.decorators.http import require_POST
 from apps.notifications.hook import notifier_bon_sortie_cree
 from .models import Reception, StatutVehicule, RapportReception, TransfertAtelier, Notification
 from .forms import ReceptionForm, RapportReceptionForm, TransfertAtelierForm, BonSortieForm, ORReceptionForm
-from apps.guerite.models import EnregistrementEntree, BonSortie, StatutEntree, MotifEntree, StatutViewHinstorisue
+from apps.guerite.models import EnregistrementEntree, BonSortie, StatutEntree, MotifEntree, StatutViewHinstorisue, TypeBon
 from apps.atelier.models import FicheTechnique, OrdreReparation, StatutOR, TypeOR, FicheControle, Tache, StatutTache
 from apps.vehicules.models import Client, Vehicule
 from apps.accounts.decorators import guerite_required, receptionniste_required
@@ -26,7 +32,9 @@ from apps.documents.pdf_generator import generer_pdf_bon_sortie
 import qrcode
 from io import BytesIO
 from django.core.files.base import ContentFile
-
+from datetime import datetime
+import base64
+import uuid
 
 # ─── Utilitaire notif ────────────────────────────────────────────────────────
 def _notifier(type_notif, titre, message, reception=None):
@@ -38,43 +46,70 @@ def _notifier(type_notif, titre, message, reception=None):
         )
 
 
-
 def get_entrees_presentes_filtrees(request):
     qs = (
         EnregistrementEntree.objects
         .select_related("vehicule", "vehicule__client", "conducteur", "conducteur__client")
-       
         .filter(date_sortie__isnull=True)
         .order_by("-date_entree")
     )
- 
-    q = request.GET.get("q")
-    motif = request.GET.get("motif")
-    date_debut = request.GET.get("date_debut", "").strip()
-    date_fin = request.GET.get("date_fin", "").strip()
- 
+
+    q            = request.GET.get("q")
+    motif        = request.GET.get("motif")
+    date_debut   = request.GET.get("date_debut", "").strip()
+    date_fin     = request.GET.get("date_fin", "").strip()
+    duree_valeur = request.GET.get("duree_valeur", "").strip()
+    duree_unite  = request.GET.get("duree_unite", "h").strip() or "h"
+
+    # ── Recherche libre ──────────────────────────
     if q:
-        from django.db.models import Q
         qs = qs.filter(
             Q(vehicule__immatriculation__icontains=q)
             | Q(vehicule__client__nom__icontains=q)
             | Q(vehicule__client__telephone__icontains=q)
             | Q(conducteur__nom__icontains=q)
         )
- 
+
+    # ── Motif ────────────────────────────────────
     if motif:
         qs = qs.filter(motif=motif)
- 
+
+    # ── Dates ────────────────────────────────────
     if date_debut:
         dt = datetime.strptime(date_debut, "%Y-%m-%d")
         qs = qs.filter(date_entree__gte=timezone.make_aware(dt))
- 
+
     if date_fin:
         dt = datetime.strptime(date_fin, "%Y-%m-%d").replace(
             hour=23, minute=59, second=59
         )
         qs = qs.filter(date_entree__lte=timezone.make_aware(dt))
- 
+
+    # ── Durée de séjour (moins de n unités) ──────
+    if duree_valeur != "":
+        try:
+            n = int(duree_valeur)
+
+            if duree_unite == "h":
+                unite_delta = timedelta(hours=1)
+            elif duree_unite == "m":
+                unite_delta = timedelta(days=30)
+            else:  # "j"
+                unite_delta = timedelta(days=1)
+
+            if n == 0:
+                # 0 → moins de 1 unité
+                n = 1
+
+            if n > 0:
+                delta = unite_delta * n
+                seuil = timezone.now() - delta
+                # date_entree > seuil  ⇒  séjour < n unités
+                qs = qs.filter(date_entree__gt=seuil)
+
+        except (ValueError, TypeError):
+            pass
+
     return qs
 
  
@@ -107,12 +142,16 @@ def dashboard(request):
     ).select_related('vehicule', 'atelier').order_by('-date_creation')
     aujourd_hui = timezone.now().date()
     entrees_today = EnregistrementEntree.objects.filter(date_entree__date=aujourd_hui)
-    
-
-
+    sortie_today = EnregistrementEntree.objects.filter(date_sortie__date=aujourd_hui)
+    entrees = (
+           EnregistrementEntree.objects
+           .select_related('vehicule', 'vehicule__client', 'conducteur', 'agent_entree')
+           .annotate(date_tri=Coalesce('date_sortie', 'date_entree'))
+           .order_by(F('date_tri').desc())
+           )
     ctx = {
         'nb_entrees_today': entrees_today.count(),
-        'nb_sorties_today': entrees_today.filter(statut=StatutEntree.SORTI).count(),
+        'nb_sorties_today': sortie_today.count(),
         'entrees':            entreesReparation[:5],
         'entrees_sans_rec':   entreesReparation.filter(reception__isnull=True),
         'receptions':         receptions,
@@ -122,7 +161,7 @@ def dashboard(request):
         'vehicules_presents': EnregistrementEntree.objects.exclude(statut=StatutEntree.SORTI).select_related(
             'vehicule', 'vehicule__client', 'conducteur'
         ).order_by('-date_entree')[:7],
-        'entrees_recentes':   entrees_today.select_related('vehicule', 'conducteur').order_by('-date_entree')[:7],
+        'entrees_recentes':   entrees[:9],
 
         # Compteurs KPI
         'nb_a_traiter':       entreesReparation.filter(reception__isnull=True).count(),
@@ -337,9 +376,13 @@ def historique_entrees(request):
     })
 
 def get_filtered_entrees(request):
-    entrees = EnregistrementEntree.objects.select_related(
-        'vehicule', 'vehicule__client', 'conducteur', 'agent_entree'
-    ).order_by('-date_entree')
+      
+    entrees = (
+        EnregistrementEntree.objects
+        .select_related('vehicule', 'vehicule__client', 'conducteur', 'agent_entree')
+        .annotate(date_tri=Coalesce('date_sortie', 'date_entree'))
+        .order_by(F('date_tri').desc())
+        )
 
     statut = request.GET.get('statut')
     motif = request.GET.get('motif')
@@ -403,7 +446,7 @@ def detail_vehicule(request, vehicule_id):
         'or_list': v.ordres_reparation.order_by('-date_creation')[:10],
         'rec_list': v.receptions.order_by('-created_at')[:5],
     })
-
+ 
  
 # ─── RAPPORT ─────────────────────────────────────────────────────────────────
 @receptionniste_required
@@ -531,16 +574,6 @@ def detail_bon_sortie(request, bon_id):
         BonSortie.objects.select_related('vehicule', 'vehicule__client', 'reception'),
         id=bon_id
     )
-    if request.method == 'POST':
-        bon.signature_client = request.POST.get('signature_client', '')
-        bon.est_valide       = True
-        bon.valide_par       = request.user
-        bon.date_validation  = timezone.now()
-        bon.save()
-        if bon.reception:
-            bon.reception.statut = StatutVehicule.BON_SORTIE_FAIT
-            bon.reception.save(update_fields=['statut'])
-        messages.success(request, f"Bon {bon.numero} validé et signé.")
     return render(request, 'reception/detail_bon_sortie.html', {'bon': bon})
 
  
@@ -572,9 +605,7 @@ def _gen_qr(bon):
 # ─── LISTE BONS DE SORTIE ────────────────────────────────────────────────────
 @guerite_required
 def liste_bons_sortie(request):
-    from django.db.models import Q, Count
-    from django.utils import timezone
-    from datetime import timedelta
+
  
     qs = BonSortie.objects.select_related(
         'vehicule', 'vehicule__client', 'cree_par', 'valide_par'
@@ -665,23 +696,131 @@ def detail_bon_sortie_guerite(request, bon_id):
             'super': super_receptionniste
         }
     )
+
+
+
+def save_signature_from_dataurl(instance, data_url, field_name='signature'):
+    """Convertit un dataURL canvas en fichier image et le sauvegarde."""
+    if not data_url or not data_url.startswith('data:image'):
+        return False
+    try:
+        format, imgstr = data_url.split(';base64,')
+        ext = format.split('/')[-1]
+        filename = f"sig_{uuid.uuid4().hex[:10]}.{ext}"
+        data = ContentFile(base64.b64decode(imgstr), name=filename)
+        getattr(instance, field_name).save(filename, data, save=False)
+        return True
+    except Exception as e:
+        print("Erreur signature :", e)
+        return False
+
+    
  
 # ─── VALIDER BON DE SORTIE ────────────────────────────────────────────────────
 @guerite_required
-def valider_bon_sortie_guerite(request, bon_id):
+def valider_bon_sortie_divers(request, bon_id):
     bon = get_object_or_404(BonSortie, id=bon_id)
+
     if request.method == 'POST':
-        bon.etats          = 'VALIDER'
-        bon.est_valide     = True
-        bon.valide_par     = request.user
+        # Cas 1 : l'admin a déjà une signature stockée
+        if request.user.signature:
+            bon.signature_admin = request.user.signature
+            bon.etats = 'VALIDER'
+            bon.est_valide = True
+            bon.valide_par = request.user
+            bon.date_validation = timezone.now()
+            bon.save()
+
+            log_action(request, ActionType.CHANGEMENT_STATUT, 'GUERITE', bon, {'etat': 'VALIDER'})
+            messages.success(request, f"Bon {bon.numero} validé avec votre signature.")
+            if request.user.role == Role.ADMIN:
+                return redirect('liste_bons_admin')
+            else:
+                return redirect('liste_bons_sortie')
+
+        # Cas 2 : pas encore de signature → on récupère celle du canvas
+        signature_data = request.POST.get('signature_admin')
+
+        if not signature_data:
+            messages.error(request, "Vous devez signer avant de valider.")
+            return redirect(request.path)
+
+        # On enregistre la signature sur l'utilisateur (pour les prochaines fois)
+        if not save_signature_from_dataurl(request.user, signature_data, 'signature'):
+            messages.error(request, "Erreur lors de l'enregistrement de la signature.")
+            return redirect(request.path)
+        request.user.save()
+
+        # On met aussi la signature sur le bon
+        bon.signature_admin = request.user.signature
+        bon.etats = 'VALIDER'
+        bon.est_valide = True
+        bon.valide_par = request.user
         bon.date_validation = timezone.now()
         bon.save()
+
         log_action(request, ActionType.CHANGEMENT_STATUT, 'GUERITE', bon, {'etat': 'VALIDER'})
-        messages.success(request, f"Bon {bon.numero} validé.")
-    return redirect('liste_bons_sortie')
+        messages.success(request, f"Bon {bon.numero} validé. Votre signature a été enregistrée.")
+        if request.user.role == Role.ADMIN:
+            return redirect('liste_bons_admin')
+        else:
+            return redirect('liste_bons_sortie')
+
+    return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+  
+
+# ─── VALIDER BON DE SORTIE ────────────────────────────────────────────────────
+@guerite_required
+def valider_bon_sortie_vehicule(request, bon_id):
+    bon = get_object_or_404(BonSortie, id=bon_id)
+
+    if request.method == 'POST':
+        # Cas 1 : l'admin a déjà une signature stockée
+        if request.user.signature:
+            bon.signature_admin = request.user.signature   # on récupère juste le lien
+            bon.etats = 'APPROBATION'
+            bon.approuve_par = request.user
+            bon.date_approbation = timezone.now()
+            bon.save()
+
+            log_action(request, ActionType.CHANGEMENT_STATUT, 'ADMIN', bon, {'etat': 'APPROBATION'})
+            messages.success(request, f"Bon {bon.numero} approuvé avec votre signature.")
+            if request.user.role == Role.ADMIN:
+                return redirect('liste_bons_admin')
+            else:
+                return redirect('liste_bons_sortie') # adapte l’URL
+
+        # Cas 2 : l'admin n'a pas encore de signature → il doit en fournir une
+        signature_data = request.POST.get('signature_admin')
+        if not signature_data:
+            messages.error(request, "Vous devez signer avant de valider.")
+            return redirect(request.path)
+
+        # On sauvegarde la signature sur l'utilisateur (pour les prochaines fois)
+        if not save_signature_from_dataurl(request.user, signature_data, 'signature'):
+            messages.error(request, "Erreur lors de l'enregistrement de la signature.")
+            return redirect(request.path)
+        request.user.save()
+
+        # On met aussi la signature sur le bon
+        bon.signature_admin = request.user.signature
+        bon.etats = 'APPROBATION'
+        bon.approuve_par = request.user
+        bon.date_approbation = timezone.now()
+        bon.save()
+
+        log_action(request, ActionType.CHANGEMENT_STATUT, 'ADMIN', bon, {'etat': 'APPROBATION'})
+        messages.success(request, f"Bon {bon.numero} approuvé. Votre signature a été enregistrée.")
+        if request.user.role == Role.ADMIN:
+            return redirect('liste_bons_admin')
+        else:
+            return redirect('liste_bons_sortie')
+
+    return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+
+
  
- 
-# ─── PDF BON DE SORTIE (guérite) ─────────────────────────────────────────────
+ # ─── PDF BON DE SORTIE (guérite) ─────────────────────────────────────────────
 @guerite_required
 def pdf_bon_sortie_guerite(request, bon_id):
     from django.http import HttpResponse
@@ -696,8 +835,6 @@ def pdf_bon_sortie_guerite(request, bon_id):
         messages.error(request, f"Erreur génération PDF: {e}")
         return redirect('detail_bon_sortie_guerite', bon_id=bon_id)
  
-
-# ─── CRÉER BON DIRECT (sans réception) ───────────────────────────────────────
 
 
 
@@ -728,20 +865,25 @@ def creer_bon_sortie(request, rec_id):
     if request.method == 'POST':
         form = BonSortieForm(request.POST)
         if form.is_valid():
+            with transaction.atomic():
+                bon = form.save(commit=False)
+                bon.cree_par = request.user
+                bon.types = TypeBon.VEHICULE
+                if rec.vehicule:
+                    bon.vehicule = rec.vehicule
+                bon.save()
 
-            bon = form.save(commit=False)
-            bon.cree_par = request.user
-            bon.types = 'VEHICULE'
 
-            if rec.vehicule:
-                bon.vehicule = rec.vehicule
             bon.save()
 
             _gen_qr(bon)
+            rec.bon_sortie = bon
+            rec.save(update_fields=['bon_sortie'])
 
-            rec.statut = StatutVehicule.BON_SORTIE_FAIT
-            rec.save(update_fields=['statut'])
 
+            est_admin = request.user.role == Role.ADMIN
+            if not est_admin:
+                notifier_bon_sortie_cree(bon)
             log_action(
                 request,
                 ActionType.CREATION,
@@ -863,9 +1005,7 @@ def creer_bon_sortie_direct(request):
             statut=StatutEntree.SORTI
         ).order_by('-id').first()
 
-        if rec is not None:
-            rec.statut = StatutVehicule.BON_SORTIE_FAIT
-            rec.save(update_fields=['statut'])
+
 
         # Création du bon de sortie
         bon = BonSortie.objects.create(
@@ -877,9 +1017,16 @@ def creer_bon_sortie_direct(request):
             # Si d'autres champs existent (Origine_demande, etc.), les ajouter ici
         )
 
+
+        if rec is not None:
+            rec.bon_sortie = bon
+            rec.save(update_fields=['bon_sortie'])
+
         # Cohérence avec creer_bon_sortie : génération du QR code
         _gen_qr(bon)
-
+        est_admin = request.user.role == Role.ADMIN
+        if not est_admin:
+            notifier_bon_sortie_cree(bon)
         log_action(request, ActionType.CREATION, 'GUERITE', bon)
         messages.success(request, f"Bon de sortie {bon.numero} créé.")
         return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
@@ -926,8 +1073,8 @@ def creer_bon_sortie_divers(request):
                 cree_par        = request.user,
             )
             
-            est_super_ou_admin = request.user.role in (Role.SUPER_RECEPTIONNISTE, Role.ADMIN)
-            if not est_super_ou_admin:
+            est_admin = request.user.role == Role.ADMIN
+            if not est_admin:
                 notifier_bon_sortie_cree(bon)
             log_action(request, ActionType.CREATION, 'GUERITE', bon, {'type': 'DIVERS'})
             messages.success(request, f"Bon de sortie {bon.numero} créé avec succès.")

@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+{% block title %}Nouveau bon de sortie divers{% endblock %}
+{% block page_title %}📦 Bon de sortie — Divers (simplifié){% endblock %}
+
+{% block sidebar_nav %}
+
+<ul class="sidebar-nav">
+<li><a href="{% url 'index' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
+<li class="sidebar-section">Administration</li>
+<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+<li><a href="{% url 'admin_nettoyage' %}" ><span class="icon">🧹</span> Nettoyage</a></li>
+
+<li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'admin_conducteurs' %}" ><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+
+</li>
+<li class="sidebar-section">Mouvements</li>
+<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_receptions_admin' %}" ><span class="icon">📥</span> Historique des réceptions</a></li>
+<li><a href="{% url 'liste_bons_admin' %}" ><span class="icon">📄</span> Bons de sortie</a></li>
+</ul>
+<!-- SECTION ACTIONS -->
+<div class="sidebar-section">Actions</div>
+<ul class="sidebar-nav">
+    <li>
+        <a href="{% url 'creer_bon_direct_admin' %}">
+            <span class="icon">🚚</span> Bon de sortie véhicule
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'creer_bon_divers_admin' %}" class="active">
+            <span class="icon">📦</span> Bon de sortie divers
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.dem-search-wrap { position: relative; }
+.dem-results {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface); border: 1.5px solid var(--primary-light);
+  border-radius: 8px; box-shadow: var(--shadow-md); z-index: 300;
+  max-height: 320px; overflow-y: auto; display: none;
+}
+.dem-results.open { display: block; }
+.dem-item {
+  padding: 10px 14px; cursor: pointer;
+  border-bottom: 1px solid var(--border); transition: background .15s;
+  display: flex; align-items: center; gap: 12px;
+}
+.dem-item:last-child { border-bottom: none; }
+.dem-item:hover { background: var(--surface2); }
+.dem-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.dem-source-badge {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 4px; letter-spacing: .3px;
+}
+.dem-source-CLIENT     { background: #e0f2fe; color: #075985; }
+.dem-source-EMPLOYE     { background: #ede9fe; color: #5b21b6; }
+.dem-source-DEMANDEUR   { background: #f1f5f9; color: #475569; }
+
+.dem-item.create-new {
+  color: var(--primary); font-weight: 600;
+  border-top: 1px solid var(--border);
+}
+.dem-item.create-new:hover { background: var(--surface2); }
+
+.dem-selected {
+  display: none; background: var(--surface2);
+  border: 1.5px solid var(--success); border-radius: 8px;
+  padding: 12px 16px; align-items: center; gap: 12px;
+}
+.dem-selected.show { display: flex; }
+
+/* Aperçu "cahier" des articles saisis */
+.ligne-item {
+  display: flex;
+  align-items: baseline;
+  padding: 4px 8px;
+  border-bottom: 1px dashed #e5e7eb;
+  font-size: 14px;
+}
+.ligne-item:last-child { border-bottom: none; }
+.ligne-number {
+  display: inline-block;
+  width: 24px;
+  font-weight: 600;
+  color: #6b7280;
+  font-size: 12px;
+}
+.ligne-text { flex: 1; word-break: break-word; }
+.ligne-item:hover { background-color: #f3f4f6; border-radius: 4px; }
+
+/* Petit formulaire de création rapide (numéro + description) */
+.quick-create-form {
+  display: none;
+  margin-top: 10px;
+  background: var(--surface2);
+  border: 1.5px dashed var(--primary-light);
+  border-radius: 8px;
+  padding: 14px;
+}
+.quick-create-form.open { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Bon de sortie — Divers (simplifié)</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'liste_bons_admin' %}">Bons de sortie</a> › Nouvelle sortie divers
+    </div>
+  </div>
+  <a href="{% url 'liste_bons_admin' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<form method="post" id="bon-form">
+  {% csrf_token %}
+  <div class="card" style="max-width:800px;">
+    <div class="card-header">
+      <div class="card-title">📝 Informations du bon</div>
+    </div>
+
+    <!-- ① Demandeur : recherche fusionnée Client / Employé / Demandeur -->
+    <div class="form-group">
+      <label class="form-label">👤 Demandeur *</label>
+      <div class="dem-search-wrap" id="dem-search-wrap">
+        <input type="text" id="dem-search" class="form-input"
+               placeholder="Tapez un nom, numéro, matricule..."
+               autocomplete="off">
+        <div class="dem-results" id="dem-results"></div>
+      </div>
+
+      <!-- Formulaire rapide de création (affiché si aucune correspondance) -->
+      <div class="quick-create-form" id="quick-create-form">
+        <div class="text-small text-muted" style="margin-bottom:8px;">
+          Aucune correspondance trouvée. Compléter pour créer ce demandeur :
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nom *</label>
+            <input type="text" id="qc-nom" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Numéro *</label>
+            <input type="text" id="qc-numero" class="form-input" placeholder="6XX XXX XXX">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description (optionnel)</label>
+          <input type="text" id="qc-description" class="form-input" placeholder="Précision sur ce demandeur">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" onclick="creerDemandeur()" class="btn btn-primary btn-sm">✅ Créer et sélectionner</button>
+          <button type="button" onclick="closeQuickCreate()" class="btn btn-outline btn-sm">Annuler</button>
+        </div>
+      </div>
+
+      <!-- Demandeur sélectionné -->
+      <div class="dem-selected" id="dem-box">
+        <div class="dem-avatar" id="dem-avatar" style="background:var(--primary);">??</div>
+        <div style="flex:1;">
+          <div class="font-bold" id="dem-name">—</div>
+          <div class="text-small text-muted" id="dem-detail">—</div>
+        </div>
+        <button type="button" onclick="clearDem()" class="btn btn-outline btn-sm">✕ Changer</button>
+      </div>
+
+      <input type="hidden" name="nom_demandeur" id="nom-dem-hidden">
+    </div>
+
+    <!-- ② Articles / Lignes -->
+    <div class="form-group">
+      <label class="form-label">📝 Articles / Lignes</label>
+
+      <textarea name="observations" id="obs-textarea" class="form-textarea" rows="6"
+                placeholder="Saisissez chaque article/ligne sur une nouvelle ligne ou séparez par des points-virgules (;).&#10;Exemple :&#10;Pince multiprise;Tournevis cruciforme;Clé à molette 13mm"></textarea>
+
+      <!-- Aperçu en temps réel (cahier) -->
+      <div id="cahier-preview" style="margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fafbfc; min-height: 50px;">
+        <div style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">📋 Aperçu des lignes :</div>
+        <div id="lignes-container" style="display: flex; flex-direction: column; gap: 4px;"></div>
+        <div id="empty-message" style="color: #9ca3af; font-style: italic; text-align: center; padding: 8px 0;">
+          Aucune ligne saisie
+        </div>
+      </div>
+
+      <div class="text-small text-muted mt-1">
+        Séparez chaque article par un point‑virgule <code>;</code> ou par un saut de ligne.
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button type="submit" class="btn btn-success" style="flex:1;font-size:15px;padding:12px;">
+        📄 Créer le bon de sortie
+      </button>
+      <a href="{% url 'liste_bons_sortie' %}" class="btn btn-outline" style="padding:12px 16px;">
+        Annuler
+      </a>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// =========================== UTILITAIRES ===========================
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    if (m === '"') return '&quot;';
+    return '&#039;';
+  });
+}
+
+function initiales(nom) {
+  const parts = nom.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+const SOURCE_COULEUR = {
+  CLIENT: '#0284c7',
+  EMPLOYE: '#7c3aed',
+  DEMANDEUR: '#64748b',
+};
+const SOURCE_LABEL = {
+  CLIENT: 'Client',
+  EMPLOYE: 'Employé',
+  DEMANDEUR: 'Demandeur',
+};
+
+// =========================== APERÇU CAHIER (articles) ===========================
+document.addEventListener('DOMContentLoaded', function() {
+  const textarea = document.getElementById('obs-textarea');
+  const container = document.getElementById('lignes-container');
+  const emptyMsg = document.getElementById('empty-message');
+
+  function updatePreview() {
+    const raw = textarea.value;
+    const lines = raw.split(/[;\n]+/).map(s => s.trim()).filter(s => s.length > 0);
+
+    container.innerHTML = '';
+
+    if (lines.length === 0) {
+      emptyMsg.style.display = 'block';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+
+    lines.forEach((text, index) => {
+      const div = document.createElement('div');
+      div.className = 'ligne-item';
+      div.innerHTML = `
+        <span class="ligne-number">${index + 1}.</span>
+        <span class="ligne-text">${escapeHtml(text)}</span>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  textarea.addEventListener('input', updatePreview);
+  updatePreview();
+});
+
+// =========================== RECHERCHE DEMANDEUR (fusionnée) ===========================
+let demTimeout = null;
+let demAbort = null;
+
+const demSearch = document.getElementById('dem-search');
+const demResults = document.getElementById('dem-results');
+const demBox = document.getElementById('dem-box');
+const demNameSpan = document.getElementById('dem-name');
+const demDetailSpan = document.getElementById('dem-detail');
+const demAvatar = document.getElementById('dem-avatar');
+const nomDemHidden = document.getElementById('nom-dem-hidden');
+const quickCreateForm = document.getElementById('quick-create-form');
+
+demSearch.addEventListener('input', function () {
+  clearTimeout(demTimeout);
+  const q = this.value.trim();
+  closeQuickCreate();
+  if (q.length < 2) {
+    demResults.classList.remove('open');
+    return;
+  }
+  demTimeout = setTimeout(() => doSearchDemandeur(q), 300);
+});
+
+async function doSearchDemandeur(q) {
+  if (demAbort) demAbort.abort();
+  demAbort = new AbortController();
+  try {
+    const resp = await fetch(`{% url 'autocomplete_demandeur' %}?q=${encodeURIComponent(q)}`, {
+      signal: demAbort.signal
+    });
+    const data = await resp.json();
+    renderDemandeurResults(data.results || [], q);
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(e);
+  }
+}
+
+function renderDemandeurResults(results, q) {
+  demResults.innerHTML = '';
+
+  const qNorm = q.trim().toLowerCase();
+  const exactMatch = results.some(r => r.nom.trim().toLowerCase() === qNorm);
+
+  if (!results.length) {
+    demResults.innerHTML = '<div style="padding:12px 14px;color:var(--text-muted);font-size:13px;">Aucune correspondance trouvée</div>';
+  } else {
+    results.forEach(r => {
+      const div = document.createElement('div');
+      div.className = 'dem-item';
+      const couleur = SOURCE_COULEUR[r.source] || '#64748b';
+      const label = SOURCE_LABEL[r.source] || r.source;
+      div.innerHTML = `
+        <div class="dem-avatar" style="background:${couleur};">${initiales(r.nom)}</div>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:13px;">${escapeHtml(r.nom)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${escapeHtml(r.numero || '')}${r.detail ? ' · ' + escapeHtml(r.detail) : ''}</div>
+        </div>
+        <span class="dem-source-badge dem-source-${r.source}">${label}</span>
+      `;
+      div.onclick = () => selectDem(r);
+      demResults.appendChild(div);
+    });
+  }
+
+  // Bouton "Créer" si aucune correspondance exacte sur le nom
+  if (!exactMatch && q.trim().length >= 2) {
+    const c = document.createElement('div');
+    c.className = 'dem-item create-new';
+    c.innerHTML = `<span>➕</span> Créer "${escapeHtml(q.trim())}" comme nouveau demandeur`;
+    c.onclick = () => openQuickCreate(q.trim());
+    demResults.appendChild(c);
+  }
+
+  demResults.classList.add('open');
+}
+
+function selectDem(r) {
+  nomDemHidden.value = r.nom;
+  demNameSpan.textContent = r.nom;
+  demDetailSpan.textContent = `${SOURCE_LABEL[r.source] || r.source}${r.numero ? ' · ' + r.numero : ''}`;
+  demAvatar.textContent = initiales(r.nom);
+  demAvatar.style.background = SOURCE_COULEUR[r.source] || '#64748b';
+  demBox.classList.add('show');
+  document.getElementById('dem-search-wrap').style.display = 'none';
+  closeDemRes();
+  closeQuickCreate();
+}
+
+function clearDem() {
+  nomDemHidden.value = '';
+  demBox.classList.remove('show');
+  document.getElementById('dem-search-wrap').style.display = '';
+  demSearch.value = '';
+  demSearch.focus();
+  closeQuickCreate();
+}
+
+function closeDemRes() {
+  demResults.classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dem-search-wrap')) closeDemRes();
+});
+
+// =========================== CRÉATION RAPIDE D'UN DEMANDEUR ===========================
+function openQuickCreate(nomPrefill) {
+  closeDemRes();
+  quickCreateForm.classList.add('open');
+  document.getElementById('qc-nom').value = nomPrefill || '';
+  document.getElementById('qc-numero').value = '';
+  document.getElementById('qc-description').value = '';
+}
+
+function closeQuickCreate() {
+  quickCreateForm.classList.remove('open');
+}
+
+async function creerDemandeur() {
+  const nom = document.getElementById('qc-nom').value.trim();
+  const numero = document.getElementById('qc-numero').value.trim();
+  const description = document.getElementById('qc-description').value.trim();
+
+  if (!nom || !numero) {
+    alert('Le nom et le numéro sont obligatoires.');
+    return;
+  }
+
+  try {
+    const resp = await fetch("{% url 'creer_demandeur_ajax' %}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({ nom, numero, description })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      selectDem({
+        source: 'DEMANDEUR',
+        nom: data.nom,
+        numero: data.numero,
+        detail: data.detail,
+      });
+    } else {
+      alert(data.error || "Erreur lors de la création.");
+    }
+  } catch (e) {
+    alert('Erreur réseau.');
+  }
+}
+
+// =========================== VALIDATION AVANT SOUMISSION ===========================
+document.getElementById('bon-form').addEventListener('submit', function(e) {
+  const dem = nomDemHidden.value;
+  const obs = document.getElementById('obs-textarea').value.trim();
+  if (!dem) {
+    e.preventDefault();
+    alert('⚠️ Veuillez sélectionner ou créer un demandeur.');
+    return;
+  }
+  if (!obs) {
+    e.preventDefault();
+    alert('⚠️ Veuillez saisir au moins un article (dans le champ observations).');
+    return;
+  }
+});
+</script>
+{% endblock %}

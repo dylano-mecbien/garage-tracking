@@ -5,7 +5,7 @@
 {% block sidebar_nav %}
 <div class="sidebar-section">Guérite</div>
 <ul class="sidebar-nav">
-  <li><a href="{% url 'dashboard_guerite' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
   <li><a href="{% url 'vehicules_presents' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
   <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
   <li><a href="{% url 'nouvelle_entree' %}" class="active"><span class="icon">➕</span> Nouvelle entrée</a></li>
@@ -288,7 +288,7 @@
     <hr style="margin-top:20px">
     <div style="display:flex;gap:12px;">
       <button type="submit" class="btn btn-primary" style="font-size:15px;padding:10px 24px;">💾 Créer le véhicule</button>
-      <a href="{% url 'dashboard_guerite' %}" class="btn btn-outline">Annuler</a>
+      <a href="{% url 'index' %}" class="btn btn-outline">Annuler</a>
     </div>
   </form>
 </div>
