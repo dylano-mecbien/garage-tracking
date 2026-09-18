@@ -15,7 +15,7 @@
 <ul class="submenu">
 <li><a href="{% url 'rec_clients' %}"><span class="icon">👥</span> Clients</a></li>
 <li><a href="{% url 'rec_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
-<li><a href="{% url 'rec_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+<li><a href="{% url 'rec_vehicules' %}"  class="active"><span class="icon">🚗</span> Véhicules</a></li>
 </ul>
 </li>
 </ul>
@@ -29,7 +29,7 @@
   .hist-row:last-child { border-bottom:none; }
   .hist-icon  { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
 </style>
-{% endblock %} 
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -57,6 +57,10 @@
       <span class="badge badge-en-cours">Dans le Local</span>
 
       {% endif %}
+
+     <a href="{% url 'rec_modifier_vehicule' v.id %}" class="btn btn-outline btn-sm" title="Modifier">✏️</a>
+
+
     </div>
 
     {% if v.photo %}
@@ -94,7 +98,10 @@
 
   <!-- ═══ Informations propriétaire ═══ -->
   <div class="card">
-    <div class="card-header"><div class="card-title">👤 Propriétaire</div></div>
+    <div class="card-header"><div class="card-title">👤 Propriétaire</div>
+        <a href="{% url 'rec_modifier_client' v.client.id %}" class="btn btn-outline btn-sm" title="Modifier">✏️</a>
+
+</div>
     <div class="info-bloc" style="margin-bottom:14px;">
       <div style="font-size:16px;font-weight:700;margin-bottom:6px;">{{ v.client }}</div>
       <div class="text-small text-muted">{{ v.client.get_type_client_display }}</div>

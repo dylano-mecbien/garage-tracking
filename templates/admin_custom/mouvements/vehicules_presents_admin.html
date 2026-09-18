@@ -102,13 +102,14 @@
           <td>
             {% if entree.motif == 'REPARATION' %}<span class="badge badge-reparation">🔧 Réparation</span>
             {% elif entree.motif == 'VISITE' %}<span class="badge badge-visite">👁 Visite</span>
+            {% elif entree.motif == 'STATIONNEMENT' %}<span class="badge badge-stationnement">🅿 Stationnement</span>
+            {% elif entree.motif == 'INTERNE' %}<span class="badge badge-interne">🏢 Interne</span>
             {% else %}<span class="badge badge-secondary">{{ entree.get_motif_display }}</span>{% endif %}
           </td>
           <td class="text-muted text-small">{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
           <td><strong>{{ entree.duree_sejour }}</strong></td>
 
-          {% if entree.statut != 'BON_SORTIE_FAIT' and entree.motif == 'REPARATION'  %}
-
+{% if entree.bon_sortie_id == null and entree.motif != 'VISITE'  %}
 
           <td>
 

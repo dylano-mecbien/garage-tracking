@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+{% block title %}{{ client }} — Fiche client{% endblock %}
+{% block page_title %}👤 Fiche client{% endblock %}
+
+{% block sidebar_nav %}
+
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+<li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+<li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
+<li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+<li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'rec_clients' %}" class="active"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'rec_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'rec_vehicules' %}" ><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+</li>
+</ul>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── En-tête client ── */
+.client-hero {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.client-avatar-lg {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(255,255,255,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; font-weight: 800; flex-shrink: 0;
+  border: 3px solid rgba(255,255,255,.4);
+}
+.client-hero .ch-name  { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.client-hero .ch-sub   { font-size: 13px; opacity: .8; }
+.client-hero .ch-badge { background: rgba(255,255,255,.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+
+/* ── Stats chips ── */
+.stat-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.stat-chip  { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 7px 16px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+
+/* ── Véhicules ── */
+.veh-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  transition: all .2s;
+}
+.veh-card:hover { border-color: var(--primary-light); box-shadow: var(--shadow); }
+.veh-card.present { border-left: 4px solid var(--danger); }
+.veh-card.atelier { border-left: 4px solid var(--warning); }
+.veh-card.libre   { border-left: 4px solid var(--border); }
+
+/* ── Timeline mouvements ── */
+.mvt-line { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.mvt-line:last-child { border-bottom: none; }
+.mvt-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.mvt-dot.entree { background: #dbeafe; }
+.mvt-dot.sortie { background: #d1fae5; }
+.mvt-dot.repair { background: #fef3c7; }
+
+/* ── Onglets ── */
+.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+.tab-btn { padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--text-muted); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .2s; }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-btn:hover { color: var(--primary); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- En-tête -->
+<div class="page-header">
+  <div>
+    <h1>{% if client.type_client == 'PARTICULIER' %}{{ client.prenom }} {% endif %}{{ client.nom }}</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'rec_clients' %}">Clients</a> › Fiche client
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'rec_modifier_client' client.id %}" class="btn btn-primary">✏️ Modifier</a>
+    <a href="{% url 'rec_clients' %}" class="btn btn-outline">← Retour</a>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="client-hero">
+  <div class="client-avatar-lg">
+    {{ client.nom|first|upper }}{% if client.type_client == 'PARTICULIER' and client.prenom %}{{ client.prenom|first|upper }}{% endif %}
+  </div>
+  <div style="flex:1;">
+    <div class="ch-name">
+      {% if client.type_client == 'PARTICULIER' %}{{ client.prenom }} {% endif %}{{ client.nom }}
+    </div>
+    <div class="ch-sub">
+      {% if client.type_client == 'ENTREPRISE' %}
+        🏢 Entreprise{% if client.ninea %} · NINEA : {{ client.ninea }}{% endif %}
+      {% else %}
+        🧑 Particulier
+      {% endif %}
+      {% if client.numero_client %} · N° {{ client.numero_client }}{% endif %}
+    </div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+      <span class="ch-badge">📞 {{ client.telephone }}</span>
+      {% if client.email %}<span class="ch-badge">✉️ {{ client.email }}</span>{% endif %}
+      {% if client.ville %}<span class="ch-badge">📍 {{ client.ville }}</span>{% endif %}
+    </div>
+  </div>
+  <div style="text-align:right;">
+    <div style="font-size:32px;font-weight:800;">{{ client.vehicules.count }}</div>
+    <div style="font-size:12px;opacity:.8;">véhicule{{ client.vehicules.count|pluralize }}</div>
+  </div>
+</div>
+
+<!-- Stats rapides -->
+<div class="stat-chips">
+  <div class="stat-chip">🚗 <strong>{{ client.vehicules.count }}</strong> véhicule{{ client.vehicules.count|pluralize }}</div>
+  <div class="stat-chip">🔁 <strong>{{ nb_passages }}</strong> passage{{ nb_passages|pluralize }}</div>
+  <div class="stat-chip">🔧 <strong>{{ nb_reparations }}</strong> réparation{{ nb_reparations|pluralize }}</div>
+  <div class="stat-chip">📅 Client depuis <strong>{{ client.created_at|date:"d/m/Y" }}</strong></div>
+  {% if client.adresse %}<div class="stat-chip">🏠 {{ client.adresse }}{% if client.ville %}, {{ client.ville }}{% endif %}</div>{% endif %}
+</div>
+
+<!-- Onglets -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('vehicules')">🚗 Véhicules ({{ client.vehicules.count }})</button>
+  <button class="tab-btn" onclick="showTab('mouvements')">📋 Mouvements ({{ entrees|length }})</button>
+  <button class="tab-btn" onclick="showTab('infos')">ℹ️ Informations</button>
+</div>
+
+<!-- ═══ TAB : Véhicules ═══ -->
+<div class="tab-pane active" id="tab-vehicules">
+  {% if client.vehicules.exists %}
+  {% for v in client.vehicules.all %}
+  <div class="veh-card {% if v.en_local and v.en_atelier %}atelier{% elif v.en_local %}present{% else %}libre{% endif %}">
+    <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+
+      {% if v.photo %}
+      <img src="{{ v.photo.url }}" alt="{{ v.immatriculation }}"
+           style="width:70px;height:54px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;">
+      {% else %}
+      <div style="width:70px;height:54px;background:var(--surface2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">🚗</div>
+      {% endif %}
+
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+          <strong style="font-size:16px;letter-spacing:.3px;">{{ v.immatriculation }}</strong>
+
+          <!-- Statut présence -->
+          {% if v.en_local and v.en_atelier %}
+          <span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:10px;">🏭 Local + Atelier</span>
+          {% elif v.en_local %}
+          <span class="badge badge-danger" style="font-size:10px;">🔴 Présent sur site</span>
+          {% elif v.en_atelier %}
+          <span class="badge badge-warning" style="font-size:10px;">🟡 En atelier</span>
+          {% else %}
+          <span class="badge badge-secondary" style="font-size:10px;">⚪ Hors garage</span>
+          {% endif %}
+
+          <!-- Assurance expirée -->
+          {% if v.expiry_assurance and v.expiry_assurance < today %}
+          <span class="badge badge-danger" style="font-size:10px;">⚠️ Assurance expirée</span>
+          {% endif %}
+        </div>
+
+        <div class="text-small text-muted">
+          {{ v.marque }} {{ v.modele }}
+          {% if v.annee %} · {{ v.annee }}{% endif %}
+          {% if v.couleur %} · {{ v.couleur }}{% endif %}
+          {% if v.type_carburant != 'NON_DEFINI' %} · {{ v.get_type_carburant_display }}{% endif %}
+          {% if v.transmission != 'NON_DEFINI' %} · {{ v.get_transmission_display }}{% endif %}
+        </div>
+
+        <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap;">
+          {% if v.num_assurance %}
+          <span class="text-small text-muted">🛡️ {{ v.num_assurance }}
+            {% if v.expiry_assurance %}(exp. {{ v.expiry_assurance|date:"d/m/Y" }}){% endif %}
+          </span>
+          {% endif %}
+          {% if v.date_visite %}
+          <span class="text-small {% if v.date_visite < today %}text-danger{% else %}text-muted{% endif %}">
+            🔧 Visite : {{ v.date_visite|date:"d/m/Y" }}
+          </span>
+          {% endif %}
+          {% if v.numero_chassis %}
+          <span class="text-small text-muted">N° châssis : {{ v.numero_chassis }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Dernière entrée -->
+        {% with d=v.derniere_entree %}
+        {% if d %}
+        <div class="text-small text-muted" style="margin-top:4px;">
+          Dernier passage : {{ d.date_entree|date:"d/m/Y" }} ({{ d.get_motif_display }})
+        </div>
+        {% endif %}
+        {% endwith %}
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <a href="{% url 'rec_modifier_vehicule' v.id %}" class="btn btn-outline btn-sm">✏️ Modifier</a>
+        <a href="{% url 'detail_vehicule_rec' v.id %}" class="btn btn-info btn-sm">🔍 Fiche</a>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    {% if v.notes %}
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);">
+      📝 {{ v.notes }}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% else %}
+  <div style="text-align:center;padding:48px;color:var(--text-muted);">
+    <div style="font-size:48px;margin-bottom:12px;">🚗</div>
+    <div class="font-bold">Aucun véhicule enregistré</div>
+    <div class="text-small" style="margin-top:4px;">Ce client n'a pas encore de véhicule dans le système.</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══ TAB : Mouvements ═══ -->
+<div class="tab-pane" id="tab-mouvements">
+
+  <!-- Résumé par véhicule -->
+  {% if client.vehicules.exists %}
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+    {% for v in client.vehicules.all %}
+    <div style="background:var(--surface2);border-radius:8px;padding:8px 14px;font-size:12px;">
+      <strong>{{ v.immatriculation }}</strong>
+      <span class="text-muted"> · {{ v.entrees.count }} passage{{ v.entrees.count|pluralize }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if entrees %}
+  {% for e in entrees %}
+  <div class="mvt-line">
+    <!-- Icône -->
+    <div class="mvt-dot {% if e.statut == 'SORTI' %}sortie{% elif e.motif == 'REPARATION' %}repair{% else %}entree{% endif %}">
+      {% if e.statut == 'SORTI' %}🚪{% elif e.motif == 'REPARATION' %}🔧{% else %}🚗{% endif %}
+    </div>
+
+    <!-- Infos -->
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">
+        <strong>{{ e.vehicule.immatriculation }}</strong>
+        <span class="badge
+          {% if e.motif == 'REPARATION' %}badge-warning
+          {% elif e.motif == 'VISITE' %}badge-info
+          {% else %}badge-secondary{% endif %}"
+          style="font-size:10px;">{{ e.get_motif_display }}</span>
+        {% if e.statut == 'SORTI' %}
+        <span class="badge badge-success" style="font-size:10px;">✅ Sorti</span>
+        {% else %}
+        <span class="badge badge-danger" style="font-size:10px;">🔴 Présent</span>
+        {% endif %}
+      </div>
+
+      <div class="text-small text-muted">
+        📥 Entrée : <strong>{{ e.date_entree|date:"d/m/Y H:i" }}</strong>
+        {% if e.date_sortie %}
+        · 📤 Sortie : <strong>{{ e.date_sortie|date:"d/m/Y H:i" }}</strong>
+        {% else %}
+        · <span style="color:var(--danger);font-weight:600;">Toujours présent</span>
+        {% endif %}
+      </div>
+
+      {% if e.kilometrage_entree %}
+      <div class="text-small text-muted">🔢 {{ e.kilometrage_entree }} km à l'entrée</div>
+      {% endif %}
+
+      <!-- Réception liée -->
+      {% if e.reception %}
+      <div class="text-small" style="margin-top:3px;">
+        📋 Réception :
+        <a href="{% url 'detail_reception' e.reception.id %}" style="color:var(--primary);">
+          {{ e.reception.numero }}
+        </a>
+        — <span class="text-muted">{{ e.reception.get_statut_display }}</span>
+      </div>
+      {% endif %}
+
+      {% if e.observations %}
+      <div class="text-small text-muted" style="margin-top:3px;">💬 {{ e.observations|truncatechars:80 }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Date relative -->
+    <div class="text-small text-muted" style="flex-shrink:0;text-align:right;">
+      {{ e.date_entree|timesince }} ago<br>
+      <span style="font-size:11px;">{{ e.numero }}</span>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div style="text-align:center;padding:40px;color:var(--text-muted);">
+    <div style="font-size:40px;margin-bottom:10px;">📋</div>
+    Aucun mouvement enregistré
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══ TAB : Informations ═══ -->
+<div class="tab-pane" id="tab-infos">
+  <div class="grid-2">
+
+    <!-- Coordonnées -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">📞 Coordonnées</div></div>
+      <table>
+        <tr>
+          <td class="text-muted">Type</td>
+          <td>
+            {% if client.type_client == 'ENTREPRISE' %}
+            <span class="badge" style="background:#ede9fe;color:#5b21b6;">🏢 Entreprise</span>
+            {% else %}
+            <span class="badge" style="background:#dbeafe;color:#1e40af;">🧑 Particulier</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr><td class="text-muted">Nom complet</td>
+          <td><strong>{% if client.type_client == 'PARTICULIER' and client.prenom %}{{ client.prenom }} {% endif %}{{ client.nom }}</strong></td>
+        </tr>
+        {% if client.ninea %}
+        <tr><td class="text-muted">NINEA / RC</td><td>{{ client.ninea }}</td></tr>
+        {% endif %}
+        {% if client.numero_client %}
+        <tr><td class="text-muted">N° Client</td><td class="text-muted">{{ client.numero_client }}</td></tr>
+        {% endif %}
+        <tr>
+          <td class="text-muted">Téléphone</td>
+          <td><a href="tel:{{ client.telephone }}" style="color:var(--primary);font-weight:600;">📞 {{ client.telephone }}</a></td>
+        </tr>
+        {% if client.telephone2 %}
+        <tr>
+          <td class="text-muted">Téléphone 2</td>
+          <td><a href="tel:{{ client.telephone2 }}" style="color:var(--primary);">📞 {{ client.telephone2 }}</a></td>
+        </tr>
+        {% endif %}
+        {% if client.email %}
+        <tr>
+          <td class="text-muted">Email</td>
+          <td><a href="mailto:{{ client.email }}" style="color:var(--primary);">✉️ {{ client.email }}</a></td>
+        </tr>
+        {% endif %}
+        {% if client.adresse %}
+        <tr><td class="text-muted">Adresse</td><td>{{ client.adresse }}</td></tr>
+        {% endif %}
+        {% if client.ville %}
+        <tr><td class="text-muted">Ville</td><td>{{ client.ville }}</td></tr>
+        {% endif %}
+        <tr><td class="text-muted">Créé le</td><td class="text-muted">{{ client.created_at|date:"d/m/Y à H:i" }}</td></tr>
+        <tr><td class="text-muted">Statut</td>
+          <td>{% if client.is_active %}<span class="badge badge-success">✅ Actif</span>{% else %}<span class="badge badge-danger">❌ Inactif</span>{% endif %}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">📊 Statistiques</div></div>
+      <table>
+        <tr><td class="text-muted">Véhicules</td><td><strong>{{ client.vehicules.count }}</strong></td></tr>
+        <tr><td class="text-muted">Total passages</td><td><strong>{{ nb_passages }}</strong></td></tr>
+        <tr><td class="text-muted">Réparations</td><td><strong>{{ nb_reparations }}</strong></td></tr>
+        <tr><td class="text-muted">Visites simples</td><td><strong>{{ nb_visites }}</strong></td></tr>
+        {% if dernier_passage %}
+        <tr><td class="text-muted">Dernier passage</td><td>{{ dernier_passage.date_entree|date:"d/m/Y" }}</td></tr>
+        {% endif %}
+        {% if premier_passage %}
+        <tr><td class="text-muted">Premier passage</td><td>{{ premier_passage.date_entree|date:"d/m/Y" }}</td></tr>
+        {% endif %}
+        {% if assurance_nb_expiree %}
+        <tr>
+          <td class="text-muted">Assurances</td>
+          <td>
+            {% if assurance_nb_expiree %}
+            <span class="badge badge-danger" style="font-size:10px;">⚠️ {{ assurance_nb_expiree }} expirée{{ assurance_nb_expiree|pluralize }}</span>
+            {% else %}
+            <span class="badge badge-success" style="font-size:10px;">✅ À jour</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+      </table>
+
+      <!-- Répartition motifs -->
+      {% if nb_passages %}
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+        <div class="text-small font-bold text-muted" style="margin-bottom:8px;">Répartition des passages</div>
+        {% if nb_reparations %}
+        <div style="margin-bottom:6px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+            <span>🔧 Réparations</span>
+            <strong>{{ nb_reparations }}</strong>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:{% widthratio nb_reparations nb_passages 100 %}%;background:var(--warning);"></div>
+          </div>
+        </div>
+        {% endif %}
+        {% if nb_visites %}
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+            <span>👁 Visites</span>
+            <strong>{{ nb_visites }}</strong>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:{% widthratio nb_visites nb_passages 100 %}%;background:var(--info);"></div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+</script>
+{% endblock %}

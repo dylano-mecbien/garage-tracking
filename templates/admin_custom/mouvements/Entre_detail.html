@@ -173,6 +173,12 @@
           <option value="VISITE" {% if entree.motif == 'VISITE' %}selected{% endif %}>
             👁 Visite
           </option>
+          <option value="STATIONNEMENT" {% if entree.motif == 'STATIONNEMENT' %}selected{% endif %}>
+            � Stationnement
+          </option>
+          <option value="INTERNE" {% if entree.motif == 'INTERNE' %}selected{% endif %}>
+            Interne
+          </option>
         </select>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:10px;padding:15px;">
@@ -193,9 +199,7 @@
 <div style="display:flex;gap:8px; margin-top:20px;">
    <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
 
-
-
-  {% if entree.statut != 'SORTI' and entree.statut != 'BON_SORTIE_FAIT'  and entree.motif == 'REPARATION' %}
+  {% if entree.bon_sortie_id == null and entree.motif != 'VISITE'  %}
 
    <a href="{% url 'creer_sortie_lien_admin' entree.id %}" class="btn btn-primary">
     ➕ Créer un bon de sortie

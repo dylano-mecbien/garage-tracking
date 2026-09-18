@@ -6,32 +6,19 @@
 
 <div class="sidebar-section">Réception</div>
 <ul class="sidebar-nav">
-    <li>
-        <a href="{% url 'index' %}">
-            <span class="icon">📊</span> Tableau de bord
-        </a>
-    </li>
-
-    <li>
-        <a href="{% url 'liste_receptions' %}">
-            <span class="icon">📋</span> Historique des Réceptions
-        </a>
-    </li>
-    <li>
-        <a href="{% url 'vehicules_presents_rec' %}">
-            <span class="icon">🚗</span> Véhicules présents
-        </a>
-    </li>
-    <li>
-        <a href="{% url 'historique_entrees_rec' %}">
-            <span class="icon">📋</span> Historique des mouvements
-        </a>
-    </li>
-     <li>
-        <a href="{% url 'liste_bons_sortie' %}">
-            <span class="icon">📄</span> Bons de sortie
-        </a>
-    </li>
+<li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+<li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
+<li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+<li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'rec_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'rec_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'rec_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+</li>
 </ul>
 {% endblock %}
 
@@ -179,6 +166,12 @@
           <option value="VISITE" {% if entree.motif == 'VISITE' %}selected{% endif %}>
             👁 Visite
           </option>
+          <option value="STATIONNEMENT" {% if entree.motif == 'STATIONNEMENT' %}selected{% endif %}>
+            � Stationnement
+          </option>
+          <option value="INTERNE" {% if entree.motif == 'INTERNE' %}selected{% endif %}>
+            Interne
+          </option>
         </select>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:10px;padding:15px;">
@@ -201,8 +194,7 @@
 
 
 
-  {% if entree.statut != 'SORTI' and entree.statut != 'BON_SORTIE_FAIT'  and entree.motif == 'REPARATION' %}
-
+ {% if entree.bon_sortie_id == null and entree.motif != 'VISITE'  %}
   <a href="{% url 'creer_bon_sortie_rec' entree.id %}"
                    class="btn btn-warning btn-sm">
                     📤 Bon de sortie

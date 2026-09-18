@@ -3,30 +3,21 @@
 {% block page_title %}🚗 Véhicules{% endblock %}
 
 {% block sidebar_nav %}
-<div class="sidebar-section"></div>
-
+<div class="sidebar-section">Réception</div>
 <ul class="sidebar-nav">
 <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
-<li class="sidebar-section">Administration</li>
-<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
-<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
-<li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
-
+<li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
+<li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
 <li class="has-submenu">
 <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
 <ul class="submenu">
-<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
-<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
-<li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
-<li><a href="{% url 'admin_vehicules' %}" class="active"><span class="icon">🚗</span> Véhicules</a></li>
+<li><a href="{% url 'rec_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'rec_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'rec_vehicules' %}"  class="active"><span class="icon">🚗</span> Véhicules</a></li>
 </ul>
-
 </li>
-<li class="sidebar-section">Mouvements</li>
-<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
-<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
-<li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
-<li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
 </ul>
 {% endblock %}
 
@@ -180,7 +171,7 @@
         </select>
       </div>
       <div><label class="form-label" style="opacity:0">.</label><button type="submit" class="btn btn-primary w-full">Filtrer</button></div>
-      <div><label class="form-label" style="opacity:0">.</label><a href="{% url 'admin_vehicules' %}" class="btn btn-outline w-full">✕ Reset</a></div>
+      <div><label class="form-label" style="opacity:0">.</label><a href="{% url 'rec_vehicules' %}" class="btn btn-outline w-full">✕ Reset</a></div>
     </div>
   </form>
 </div>
@@ -304,11 +295,11 @@
           <td>
             <div style="display:flex;gap:4px;flex-wrap:wrap;">
               <button onclick="toggleMvt('{{ v.id }}')" class="btn btn-info btn-sm" title="Mouvements">📋</button>
-              <a href="{% url 'admin_modifier_vehicule' v.id %}" class="btn btn-outline btn-sm" title="Modifier">✏️</a>
-              <a href="{% url 'detail_vehicule_admin' v.id %}" class="btn btn-outline btn-sm" title="Fiche">🔍</a>
-            </div>
+              <a href="{% url 'rec_modifier_vehicule' v.id %}" class="btn btn-outline btn-sm" title="Modifier">✏️</a>
+              <a href="{% url 'detail_vehicule_rec' v.id %}" class="btn btn-outline btn-sm" title="Fiche">🔍</a>
+            </div> 
           </td>
-        </tr>
+        </tr> 
 
         <!-- Drawer mouvements -->
         <tr class="mvt-drawer" id="mvt-{{ v.id }}">
@@ -325,7 +316,7 @@
           <td colspan="9" style="text-align:center;padding:50px;color:var(--text-muted);">
             <div style="font-size:40px;margin-bottom:10px;">🚗</div>
             Aucun véhicule trouvé
-            {% if filters.q %}<br><a href="{% url 'admin_vehicules' %}">Voir tous</a>{% endif %}
+            {% if filters.q %}<br><a href="{% url 'rec_vehicules' %}">Voir tous</a>{% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -383,8 +374,8 @@ function toggleMvt(id){
 }
 
 
-const urlTemplate = "{% url 'admin_mouvements_vehicule' '00000000-0000-0000-0000-000000000000' %}";
-
+const urlTemplate = "{% url 'rec_mouvements_vehicule' '00000000-0000-0000-0000-000000000000' %}";
+ 
 async function loadMvt(vehiculeId,container){
    const url = urlTemplate.replace('00000000-0000-0000-0000-000000000000', vehiculeId);
   if(container.dataset.loaded)return;

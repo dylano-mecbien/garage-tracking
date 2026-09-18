@@ -4,32 +4,40 @@
 {% block page_title %}📄 Créer bon de sortie{% endblock %}
 
 {% block sidebar_nav %}
-<div class="sidebar-section">Réception</div>
 <ul class="sidebar-nav">
-<li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
-<li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
-<li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
-<li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
-<li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+<li><a href="{% url 'index' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
+<li class="sidebar-section">Administration</li>
+<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+<li><a href="{% url 'admin_nettoyage' %}" ><span class="icon">🧹</span> Nettoyage</a></li>
+
 <li class="has-submenu">
 <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
 <ul class="submenu">
-<li><a href="{% url 'rec_clients' %}"><span class="icon">👥</span> Clients</a></li>
-<li><a href="{% url 'rec_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
-<li><a href="{% url 'rec_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'admin_conducteurs' %}" ><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
 </ul>
+
 </li>
+<li class="sidebar-section">Mouvements</li>
+<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_receptions_admin' %}" ><span class="icon">📥</span> Historique des réceptions</a></li>
+<li><a href="{% url 'liste_bons_admin' %}" ><span class="icon">📄</span> Bons de sortie</a></li>
 </ul>
+
 <!-- SECTION ACTIONS -->
 <div class="sidebar-section">Actions</div>
 <ul class="sidebar-nav">
     <li>
-        <a href="{% url 'creer_bon_sortie_direct' %}" class="active">
+        <a href="{% url 'creer_bon_direct_admin' %}" class="active">
             <span class="icon">🚚</span> Bon de sortie véhicule
         </a>
     </li>
     <li>
-        <a href="{% url 'creer_bon_sortie_divers' %}">
+        <a href="{% url 'creer_bon_divers_admin' %}">
             <span class="icon">📦</span> Bon de sortie divers
         </a>
     </li>

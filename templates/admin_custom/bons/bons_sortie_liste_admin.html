@@ -117,7 +117,9 @@
       <div class="export-menu" id="export-menu">
         <div class="export-item" onclick="exportCSV()">📊 CSV</div>
         <div class="export-item" onclick="exportExcel()">📗 Excel</div>
-        <div class="export-item" onclick="window.print()">🖨️ Imprimer</div>
+        <div class="export-item" onclick="window.location.href='{% url 'export_bons_liste_pdf' %}?' + window.location.search.slice(1)">
+  🖨️ Imprimer
+</div>
       </div>
     </div>
     <a href="{% url 'creer_bon_divers_admin' %}" class="btn btn-primary">

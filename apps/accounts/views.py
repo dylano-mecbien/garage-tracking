@@ -2,14 +2,18 @@
 Vues Comptes - Connexion, déconnexion, gestion utilisateurs
 """
 from datetime import date, timedelta
-from django.http import JsonResponse
+import os
+from django.core.files.storage import default_storage
+from django.http import JsonResponse, request
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Count, Q
+from django.core.files.base import ContentFile
 import json
+from apps.guerite.views import PHOTO_FIELDS
 from apps.notifications.hook import notifier_bon_sortie_cree
 from apps.reception.forms import BonSortieForm
 from apps.reception.models import Reception, StatutVehicule
@@ -482,7 +486,7 @@ def creer_bon_sortie(request, rec_id):
     else:
         form = BonSortieForm()
 
-    return render(request, 'reception/creer_bon_sortie.html', {
+    return render(request, 'admin_custom/bons/creer_bon_sortie.html', {
         'form': form,
         'reception': rec,
         'vehicles_data': vehicles_data,
@@ -682,55 +686,128 @@ def admin_mouvements_vehicule(request, vehicule_id):
         'statut_presence': statut,
         'stats': {'total_passages': total, 'reparations': reparations},
     })
- 
- 
+
 @admin_required
 def admin_modifier_vehicule(request, vehicule_id):
-    from apps.vehicules.models import Vehicule
- 
     v = get_object_or_404(Vehicule, id=vehicule_id)
- 
-    carburants   = [
-        ('NON_DEFINI','Non défini'),('ESSENCE','Essence'),('DIESEL','Diesel'),
-        ('ELECTRIQUE','Électrique'),('HYBRIDE','Hybride'),('GPL','GPL'),
+
+    carburants = [
+        ('NON_DEFINI', 'Non défini'),
+        ('ESSENCE', 'Essence'),
+        ('DIESEL', 'Diesel'),
+        ('ELECTRIQUE', 'Électrique'),
+        ('HYBRIDE', 'Hybride'),
+        ('GPL', 'GPL'),
     ]
     transmissions = [
-        ('NON_DEFINI','Non défini'),
-        ('MANUELLE','Manuelle'),
-        ('AUTOMATIQUE','Automatique'),
+        ('NON_DEFINI', 'Non défini'),
+        ('MANUELLE', 'Manuelle'),
+        ('AUTOMATIQUE', 'Automatique'),
     ]
- 
+
+    def get_photo_urls(vehicule):
+        urls = []
+        if vehicule.photos:
+            for path in vehicule.photos.split(';'):
+                path = path.strip()
+                if path:
+                    try:
+                        urls.append(default_storage.url(path))
+                    except Exception:
+                        urls.append('')
+        while len(urls) < 3:
+            urls.append('')
+        return urls
+
+    def render_form():
+        return render(request, 'admin_custom/vehicules/modifier.html', {
+            'v': v,
+            'carburants': carburants,
+            'transmissions': transmissions,
+            'photo_urls_json': json.dumps(get_photo_urls(v)),
+        })
+
     if request.method == 'POST':
         v.immatriculation = request.POST.get('immatriculation', v.immatriculation).upper().strip()
-        v.marque          = request.POST.get('marque', v.marque).strip()
-        v.modele          = request.POST.get('modele', v.modele).strip()
-        annee_raw         = request.POST.get('annee', '').strip()
-        v.annee           = int(annee_raw) if annee_raw else None
-        v.couleur         = request.POST.get('couleur', '').strip() or None
-        v.type_carburant  = request.POST.get('type_carburant', v.type_carburant)
-        v.transmission    = request.POST.get('transmission', v.transmission)
-        puissance_raw     = request.POST.get('puissance', '').strip()
-        v.puissance       = int(puissance_raw) if puissance_raw else None
-        v.numero_chassis  = request.POST.get('numero_chassis', '').strip() or None
-        v.num_assurance   = request.POST.get('num_assurance', '').strip()
-        exp               = request.POST.get('expiry_assurance', '').strip()
+        v.marque = request.POST.get('marque', v.marque).strip()
+        v.modele = request.POST.get('modele', v.modele).strip()
+
+        annee_raw = request.POST.get('annee', '').strip()
+        v.annee = int(annee_raw) if annee_raw else None
+
+        v.couleur = request.POST.get('couleur', '').strip() or None
+        v.type_carburant = request.POST.get('type_carburant', v.type_carburant)
+        v.transmission = request.POST.get('transmission', v.transmission)
+
+        puissance_raw = request.POST.get('puissance', '').strip()
+        v.puissance = int(puissance_raw) if puissance_raw else None
+
+        v.numero_chassis = request.POST.get('numero_chassis', '').strip() or None
+        v.num_assurance = request.POST.get('num_assurance', '').strip()
+
+        exp = request.POST.get('expiry_assurance', '').strip()
         v.expiry_assurance = exp if exp else None
-        visite            = request.POST.get('date_visite', '').strip()
-        v.date_visite     = visite if visite else None
-        v.notes           = request.POST.get('notes', '').strip()
- 
-        if request.FILES.get('photo'):
-            v.photo = request.FILES['photo']
- 
+
+        visite = request.POST.get('date_visite', '').strip()
+        v.date_visite = visite if visite else None
+
+        v.notes = request.POST.get('notes', '').strip()
+
+        # ── Propriétaire ──
+        client_id = request.POST.get('client', '').strip()
+        if not client_id:
+            messages.error(request, "Veuillez sélectionner un propriétaire.")
+            return render_form()
+
+        client = Client.objects.filter(id=client_id).first()
+        if not client:
+            messages.error(request, "Propriétaire introuvable.")
+            return render_form()
+        v.client = client
+
+        # ── Photos ──
+        existing = []
+        if v.photos:
+            existing = [p.strip() for p in v.photos.split(';') if p.strip()]
+        while len(existing) < 3:
+            existing.append('')
+
+        # Suppression
+        for i in range(3):
+            if request.POST.get(f'remove_photo_{i}') == '1':
+                path = existing[i]
+                if path and default_storage.exists(path):
+                    default_storage.delete(path)
+                existing[i] = ''
+
+        # Upload / remplacement
+        for i in range(3):
+            uploaded = request.FILES.get(f'photo_{i}')
+            if uploaded:
+                if existing[i] and default_storage.exists(existing[i]):
+                    default_storage.delete(existing[i])
+
+                ext = os.path.splitext(uploaded.name)[1]
+                immat_clean = v.immatriculation.replace(' ', '').replace('-', '').upper()
+                filename = f"vehicules/photos/{immat_clean}_{i}{ext}"
+                saved_path = default_storage.save(filename, ContentFile(uploaded.read()))
+                existing[i] = saved_path
+
+        photos_paths = [p for p in existing if p]
+        if photos_paths:
+            v.photos = ';'.join(photos_paths)
+            v.photo = photos_paths[0]
+        else:
+            v.photos = ''
+            v.photo = None
+
         v.save()
         log_action(request, ActionType.MODIFICATION, 'ADMIN', v)
         messages.success(request, f"Véhicule {v.immatriculation} mis à jour.")
         return redirect('admin_vehicules')
- 
-    return render(request, 'admin_custom/vehicules/modifier.html', {
-        'v': v, 'carburants': carburants, 'transmissions': transmissions,
-    })
- 
+
+    return render_form()
+
  
 # ════════════════════════════════════════════════════════
 #  CLIENTS
@@ -851,4 +928,5 @@ def detail_vehicule(request, vehicule_id):
         'or_list': v.ordres_reparation.order_by('-date_creation')[:10],
         'rec_list': v.receptions.order_by('-created_at')[:5],
     })
+
  

@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Conducteurs{% endblock %}
+{% block page_title %}🪪 Conducteurs{% endblock %}
+{% block sidebar_nav %}
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+<li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+<li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
+<li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+<li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'rec_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'rec_conducteurs' %}" class="active"><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'rec_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+</li>
+</ul>
+{% endblock %}
+{% block extra_css %}
+<style>
+.filter-bar{background:var(--surface);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;box-shadow:var(--shadow);}
+.filter-grid{display:grid;grid-template-columns:2fr 1fr auto auto;gap:10px;align-items:flex-end;}
+.inline-form{display:none;background:var(--surface2);border:1.5px solid var(--primary-light);border-radius:var(--radius);padding:20px;margin-bottom:16px;position:relative;}
+.inline-form.open{display:block;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}
+.spinner-ov{display:none;position:absolute;inset:0;background:rgba(255,255,255,.85);border-radius:var(--radius);align-items:center;justify-content:center;flex-direction:column;gap:8px;z-index:10;}
+.spinner-ov.show{display:flex;}
+.sp{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.perm-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;background:var(--surface2);border:1px solid var(--border);}
+.export-wrap{position:relative;}
+.export-menu{display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-md);min-width:150px;z-index:100;}
+.export-menu.open{display:block;}
+.export-item{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);}
+.export-item:last-child{border-bottom:none;}
+.export-item:hover{background:var(--surface2);}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Gestion des conducteurs</h1>
+    <div class="breadcrumb">{{ nb_total }} conducteur{{ nb_total|pluralize }} enregistré{{ nb_total|pluralize }}</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <div class="export-wrap">
+      <button onclick="document.getElementById('exp-menu').classList.toggle('open')" class="btn btn-outline">📤 Exporter ▾</button>
+      <div class="export-menu" id="exp-menu">
+        <div class="export-item" onclick="exportCSV()">📊 CSV</div>
+        <div class="export-item" onclick="window.print()">🖨️ Imprimer</div>
+      </div>
+    </div>
+    <button onclick="openForm()" class="btn btn-primary">➕ Nouveau conducteur</button>
+  </div>
+</div>
+{% for msg in messages %}<div class="alert alert-{{ msg.tags }}" style="margin-bottom:12px;">{{ msg }}</div>{% endfor %}
+
+<!-- Formulaire inline -->
+<div class="inline-form" id="inline-form">
+  <div class="spinner-ov" id="form-spin"><div class="sp"></div><div style="font-size:13px;color:var(--text-muted);">Enregistrement...</div></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <strong id="form-title">➕ Nouveau conducteur</strong>
+    <button type="button" onclick="closeForm()" class="btn btn-outline btn-sm">✕</button>
+  </div>
+  <form method="post" id="cond-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="form-action" value="creer">
+    <input type="hidden" name="cond_id" id="form-cond-id" value="">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nom *</label><input type="text" name="nom" id="f-nom" class="form-input" required></div>
+      <div class="form-group"><label class="form-label">Prénom *</label><input type="text" name="prenom" id="f-prenom" class="form-input" required></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Téléphone *</label><input type="tel" name="telephone" id="f-tel" class="form-input" required></div>
+      <div class="form-group"><label class="form-label">Téléphone 2</label><input type="tel" name="telephone2" id="f-tel2" class="form-input"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">N° CNI</label><input type="text" name="cni" id="f-cni" class="form-input"></div>
+      <div class="form-group"><label class="form-label">N° Permis</label><input type="text" name="permis" id="f-permis" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Catégorie</label><input type="text" name="categorie_permis" id="f-cat" class="form-input" placeholder="A, B, C, D..."></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button type="submit" class="btn btn-primary" style="padding:10px 24px;">💾 <span id="btn-lbl">Créer</span></button>
+      <button type="button" onclick="closeForm()" class="btn btn-outline">Annuler</button>
+    </div>
+  </form>
+</div>
+
+<!-- Filtres -->
+<div class="filter-bar">
+  <form method="get" id="filter-form">
+    <div class="filter-grid">
+      <div><label class="form-label">🔍 Recherche</label>
+        <input type="text" name="q" value="{{ filters.q }}" class="form-input"
+               placeholder="Nom, téléphone, CNI, permis..." oninput="debounceSubmit()"></div>
+      <div><label class="form-label">Catégorie permis</label>
+        <select name="categorie" class="form-select" onchange="this.form.submit()">
+          <option value="">Toutes</option>
+          {% for cat in categories %}<option value="{{ cat }}" {% if filters.categorie == cat %}selected{% endif %}>Cat. {{ cat }}</option>{% endfor %}
+        </select></div>
+      <div><label class="form-label" style="opacity:0">.</label><button type="submit" class="btn btn-primary w-full">Filtrer</button></div>
+      <div><label class="form-label" style="opacity:0">.</label><a href="{% url 'rec_conducteurs' %}" class="btn btn-outline w-full">✕</a></div>
+    </div>
+  </form>
+</div>
+
+<!-- Tableau -->
+<div class="card">
+  <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+    <strong>{{ conducteurs|length }}</strong> conducteur{{ conducteurs|length|pluralize }}
+  </div>
+  <div class="table-wrap">
+    <table id="cond-table">
+      <thead><tr><th>Conducteur</th><th>Contact</th><th>CNI</th><th>Permis</th><th>Catégorie</th><th>Passages</th><th>Dernier passage</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for c in conducteurs %}
+        <tr>
+          <td><div class="font-bold">{{ c.prenom }} {{ c.nom }}</div></td>
+          <td>
+            <div class="text-small"><a href="tel:{{ c.telephone }}" style="color:var(--primary);">📞 {{ c.telephone }}</a></div>
+            {% if c.telephone2 %}<div class="text-small text-muted">📞 {{ c.telephone2 }}</div>{% endif %}
+          </td>
+          <td class="text-small text-muted">{{ c.cni|default:"—" }}</td>
+          <td class="text-small text-muted">{{ c.permis|default:"—" }}</td>
+          <td>{% if c.categorie_permis %}<span class="perm-badge">🪪 {{ c.categorie_permis }}</span>{% else %}<span class="text-muted text-small">—</span>{% endif %}</td>
+          <td class="text-center"><strong>{{ c.nb_passages }}</strong></td>
+          <td class="text-small text-muted">
+            {% if c.dernier_passage %}{{ c.dernier_passage.date_entree|date:"d/m/Y" }}<br><span style="font-size:11px;">{{ c.dernier_passage.vehicule.immatriculation }}</span>{% else %}—{% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <button onclick="editCond('{{ c.id }}','{{ c.nom|escapejs }}','{{ c.prenom|escapejs }}','{{ c.telephone }}','{{ c.telephone2|default:'' }}','{{ c.cni|default:'' }}','{{ c.permis|default:'' }}','{{ c.categorie_permis|default:'' }}')"
+                      class="btn btn-outline btn-sm">✏️</button>
+              
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" style="text-align:center;padding:50px;color:var(--text-muted);">
+          <div style="font-size:40px;margin-bottom:10px;">🪪</div>Aucun conducteur trouvé
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function openForm(){
+  document.getElementById('form-title').textContent='➕ Nouveau conducteur';
+  document.getElementById('form-action').value='creer';
+  document.getElementById('form-cond-id').value='';
+  document.getElementById('btn-lbl').textContent='Créer';
+  ['nom','prenom','tel','tel2','cni','permis','cat'].forEach(f=>{const el=document.getElementById('f-'+f);if(el)el.value='';});
+  document.getElementById('inline-form').classList.add('open');
+  document.getElementById('inline-form').scrollIntoView({behavior:'smooth',block:'start'});
+  document.getElementById('f-nom').focus();
+}
+function closeForm(){document.getElementById('inline-form').classList.remove('open');}
+function editCond(id,nom,prenom,tel,tel2,cni,permis,cat){
+  document.getElementById('form-title').textContent='✏️ Modifier';
+  document.getElementById('form-action').value='modifier';
+  document.getElementById('form-cond-id').value=id;
+  document.getElementById('btn-lbl').textContent='Enregistrer';
+  document.getElementById('f-nom').value=nom;
+  document.getElementById('f-prenom').value=prenom;
+  document.getElementById('f-tel').value=tel;
+  document.getElementById('f-tel2').value=tel2;
+  document.getElementById('f-cni').value=cni;
+  document.getElementById('f-permis').value=permis;
+  document.getElementById('f-cat').value=cat;
+  document.getElementById('inline-form').classList.add('open');
+  document.getElementById('inline-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+document.getElementById('cond-form').addEventListener('submit',function(){document.getElementById('form-spin').classList.add('show');});
+let dbt;function debounceSubmit(){clearTimeout(dbt);dbt=setTimeout(()=>document.getElementById('filter-form').submit(),500);}
+document.addEventListener('click',e=>{if(!e.target.closest('.export-wrap'))document.getElementById('exp-menu')?.classList.remove('open');});
+function exportCSV(){
+  const rows=[['Nom','Prénom','Téléphone','Téléphone 2','CNI','Permis','Catégorie','Passages']];
+  document.querySelectorAll('#cond-table tbody tr').forEach(tr=>{
+    const c=tr.querySelectorAll('td');if(c.length<8)return;
+    rows.push([c[0].innerText.trim(),'',c[1].innerText.replace(/📞/g,'').trim().split('\n')[0],c[1].innerText.replace(/📞/g,'').trim().split('\n')[1]||'',c[2].innerText.trim(),c[3].innerText.trim(),c[4].innerText.replace('🪪','').trim(),c[5].innerText.trim()]);
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`conducteurs-${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+</script>
+<style>@media print{.sidebar,.topbar,.filter-bar,.inline-form,td:last-child,th:last-child{display:none!important;}}</style>
+{% endblock %}

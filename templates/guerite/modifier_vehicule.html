@@ -167,7 +167,7 @@
       <input type="hidden" id="type-cli" value="{{ vehicule.client.type_client|default:'PARTICULIER' }}">
     </div>
 
-    <!-- Recherche / propriétaire actuel -->
+    <!-- Recherche / propriétaire actuel --> 
     <div class="form-group">
       <label class="form-label" id="lbl-search">🔍 Rechercher le propriétaire</label>
       <div class="search-wrap">
@@ -256,9 +256,9 @@
     <hr style="margin-top:20px">
     <div style="display:flex;gap:12px;">
       <button type="submit" class="btn btn-primary" style="font-size:15px;padding:10px 24px;">💾 Enregistrer les modifications</button>
-      <a href="{% url 'index' %}" class="btn btn-outline">Annuler</a>
+      <a href="javascript:history.back()" class="btn btn-outline">Annuler</a>
     </div>
-  </form>
+  </form> 
 </div>
 
 <!-- Modale webcam desktop -->

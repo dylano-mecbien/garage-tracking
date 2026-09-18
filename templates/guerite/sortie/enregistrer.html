@@ -47,7 +47,7 @@
 </div>
 
 <!-- Vérification bon de sortie pour réparation -->
-{% if entree.motif == 'REPARATION' %}
+{% if entree.motif != 'VISITE' %}
 <div class="card mb-2">
   <div class="card-header"><div class="card-title">📄 Vérification bon de sortie</div></div>
   {% if bon_sortie %}
@@ -90,7 +90,7 @@
 <div class="card" style="max-width:580px;">
   <div class="card-header"><div class="card-title">📤 Confirmer la sortie</div></div>
 
-  {% if entree.motif != 'REPARATION' or bon_sortie %}
+  {% if entree.motif == 'VISITE' or bon_sortie %}
   <form method="post">
     {% csrf_token %}
     

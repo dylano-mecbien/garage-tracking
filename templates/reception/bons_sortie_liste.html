@@ -5,32 +5,19 @@
 {% block sidebar_nav %}
 <div class="sidebar-section">Réception</div>
 <ul class="sidebar-nav">
-    <li>
-        <a href="{% url 'index' %}">
-            <span class="icon">📊</span> Tableau de bord
-        </a>
-    </li>
-
-    <li>
-        <a href="{% url 'liste_receptions' %}">
-            <span class="icon">📋</span> Historique des Réceptions
-        </a>
-    </li>
-    <li>
-        <a href="{% url 'vehicules_presents_rec' %}">
-            <span class="icon">🚗</span> Véhicules présents
-        </a>
-    </li>
-    <li>
-        <a href="{% url 'historique_entrees_rec' %}">
-            <span class="icon">📋</span> Historique des mouvements
-        </a>
-    </li>
-     <li>
-        <a href="{% url 'liste_bons_sortie' %}" class="active">
-            <span class="icon">📄</span> Bons de sortie
-        </a>
-    </li>
+<li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+<li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
+<li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_bons_sortie' %}" class="active"><span class="icon">📄</span> Bons de sortie</a></li>
+<li class="has-submenu">
+<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+<ul class="submenu">
+<li><a href="{% url 'rec_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'rec_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'rec_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+</ul>
+</li>
 </ul>
 <!-- SECTION ACTIONS -->
 <div class="sidebar-section">Actions</div>
@@ -120,7 +107,9 @@
       <div class="export-menu" id="export-menu">
         <div class="export-item" onclick="exportCSV()">📊 CSV</div>
         <div class="export-item" onclick="exportExcel()">📗 Excel</div>
-        <div class="export-item" onclick="window.print()">🖨️ Imprimer</div>
+        <div class="export-item" onclick="window.location.href='{% url 'export_bons_liste_pdf' %}?' + window.location.search.slice(1)">
+  🖨️ Imprimer
+</div>
       </div>
     </div>
     <a href="{% url 'creer_bon_sortie_divers' %}" class="btn btn-primary">
@@ -362,9 +351,10 @@ document.addEventListener('click', e=>{
     document.getElementById('export-menu').classList.remove('open');
 });
 
+
 // ── Export CSV ────────────────────────────────────────────
 function exportCSV(){
-  const rows = [['N° Bon','Type','État','Véhicule','Demandeur','Origine','Date création','Validé le','Créé par']];
+  const rows = [['N° Bon','Type','État','Véhicule','Demandeur','Date création','Validé le','Créé par']];
   document.querySelectorAll('#bons-table tbody tr').forEach(tr=>{
     const cells = tr.querySelectorAll('td');
     if(cells.length < 9) return;
@@ -389,13 +379,14 @@ function exportCSV(){
   document.getElementById('export-menu').classList.remove('open');
 }
 
+
 // ── Export Excel (XLSX via CSV) ───────────────────────────
 function exportExcel(){
   // Même logique que CSV mais avec extension .xls (ouvre dans Excel)
-  const rows = [['N° Bon','Type','État','Véhicule','Demandeur','Origine','Date création','Validé le','Créé par']];
+  const rows = [['N° Bon','Type','État','Véhicule','Demandeur','Date création','Validé le','Créé par']];
   document.querySelectorAll('#bons-table tbody tr').forEach(tr=>{
     const cells = tr.querySelectorAll('td');
-    if(cells.length < 9) return;
+    if(cells.length < 8) return;
     rows.push([
       cells[0].innerText.trim(),
       cells[1].innerText.trim(),
@@ -426,6 +417,8 @@ function exportExcel(){
   a.click();
   document.getElementById('export-menu').classList.remove('open');
 }
+
+
 </script>
 
 <!-- Style print -->

@@ -8,7 +8,7 @@ import os
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.utils import timezone
+from django.utils import log, timezone
 from django.db.models import  F, Count, When
 from django.views.decorators.http import require_POST
 import os
@@ -132,26 +132,34 @@ def nouvelle_entree(request):
 
 
 
-
-
-
-
-
 PHOTO_FIELDS = ['photo1', 'photo2', 'photo3']  # ⚠️ adapte si tes champs s'appellent autrement
 
-
+@guerite_required
 def modifier_vehicule(request, vehicule_id=None):
     """
     Sans vehicule_id  -> affiche uniquement l'étape 1 (recherche par matricule).
-    Avec vehicule_id  -> affiche le formulaire préempli, et traite le POST.
+    Avec vehicule_id  -> affiche le formulaire prérempli, et traite le POST.
     """
     vehicule = None
     if vehicule_id:
         vehicule = get_object_or_404(Vehicule, pk=vehicule_id)
 
+    def get_photo_urls(v):
+        urls = []
+        if v and v.photos:
+            for path in v.photos.split(';'):
+                path = path.strip()
+                if path:
+                    try:
+                        urls.append(default_storage.url(path))
+                    except Exception:
+                        urls.append('')
+        while len(urls) < 3:
+            urls.append('')
+        return urls
+
     if request.method == 'POST':
         if not vehicule:
-            # Sécurité : impossible de POSTer sans avoir d'abord choisi un véhicule
             return redirect('modifier_vehicule_recherche')
 
         form = VehiculeForm(request.POST, request.FILES, instance=vehicule)
@@ -162,16 +170,41 @@ def modifier_vehicule(request, vehicule_id=None):
             if client_id:
                 v.client_id = client_id
 
-            # Gestion des 3 emplacements photo : suppression demandée ou remplacement
-            for i, field_name in enumerate(PHOTO_FIELDS):
+            # ── Photos ──
+            existing = []
+            if v.photos:
+                existing = [p.strip() for p in v.photos.split(';') if p.strip()]
+            while len(existing) < 3:
+                existing.append('')
+
+            # Suppression
+            for i in range(3):
                 if request.POST.get(f'remove_photo_{i}') == '1':
-                    photo = getattr(v, field_name)
-                    if photo:
-                        photo.delete(save=False)
-                    setattr(v, field_name, None)
+                    path = existing[i]
+                    if path and default_storage.exists(path):
+                        default_storage.delete(path)
+                    existing[i] = ''
+
+            # Upload / remplacement
+            for i in range(3):
                 uploaded = request.FILES.get(f'photo_{i}')
                 if uploaded:
-                    setattr(v, field_name, uploaded)
+                    if existing[i] and default_storage.exists(existing[i]):
+                        default_storage.delete(existing[i])
+
+                    ext = os.path.splitext(uploaded.name)[1]
+                    immat_clean = v.immatriculation.replace(' ', '').replace('-', '').upper()
+                    filename = f"vehicules/photos/{immat_clean}_{i}{ext}"
+                    saved_path = default_storage.save(filename, ContentFile(uploaded.read()))
+                    existing[i] = saved_path
+
+            photos_paths = [p for p in existing if p]
+            if photos_paths:
+                v.photos = ';'.join(photos_paths)
+                v.photo = photos_paths[0]
+            else:
+                v.photos = ''
+                v.photo = None
 
             v.save()
             messages.success(request, f"Véhicule {v.immatriculation} mis à jour avec succès.")
@@ -182,6 +215,7 @@ def modifier_vehicule(request, vehicule_id=None):
     return render(request, 'guerite/modifier_vehicule.html', {
         'form': form,
         'vehicule': vehicule,
+        'photo_urls': get_photo_urls(vehicule),
     })
 
 
@@ -598,7 +632,7 @@ def modifier_motif_entree(request, entree_id):
     if request.method == "POST":
         motif = request.POST.get("motif")
 
-        if motif in ["REPARATION", "VISITE"]:
+        if motif in ["REPARATION", "VISITE" , "STATIONNEMENT", "INTERNE"]:
             entree.motif = motif
             entree.save()
 
@@ -606,7 +640,13 @@ def modifier_motif_entree(request, entree_id):
                 request,
                 f"Motif modifié : {entree.get_motif_display()}"
             )
-
+    log_action(
+        request,
+        ActionType.MODIFICATION,
+        'GUERITE',
+        entree,
+        {'motif': entree.motif}
+    )
     return redirect("detail_entree", entree_id=entree.id)
 
 

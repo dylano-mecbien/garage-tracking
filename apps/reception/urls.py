@@ -16,6 +16,7 @@ urlpatterns = [
     path('or/<uuid:or_id>/reouverture/',         views.reouverture_or,     name='reouverture_or_rec'),
     path('bon/<uuid:bon_id>/',                   views.detail_bon_sortie,  name='detail_bon_sortie_rec'),
     path('bon/<uuid:bon_id>/pdf/',               views.pdf_bon_sortie,     name='pdf_bon_sortie_rec'),
+    path('bons/export-pdf/',                     views.export_bons_pdf, name='export_bons_liste_pdf'),
     path('notifs/json/',                         views.notifs_json,        name='notifs_json_rec'),
     path('notifs/lues/',                         views.marquer_lues,       name='marquer_lues_rec'),
     path('vehicules-presents/', views.liste_vehicules_presents, name='vehicules_presents_rec'),
@@ -36,5 +37,19 @@ urlpatterns = [
     path('api_vehicules/',                    views.api_vehicules,      name='api_vehicules'),
     path('api_entrees_vehicule/',             views.api_entrees_vehicule,      name='api_entrees_vehicule'),
 
+
+        # Véhicules
+    path('vehicules/',                                views.rec_vehicules,               name='rec_vehicules'),
+    path('vehicules/<uuid:vehicule_id>/modifier/',    views.rec_modifier_vehicule,       name='rec_modifier_vehicule'),
+    path('vehicules/<uuid:vehicule_id>/mouvements/',  views.rec_mouvements_vehicule,     name='rec_mouvements_vehicule'),
+        # Clients
+    path('clients/',                               views.rec_clients,             name='rec_clients'),
+    path('clients/<uuid:client_id>/',              views.rec_detail_client,       name='rec_detail_client'),
+    path('clients/<uuid:client_id>/modifier/',     views.rec_modifier_client,     name='rec_modifier_client'),
+    # Conducteurs
+    path('conducteurs/',                              views.rec_conducteurs,             name='rec_conducteurs'),
+
+    path('client/export-pdf/',                     views.export_client_pdf, name='export_client_pdf'),
+     path('vehicules/export-pdf/',                     views.export_vehicules_pdf, name='export_vehicules_pdf'),
+
 ]
-  

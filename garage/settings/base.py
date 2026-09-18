@@ -218,7 +218,6 @@ AWS_STORAGE_BUCKET_NAME = config('MINIO_BUCKET', default='garage-docs')
 AWS_S3_ENDPOINT_URL = config('MINIO_ENDPOINT', default='http://localhost:9000')
 
 
-
 AWS_S3_USE_SSL = False
 AWS_DEFAULT_ACL = 'private'
 

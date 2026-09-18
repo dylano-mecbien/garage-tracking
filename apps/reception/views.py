@@ -2,9 +2,12 @@
 Vues Réception — sans devis, sans facture
 """
 
+import os
+
+from django.core.files.storage import default_storage
 from django.db.models import Count
 from django.utils import timezone
-from datetime import timedelta
+from datetime import date, timedelta
 import datetime
 from decimal import Decimal
 import json
@@ -19,11 +22,14 @@ from django.db.models import Q, Sum
 from django.http import HttpResponse, JsonResponse, request
 from django.views.decorators.http import require_POST
 from apps.notifications.hook import notifier_bon_sortie_cree
+from apps.reception.pdf_bon_liste import generer_pdf_liste_bons
+from apps.reception.pdf_client_liste import generer_pdf_liste_clients
+from apps.reception.pdf_vehicules_pdf import generer_pdf_liste_vehicules
 from .models import Reception, StatutVehicule, RapportReception, TransfertAtelier, Notification
 from .forms import ReceptionForm, RapportReceptionForm, TransfertAtelierForm, BonSortieForm, ORReceptionForm
 from apps.guerite.models import EnregistrementEntree, BonSortie, StatutEntree, MotifEntree, StatutViewHinstorisue, TypeBon
 from apps.atelier.models import FicheTechnique, OrdreReparation, StatutOR, TypeOR, FicheControle, Tache, StatutTache
-from apps.vehicules.models import Client, Vehicule
+from apps.vehicules.models import Client, Conducteur, Vehicule
 from apps.accounts.decorators import guerite_required, receptionniste_required
 from apps.accounts.models import Demandeur, Role, User
 from apps.audit.service import log_action
@@ -143,12 +149,14 @@ def dashboard(request):
     aujourd_hui = timezone.now().date()
     entrees_today = EnregistrementEntree.objects.filter(date_entree__date=aujourd_hui)
     sortie_today = EnregistrementEntree.objects.filter(date_sortie__date=aujourd_hui)
+
     entrees = (
            EnregistrementEntree.objects
            .select_related('vehicule', 'vehicule__client', 'conducteur', 'agent_entree')
            .annotate(date_tri=Coalesce('date_sortie', 'date_entree'))
            .order_by(F('date_tri').desc())
            )
+    
     ctx = {
         'nb_entrees_today': entrees_today.count(),
         'nb_sorties_today': sortie_today.count(),
@@ -158,9 +166,11 @@ def dashboard(request):
         'notifs':             notifs,
         'nb_notifs':          notifs.count(),
         'or_actifs':          or_actifs,
-        'vehicules_presents': EnregistrementEntree.objects.exclude(statut=StatutEntree.SORTI).select_related(
+
+        'vehicules_presents': EnregistrementEntree.objects.exclude(bon_sortie_id__isnull=False).select_related(
             'vehicule', 'vehicule__client', 'conducteur'
         ).order_by('-date_entree')[:7],
+
         'entrees_recentes':   entrees[:9],
 
         # Compteurs KPI
@@ -587,6 +597,39 @@ def pdf_bon_sortie(request, bon_id):
     return r
 
 
+
+
+@receptionniste_required
+def export_bons_pdf(request):
+    # Réutilise ta fonction de filtre existante si tu en as une
+    qs = BonSortie.objects.select_related(
+        'vehicule', 'cree_par', 'valide_par'
+    ).order_by('-created_at')
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        qs = qs.filter(
+            Q(numero__icontains=q) |
+            Q(nom_demandeur__icontains=q) |
+            Q(vehicule__immatriculation__icontains=q)
+        )
+
+    type_bon = request.GET.get('type', '').strip()
+    if type_bon:
+        qs = qs.filter(types=type_bon)
+
+    etat = request.GET.get('etat', '').strip()
+    if etat:
+        qs = qs.filter(etats=etat)
+
+    # Génère le PDF (ReportLab ou ta fonction existante)
+    pdf_bytes = generer_pdf_liste_bons(qs)  # à créer / adapter
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="bons-sortie.pdf"'
+    return response
+
+
 # ─── Helper QR ────────────────────────────────────────────────────────────────
 def _gen_qr(bon):
     try:
@@ -836,7 +879,7 @@ def pdf_bon_sortie_guerite(request, bon_id):
         return redirect('detail_bon_sortie_guerite', bon_id=bon_id)
  
 
-
+ 
 
 
 # ─── BON DE SORTIE ────────────────────────────────────────────────────────────
@@ -922,9 +965,10 @@ def autocomplete_vehicules_presents(request):
    
     entrees = EnregistrementEntree.objects.filter(
         vehicule__immatriculation__icontains=q,
-        motif=MotifEntree.REPARATION
     ).exclude(
-        statut__in=[StatutEntree.SORTI, StatutVehicule.BON_SORTIE_FAIT]
+        motif=MotifEntree.VISITE
+    ).exclude(
+        bon_sortie__isnull=False
     ).select_related('vehicule', 'vehicule__client', 'conducteur')[:15]
 
     results = []
@@ -1184,3 +1228,524 @@ def creer_demandeur_ajax(request):
         'numero': demandeur.numero,
         'detail': demandeur.description or 'Demandeur',
     })
+
+
+
+
+@receptionniste_required
+def rec_conducteurs(request):
+
+    q         = request.GET.get('q', '').strip()
+    categorie = request.GET.get('categorie', '')
+
+    if request.method == 'POST':
+        action  = request.POST.get('action')
+        cond_id = request.POST.get('cond_id', '').strip()
+        if action == 'creer':
+            nom, prenom, tel = request.POST.get('nom','').strip(), request.POST.get('prenom','').strip(), request.POST.get('telephone','').strip()
+            if not all([nom, prenom, tel]):
+                messages.error(request, "Nom, prénom et téléphone sont obligatoires.")
+            elif Conducteur.objects.filter(telephone=tel).exists():
+                messages.error(request, f"Un conducteur avec le téléphone {tel} existe déjà.")
+            else:
+                c = Conducteur.objects.create(
+                    nom=nom, prenom=prenom, telephone=tel,
+                    telephone2=request.POST.get('telephone2','').strip(),
+                    cni=request.POST.get('cni','').strip(),
+                    permis=request.POST.get('permis','').strip(),
+                    categorie_permis=request.POST.get('categorie_permis','').strip(),
+                    created_by=request.user,
+                )
+                log_action(request, ActionType.CREATION, 'ADMIN', c)
+                messages.success(request, f"Conducteur {c.prenom} {c.nom} créé.")
+        elif action == 'modifier' and cond_id:
+            c   = get_object_or_404(Conducteur, id=cond_id)
+            nom = request.POST.get('nom','').strip()
+            tel = request.POST.get('telephone','').strip()
+            if not nom or not tel:
+                messages.error(request, "Nom et téléphone sont obligatoires.")
+            else:
+                c.nom=nom; c.prenom=request.POST.get('prenom','').strip()
+                c.telephone=tel; c.telephone2=request.POST.get('telephone2','').strip()
+                c.cni=request.POST.get('cni','').strip()
+                c.permis=request.POST.get('permis','').strip()
+                c.categorie_permis=request.POST.get('categorie_permis','').strip()
+                c.save()
+                log_action(request, ActionType.MODIFICATION, 'ADMIN', c)
+                messages.success(request, f"Conducteur {c.prenom} {c.nom} mis à jour.")
+        return redirect('rec_conducteurs')
+
+    qs = Conducteur.objects.all()
+    if q:
+        qs = qs.filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(telephone__icontains=q)|Q(cni__icontains=q)|Q(permis__icontains=q))
+    if categorie:
+        qs = qs.filter(categorie_permis__icontains=categorie)
+
+    conducteurs = []
+    for c in qs[:100]:
+        c.nb_passages     = EnregistrementEntree.objects.filter(conducteur=c).count()
+        c.dernier_passage = EnregistrementEntree.objects.filter(conducteur=c).select_related('vehicule').order_by('-date_entree').first()
+        conducteurs.append(c)
+
+    categories = list(Conducteur.objects.exclude(categorie_permis='').exclude(categorie_permis__isnull=True)
+        .values_list('categorie_permis', flat=True).distinct().order_by('categorie_permis'))
+
+    return render(request, 'reception/conducteurs.html', {
+        'conducteurs': conducteurs, 'nb_total': Conducteur.objects.count(),
+        'categories': categories, 'filters': {'q': q, 'categorie': categorie},
+    })
+
+
+
+
+
+@receptionniste_required
+def rec_vehicules(request):
+    from apps.vehicules.models import Vehicule
+ 
+    q           = request.GET.get('q', '').strip()
+    carburant   = request.GET.get('carburant', '')
+    type_client = request.GET.get('type_client', '')
+    assurance   = request.GET.get('assurance', '')
+    presence    = request.GET.get('presence', 'tous')
+ 
+    qs = Vehicule.objects.select_related('client').filter(is_active=True)
+ 
+    if q:
+        qs = qs.filter(
+            Q(immatriculation__icontains=q) |
+            Q(marque__icontains=q) |
+            Q(modele__icontains=q) |
+            Q(numero_chassis__icontains=q) |
+            Q(client__nom__icontains=q) |
+            Q(client__prenom__icontains=q) |
+            Q(client__telephone__icontains=q)
+        )
+    if carburant:
+        qs = qs.filter(type_carburant=carburant)
+    if type_client:
+        qs = qs.filter(client__type_client=type_client)
+    if assurance == 'expiree':
+        qs = qs.filter(expiry_assurance__lt=date.today())
+    elif assurance == 'valide':
+        qs = qs.filter(expiry_assurance__gte=date.today())
+ 
+    # Filtre présence avant list()
+    if presence == 'presents':
+        # véhicules avec au moins une entrée non SORTI
+        qs = qs.filter(entrees__statut__in=['EN_COURS']).distinct()
+    elif presence == 'atelier':
+        qs = qs.filter(
+            ordres_reparation__statut__in=['OUVERT', 'EN_COURS', 'REOUVERT']
+        ).distinct()
+    elif presence == 'libres':
+
+        qs = qs.exclude(
+            entrees__statut__in=['EN_COURS']
+        ).distinct()
+ 
+    vehicules = list(qs[:100])
+ 
+    # Stats globales (sur tous, pas filtrés)
+    all_v = Vehicule.objects.filter(is_active=True)
+    nb_presents = all_v.filter(entrees__statut__in=['EN_COURS']).distinct().count()
+    nb_atelier  = all_v.filter(
+        ordres_reparation__statut__in=['OUVERT','EN_COURS','REOUVERT']
+    ).distinct().count()
+ 
+    stats = {
+        'total':       all_v.count(),
+        'presents':    nb_presents,
+        'en_atelier':  nb_atelier,
+        'libres':      all_v.count() - nb_presents,
+        'entreprises': all_v.filter(client__type_client='ENTREPRISE').count(),
+    }
+ 
+    return render(request, 'reception/vehicules/liste.html', {
+        'vehicules':       vehicules,
+        'nb_presents':     nb_presents,
+        'stats':           stats,
+        'filtre_presence': presence,
+        'filters': {
+            'q': q, 'carburant': carburant,
+            'type_client': type_client, 'assurance': assurance,
+        },
+        # Choix pour le template modifier
+        'carburants': [
+            ('NON_DEFINI','Non défini'),('ESSENCE','Essence'),
+            ('DIESEL','Diesel'),('ELECTRIQUE','Électrique'),
+            ('HYBRIDE','Hybride'),('GPL','GPL'),
+        ],
+    })
+ 
+ 
+@receptionniste_required
+def rec_mouvements_vehicule(request, vehicule_id):
+    """AJAX — mouvements d'un véhicule."""
+    v = get_object_or_404(Vehicule, id=vehicule_id)
+ 
+    # statut_presence via le modèle
+    statut = v.statut_presence
+ 
+    entrees = EnregistrementEntree.objects.filter(
+        vehicule=v
+    ).order_by('-date_entree')[:20]
+ 
+    mouvements = []
+    for e in entrees:
+        try:
+            rec = e.reception.numero
+        except Exception:
+            rec = None
+        mouvements.append({
+            'numero':      e.numero,
+            'motif':       e.get_motif_display(),
+            'statut':      e.statut,
+            'date_entree': e.date_entree.strftime('%d/%m/%Y %H:%M'),
+            'date_sortie': e.date_sortie.strftime('%d/%m/%Y %H:%M') if e.date_sortie else None,
+            'duree':       None,
+            'reception':   rec,
+        })
+ 
+    total       = entrees.count()
+    reparations = EnregistrementEntree.objects.filter(
+        vehicule=v, motif='REPARATION'
+    ).count()
+ 
+    return JsonResponse({
+        'mouvements': mouvements,
+        'statut_presence': statut,
+        'stats': {'total_passages': total, 'reparations': reparations},
+    })
+
+@receptionniste_required
+def rec_modifier_vehicule(request, vehicule_id):
+    v = get_object_or_404(Vehicule, id=vehicule_id)
+
+    carburants = [
+        ('NON_DEFINI', 'Non défini'),
+        ('ESSENCE', 'Essence'),
+        ('DIESEL', 'Diesel'),
+        ('ELECTRIQUE', 'Électrique'),
+        ('HYBRIDE', 'Hybride'),
+        ('GPL', 'GPL'),
+    ]
+    transmissions = [
+        ('NON_DEFINI', 'Non défini'),
+        ('MANUELLE', 'Manuelle'),
+        ('AUTOMATIQUE', 'Automatique'),
+    ]
+
+    def get_photo_urls(vehicule):
+        urls = []
+        if vehicule.photos:
+            for path in vehicule.photos.split(';'):
+                path = path.strip()
+                if path:
+                    try:
+                        urls.append(default_storage.url(path))
+                    except Exception:
+                        urls.append('')
+        while len(urls) < 3:
+            urls.append('')
+        return urls
+
+    def render_form():
+        return render(request, 'reception/vehicules/modifier.html', {
+            'v': v,
+            'carburants': carburants,
+            'transmissions': transmissions,
+            'photo_urls_json': json.dumps(get_photo_urls(v)),
+        })
+
+    if request.method == 'POST':
+        v.immatriculation = request.POST.get('immatriculation', v.immatriculation).upper().strip()
+        v.marque = request.POST.get('marque', v.marque).strip()
+        v.modele = request.POST.get('modele', v.modele).strip()
+
+        annee_raw = request.POST.get('annee', '').strip()
+        v.annee = int(annee_raw) if annee_raw else None
+
+        v.couleur = request.POST.get('couleur', '').strip() or None
+        v.type_carburant = request.POST.get('type_carburant', v.type_carburant)
+        v.transmission = request.POST.get('transmission', v.transmission)
+
+        puissance_raw = request.POST.get('puissance', '').strip()
+        v.puissance = int(puissance_raw) if puissance_raw else None
+
+        v.numero_chassis = request.POST.get('numero_chassis', '').strip() or None
+        v.num_assurance = request.POST.get('num_assurance', '').strip()
+
+        exp = request.POST.get('expiry_assurance', '').strip()
+        v.expiry_assurance = exp if exp else None
+
+        visite = request.POST.get('date_visite', '').strip()
+        v.date_visite = visite if visite else None
+
+        v.notes = request.POST.get('notes', '').strip()
+
+        # ── Propriétaire ──
+        client_id = request.POST.get('client', '').strip()
+        if not client_id:
+            messages.error(request, "Veuillez sélectionner un propriétaire.")
+            return render_form()
+
+        client = Client.objects.filter(id=client_id).first()
+        if not client:
+            messages.error(request, "Propriétaire introuvable.")
+            return render_form()
+        v.client = client
+
+        # ── Photos ──
+        existing = []
+        if v.photos:
+            existing = [p.strip() for p in v.photos.split(';') if p.strip()]
+        while len(existing) < 3:
+            existing.append('')
+
+        # Suppression
+        for i in range(3):
+            if request.POST.get(f'remove_photo_{i}') == '1':
+                path = existing[i]
+                if path and default_storage.exists(path):
+                    default_storage.delete(path)
+                existing[i] = ''
+
+        # Upload / remplacement
+        for i in range(3):
+            uploaded = request.FILES.get(f'photo_{i}')
+            if uploaded:
+                if existing[i] and default_storage.exists(existing[i]):
+                    default_storage.delete(existing[i])
+
+                ext = os.path.splitext(uploaded.name)[1]
+                immat_clean = v.immatriculation.replace(' ', '').replace('-', '').upper()
+                filename = f"vehicules/photos/{immat_clean}_{i}{ext}"
+                saved_path = default_storage.save(filename, ContentFile(uploaded.read()))
+                existing[i] = saved_path
+
+        photos_paths = [p for p in existing if p]
+        if photos_paths:
+            v.photos = ';'.join(photos_paths)
+            v.photo = photos_paths[0]
+        else:
+            v.photos = ''
+            v.photo = None
+
+        v.save()
+        log_action(request, ActionType.MODIFICATION, 'RECEPTIONNISTE', v)
+        messages.success(request, f"Véhicule {v.immatriculation} mis à jour.")
+        return redirect('rec_vehicules')
+
+    return render_form()
+
+
+
+
+ 
+ # ════════════════════════════════════════════════════════
+ #  CLIENTS
+ # ════════════════════════════════════════════════════════
+  
+@receptionniste_required
+def rec_clients(request):
+     from apps.vehicules.models import Client
+     from apps.guerite.models import EnregistrementEntree
+  
+     q             = request.GET.get('q', '').strip()
+     filtre_type   = request.GET.get('type', 'tous')
+     ville         = request.GET.get('ville', '')
+     avec_vehicule = request.GET.get('avec_vehicule', '')
+  
+     qs = Client.objects.prefetch_related(
+         'vehicules', 'vehicules__entrees', 'vehicules__ordres_reparation'
+     ).filter(is_active=True)
+  
+     if q:
+         qs = qs.filter(
+             Q(nom__icontains=q) | Q(prenom__icontains=q) |
+             Q(telephone__icontains=q) | Q(email__icontains=q) |
+             Q(ninea__icontains=q) | Q(ville__icontains=q) |
+             Q(numero_client__icontains=q)
+         )
+     if filtre_type and filtre_type != 'tous':
+         qs = qs.filter(type_client=filtre_type)
+     if ville:
+         qs = qs.filter(ville=ville)
+     if avec_vehicule == '1':
+         qs = qs.filter(vehicules__isnull=False).distinct()
+     elif avec_vehicule == '0':
+         qs = qs.filter(vehicules__isnull=True)
+  
+     clients_list = []
+     for c in qs[:100]:
+         c.nb_passages = EnregistrementEntree.objects.filter(
+             vehicule__client=c
+         ).count()
+         # Enrichir chaque véhicule avec statut_presence
+         for v in c.vehicules.all():
+             pass  # en_local et en_atelier sont des @property
+         clients_list.append(c)
+  
+     all_c = Client.objects.filter(is_active=True)
+     stats = {
+         'total':          all_c.count(),
+         'particuliers':   all_c.filter(type_client='PARTICULIER').count(),
+         'entreprises':    all_c.filter(type_client='ENTREPRISE').count(),
+         'total_vehicules': all_c.aggregate(n=Count('vehicules'))['n'],
+     }
+  
+     villes = Client.objects.filter(is_active=True).exclude(
+         ville__isnull=True
+     ).exclude(ville='').values_list('ville', flat=True).distinct().order_by('ville')
+  
+     return render(request, 'reception/clients/liste.html', {
+         'clients':     clients_list,
+         'stats':       stats,
+         'villes':      villes,
+         'filtre_type': filtre_type,
+         'filters':     {'q': q, 'ville': ville, 'avec_vehicule': avec_vehicule},
+     })
+  
+  
+@receptionniste_required
+def rec_detail_client(request, client_id):
+
+  
+     c = get_object_or_404(
+         Client.objects.prefetch_related(
+             'vehicules', 'vehicules__entrees', 'vehicules__ordres_reparation'
+         ),
+         id=client_id
+     )
+     entrees = EnregistrementEntree.objects.filter(
+         vehicule__client=c
+     ).select_related('vehicule').order_by('-date_entree')[:30]
+  
+     return render(request, 'reception/clients/detail.html', {
+         'client': c, 'entrees': entrees,
+     })
+  
+  
+@receptionniste_required
+def rec_modifier_client(request, client_id):
+     from apps.vehicules.models import Client
+  
+     c = get_object_or_404(Client, id=client_id)
+  
+     if request.method == 'POST':
+         c.nom        = request.POST.get('nom', c.nom).strip()
+         c.prenom     = request.POST.get('prenom', c.prenom or '').strip()
+         c.telephone  = request.POST.get('telephone', c.telephone).strip()
+         c.telephone2 = request.POST.get('telephone2', c.telephone2 or '').strip()
+         c.email      = request.POST.get('email', c.email or '').strip()
+         c.adresse    = request.POST.get('adresse', c.adresse or '').strip()
+         c.ville      = request.POST.get('ville', c.ville or '').strip()
+         c.ninea      = request.POST.get('ninea', c.ninea or '').strip()
+         c.save()
+         log_action(request, ActionType.MODIFICATION, 'RECEPTION', c)
+         messages.success(request, f"Client {c} mis à jour.")
+         return redirect('rec_clients')
+  
+     return render(request, 'reception/clients/modifier.html', {'c': c})
+  
+
+
+
+@receptionniste_required
+def export_client_pdf(request):
+    qs = Client.objects.annotate(
+        nb_vehicules=Count('vehicules', distinct=True),
+        nb_passages=Count('vehicules__entrees', distinct=True),
+    ).order_by('nom')
+
+    # ── Filtres (mêmes que la liste) ──
+    q = request.GET.get('q', '').strip()
+    if q:
+        qs = qs.filter(
+            Q(nom__icontains=q) |
+            Q(prenom__icontains=q) |
+            Q(telephone__icontains=q) |
+            Q(email__icontains=q) |
+            Q(ninea__icontains=q) |
+            Q(ville__icontains=q) |
+            Q(numero_client__icontains=q)
+        )
+
+    type_client = request.GET.get('type', '').strip()
+    if type_client and type_client != 'tous':
+        qs = qs.filter(type_client=type_client)
+
+    ville = request.GET.get('ville', '').strip()
+    if ville:
+        qs = qs.filter(ville=ville)
+
+    avec_vehicule = request.GET.get('avec_vehicule', '').strip()
+    if avec_vehicule == '1':
+        qs = qs.filter(nb_vehicules__gt=0)
+    elif avec_vehicule == '0':
+        qs = qs.filter(nb_vehicules=0)
+
+    pdf_bytes = generer_pdf_liste_clients(qs)
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="clients.pdf"'
+    return response
+
+
+
+@receptionniste_required
+def export_vehicules_pdf(request):
+    from django.utils import timezone
+    today = timezone.localdate()
+
+    qs = (
+        Vehicule.objects
+        .select_related('client')
+        .annotate(nb_passages=Count('entrees'))
+        .order_by('immatriculation')
+    )
+
+    # ── Recherche ──
+    q = request.GET.get('q', '').strip()
+    if q:
+        qs = qs.filter(
+            Q(immatriculation__icontains=q) |
+            Q(marque__icontains=q) |
+            Q(modele__icontains=q) |
+            Q(numero_chassis__icontains=q) |
+            Q(client__nom__icontains=q) |
+            Q(client__telephone__icontains=q)
+        )
+
+    # ── Présence ──
+    presence = request.GET.get('presence', '').strip()
+    if presence == 'presents':
+        qs = qs.filter(en_local=True)
+    elif presence == 'atelier':
+        qs = qs.filter(en_atelier=True)
+    elif presence == 'libres':
+        qs = qs.filter(en_local=False, en_atelier=False)
+
+    # ── Carburant ──
+    carburant = request.GET.get('carburant', '').strip()
+    if carburant:
+        qs = qs.filter(type_carburant=carburant)
+
+    # ── Type propriétaire ──
+    type_client = request.GET.get('type_client', '').strip()
+    if type_client:
+        qs = qs.filter(client__type_client=type_client)
+
+    # ── Assurance ──
+    assurance = request.GET.get('assurance', '').strip()
+    if assurance == 'expiree':
+        qs = qs.filter(expiry_assurance__lt=today)
+    elif assurance == 'valide':
+        qs = qs.filter(expiry_assurance__gte=today)
+
+    pdf_bytes = generer_pdf_liste_vehicules(qs, today)
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="vehicules.pdf"'
+    return response
