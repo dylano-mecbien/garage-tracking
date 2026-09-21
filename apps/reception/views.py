@@ -51,7 +51,6 @@ def _notifier(type_notif, titre, message, reception=None):
             reception=reception, destinataire=user
         )
 
-
 def get_entrees_presentes_filtrees(request):
     qs = (
         EnregistrementEntree.objects
@@ -91,7 +90,7 @@ def get_entrees_presentes_filtrees(request):
         )
         qs = qs.filter(date_entree__lte=timezone.make_aware(dt))
 
-    # ── Durée de séjour (moins de n unités) ──────
+    # ── Durée de séjour (supérieure à n unités) ──
     if duree_valeur != "":
         try:
             n = int(duree_valeur)
@@ -103,30 +102,28 @@ def get_entrees_presentes_filtrees(request):
             else:  # "j"
                 unite_delta = timedelta(days=1)
 
+            # 0 → plus d'1 unité (1h / 1j / 1 mois)
             if n == 0:
-                # 0 → moins de 1 unité
                 n = 1
 
             if n > 0:
-                delta = unite_delta * n
-                seuil = timezone.now() - delta
-                # date_entree > seuil  ⇒  séjour < n unités
-                qs = qs.filter(date_entree__gt=seuil)
+                seuil = timezone.now() - (unite_delta * n)
+                # séjour > n unités
+                qs = qs.filter(date_entree__lt=seuil)
 
         except (ValueError, TypeError):
             pass
 
     return qs
-
  
 # ─── DASHBOARD ───────────────────────────────────────────────────────────────
 @receptionniste_required 
 def dashboard(request):
     # Tous les véhicules présents pour réparation (guérite)
-    entreesReparation = EnregistrementEntree.objects.exclude(
-    motif=MotifEntree.VISITE
-    ).exclude(
-    statut=StatutEntree.SORTI
+    entreesReparation = EnregistrementEntree.objects.filter(
+    motif=MotifEntree.REPARATION
+    ).filter(
+    statut=StatutEntree.EN_COURS
     ).select_related('vehicule', 'vehicule__client').order_by('-date_entree')
 
     # Réceptions actives (pas encore sorties)
@@ -161,15 +158,20 @@ def dashboard(request):
         'nb_entrees_today': entrees_today.count(),
         'nb_sorties_today': sortie_today.count(),
         'entrees':            entreesReparation[:5],
-        'entrees_sans_rec':   entreesReparation.filter(reception__isnull=True),
+        'entrees_sans_rec':   entreesReparation.filter(reception__isnull=True)[:3],
         'receptions':         receptions,
         'notifs':             notifs,
         'nb_notifs':          notifs.count(),
         'or_actifs':          or_actifs,
+ 
 
-        'vehicules_presents': EnregistrementEntree.objects.exclude(bon_sortie_id__isnull=False).select_related(
-            'vehicule', 'vehicule__client', 'conducteur'
-        ).order_by('-date_entree')[:7],
+        'vehicules_presents': (
+                EnregistrementEntree.objects
+    .filter(date_sortie__isnull=True)          # encore présents
+    .filter(bon_sortie__isnull=True)           # sans bon de sortie lié (optionnel)
+    .select_related('vehicule', 'vehicule__client', 'conducteur')
+    .order_by('-date_entree')[:7]
+        ),
 
         'entrees_recentes':   entrees[:9],
 
@@ -225,14 +227,10 @@ def liste_receptions(request):
 
 
 
-
-
-
 @receptionniste_required
 def creer_reception(request):
-    from apps.guerite.models import EnregistrementEntree, StatutEntree, MotifEntree
-    from apps.vehicules.models import Vehicule
- 
+
+
     entree_id = request.GET.get('entree_id')
     entree = None
     if entree_id:
@@ -245,17 +243,17 @@ def creer_reception(request):
         if hasattr(entree, 'reception'):
             messages.warning(request, "Cette entrée a déjà une réception.")
             return redirect('detail_reception', rec_id=entree.reception.id)
- 
+
     if request.method == 'POST':
         entree_id_post   = (request.POST.get('entree_id') or
                             request.POST.get('entree_select', '')).strip()
         vehicule_id_post = request.POST.get('vehicule_id', '').strip()
         decision         = request.POST.get('decision', 'VERS_ATELIER')
         observations     = request.POST.get('observations', '').strip()
- 
-        error = None
+
+        error    = None
         vehicule = None
- 
+
         if not vehicule_id_post and not entree_id_post:
             error = "Sélectionnez un véhicule ou une entrée guérite."
         elif not observations:
@@ -263,7 +261,7 @@ def creer_reception(request):
         else:
             if entree_id_post:
                 try:
-                    ent = EnregistrementEntree.objects.get(id=entree_id_post)
+                    ent      = EnregistrementEntree.objects.get(id=entree_id_post)
                     vehicule = ent.vehicule
                     entree   = ent
                 except EnregistrementEntree.DoesNotExist:
@@ -273,12 +271,13 @@ def creer_reception(request):
                     vehicule = Vehicule.objects.get(id=vehicule_id_post)
                 except Vehicule.DoesNotExist:
                     error = "Véhicule introuvable."
- 
+
         if error:
             return render(request, 'reception/creer_reception.html', {
                 'entree': entree, 'error': error,
             })
- 
+
+        # Créer la réception avec statut initial RAPPORT_FAIT
         rec = Reception.objects.create(
             entree         = entree,
             vehicule       = vehicule,
@@ -288,15 +287,16 @@ def creer_reception(request):
         )
         log_action(request, ActionType.CREATION, 'RECEPTION', rec, {'decision': decision})
         messages.success(request, f"Réception {rec.numero} créée.")
- 
-        if decision == 'SORTIE_DIRECTE':
-            messages.info(request, "Sortie directe — créez le bon de sortie.")
-            return redirect('creer_bon_sortie_rec', rec_id=rec.id)
- 
-        return redirect('creer_or_rec', rec_id=rec.id)
- 
-    return render(request, 'reception/creer_reception.html', {'entree': entree})
 
+        # Redirection selon la décision
+        if decision == 'SORTIE_DIRECTE':
+            # → Page de création du bon de sortie
+            return redirect('creer_bon_sortie_rec', rec_id=entree.id)
+
+        # VERS_ATELIER → Créer l'ordre de réparation
+        return redirect('detail_reception', rec_id=rec.id)
+
+    return render(request, 'reception/creer_reception.html', {'entree': entree})
 
 
 
@@ -885,15 +885,17 @@ def pdf_bon_sortie_guerite(request, bon_id):
 # ─── BON DE SORTIE ────────────────────────────────────────────────────────────
 @receptionniste_required
 def creer_bon_sortie(request, rec_id):
-    rec = get_object_or_404(
-        EnregistrementEntree,
-        id=rec_id
-    )
-    rapport = getattr(rec, 'rapport', None)
+    Enreg = get_object_or_404(EnregistrementEntree, id=rec_id)
+    rapport = getattr(Enreg, 'rapport', None)
 
-    vehicules_presents = EnregistrementEntree.objects.exclude(
-        statut=StatutEntree.SORTI   # adapte selon ton modèle
-    ).select_related('vehicule', 'conducteur', 'vehicule__client')
+    # La réception associée (si elle existe)
+    reception = getattr(Enreg, 'reception', None)
+
+    vehicules_presents = (
+        EnregistrementEntree.objects
+        .exclude(statut=StatutEntree.SORTI)
+        .select_related('vehicule', 'conducteur', 'vehicule__client')
+    )
 
     vehicles_data = []
     for entree in vehicules_presents:
@@ -901,7 +903,10 @@ def creer_bon_sortie(request, rec_id):
         vehicles_data.append({
             'id': v.id,
             'immatriculation': v.immatriculation,
-            'conducteur_nom': f"{entree.conducteur.nom} {entree.conducteur.prenom}".strip() if entree.conducteur else '',
+            'conducteur_nom': (
+                f"{entree.conducteur.nom} {entree.conducteur.prenom}".strip()
+                if entree.conducteur else ''
+            ),
             'client_nom': v.client.nom if v.client else '',
         })
 
@@ -909,50 +914,49 @@ def creer_bon_sortie(request, rec_id):
         form = BonSortieForm(request.POST)
         if form.is_valid():
             with transaction.atomic():
+                # 1) Créer le bon
                 bon = form.save(commit=False)
                 bon.cree_par = request.user
                 bon.types = TypeBon.VEHICULE
-                if rec.vehicule:
-                    bon.vehicule = rec.vehicule
+                if Enreg.vehicule:
+                    bon.vehicule = Enreg.vehicule
                 bon.save()
 
-
-            bon.save()
-
-            _gen_qr(bon)
-            rec.bon_sortie = bon
-            rec.save(update_fields=['bon_sortie'])
+                # 2) Lier le bon à l'entrée + passer l'entrée en SORTI
+                Enreg.bon_sortie = bon
+                Enreg.save(update_fields=['bon_sortie'])
 
 
+                # 3) Faire passer la réception associée en SORTI (si elle existe)
+                if reception is not None:
+                    reception.statut = StatutVehicule.SORTI   # ← adapte la constante
+                    reception.date_sortie = timezone.now()    # si le champ existe
+                    reception.save(update_fields=['statut'])
+
+                # 4) QR code
+                _gen_qr(bon)
+
+            # 5) Notification + audit (hors transaction, non bloquant)
             est_admin = request.user.role == Role.ADMIN
             if not est_admin:
                 notifier_bon_sortie_cree(bon)
-            log_action(
-                request,
-                ActionType.CREATION,
-                'RECEPTION',
-                bon
-            )
 
-            messages.success(
-                request,
-                f"Bon de sortie {bon.numero} créé."
-            )
+            log_action(request, ActionType.CREATION, 'RECEPTION', bon)
 
+            messages.success(request, f"Bon de sortie {bon.numero} créé.")
             return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
-
     else:
         form = BonSortieForm()
+
     return render(request, 'reception/creer_bon_sortie.html', {
         'form': form,
-        'rec': rec,
-        'reception': rec,
+        'rec': Enreg,
+        'reception': Enreg,
         'vehicles_data': vehicles_data,
         'vehicles_json': json.dumps(vehicles_data, cls=DjangoJSONEncoder),
-        'sortie_directe': (
-            rapport and rapport.decision == 'SORTIE_DIRECTE'
-        ),
+        'sortie_directe': bool(rapport and rapport.decision == 'SORTIE_DIRECTE'),
     })
+
 
 
 def autocomplete_vehicules_presents(request):

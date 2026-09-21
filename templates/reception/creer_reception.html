@@ -132,7 +132,7 @@
       </div>
       <a href="{% url 'recherche_vehicule' %}" class="btn btn-outline btn-sm">Changer</a>
     </div>
-    {% else %}
+    {% else %} 
     <!-- Recherche libre -->
     <div class="form-group">
       <label class="form-label">🔍 Rechercher le véhicule *</label>
@@ -243,7 +243,7 @@ document.getElementById('veh-search').addEventListener('input', function() {
 
 async function searchVehicule(q) {
   try {
-    const r    = await fetch(`/api_vehicules/?q=${encodeURIComponent(q)}&en_cours=1`);
+    const r    = await fetch(`/api/vehicules/?q=${encodeURIComponent(q)}&en_cours=1`);
     const data = await r.json();
     renderVehResults(data.results || []);
   } catch(e) { console.error(e); }
@@ -311,7 +311,7 @@ document.addEventListener('click', e => {
 
 async function loadEntrees(vehiculeId) {
   try {
-    const r    = await fetch(`/api_entrees_vehicule/?vehicule_id=${vehiculeId}`);
+    const r    = await fetch(`/api/entrees_vehicule/?vehicule_id=${vehiculeId}`);
     const data = await r.json();
     const sel  = document.getElementById('entree-select');
     const wrap = document.getElementById('entree-wrap');

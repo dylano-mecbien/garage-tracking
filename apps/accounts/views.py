@@ -437,8 +437,8 @@ from django.db import transaction
 # ─── BON DE SORTIE ────────────────────────────────────────────────────────────
 @admin_required
 def creer_bon_sortie(request, rec_id):
-    rec = get_object_or_404(EnregistrementEntree, id=rec_id)
-    rapport = getattr(rec, 'rapport', None)
+    Enreg = get_object_or_404(EnregistrementEntree, id=rec_id)
+    rapport = getattr(Enreg, 'rapport', None)
 
     # Véhicules présents pour l'autocomplétion
     vehicules_presents = (
@@ -468,14 +468,14 @@ def creer_bon_sortie(request, rec_id):
                 bon = form.save(commit=False)
                 bon.cree_par = request.user
                 bon.types = TypeBon.VEHICULE
-                if rec.vehicule:
-                    bon.vehicule = rec.vehicule
+                if Enreg.vehicule:
+                    bon.vehicule = Enreg.vehicule
                 bon.save() 
 
                 # 2) Lier l'entrée au bon
                 #    ⚠️ On ne touche PAS au statut ici : SORTI sera appliqué par la guérite.
-                rec.bon_sortie = bon
-                rec.save(update_fields=['bon_sortie'])
+                Enreg.bon_sortie = bon
+                Enreg.save(update_fields=['bon_sortie'])
 
                 # 3) QR code + audit
                 _gen_qr(bon)
@@ -488,7 +488,7 @@ def creer_bon_sortie(request, rec_id):
 
     return render(request, 'admin_custom/bons/creer_bon_sortie.html', {
         'form': form,
-        'reception': rec,
+        'reception': Enreg,
         'vehicles_data': vehicles_data,
         'vehicles_json': json.dumps(vehicles_data, cls=DjangoJSONEncoder),
         'sortie_directe': bool(rapport and rapport.decision == 'SORTIE_DIRECTE'),
@@ -929,4 +929,140 @@ def detail_vehicule(request, vehicule_id):
         'rec_list': v.receptions.order_by('-created_at')[:5],
     })
 
- 
+
+
+
+@admin_required
+def admin_ateliers(request):
+
+    # ── POST : créer / modifier / supprimer ──────────────────────
+    if request.method == 'POST':
+        action     = request.POST.get('action', '')
+        atelier_id = request.POST.get('atelier_id', '').strip()
+
+        # ── CRÉER ────────────────────────────────────────────────
+        if action == 'creer':
+            nom      = request.POST.get('nom', '').strip()
+
+            if not nom:
+                messages.error(request, "Le nom de l'atelier est obligatoire.")
+                return redirect('admin_ateliers')
+
+            # ── Génération du code ───
+            code = request.POST.get('code', '').strip().upper()
+            if not code:
+                dernier = Atelier.objects.order_by('-code').first()
+                if dernier and dernier.code.startswith('ATL-'):
+                    try:
+                        num = int(dernier.code.split('-')[1]) + 1
+                    except (ValueError, IndexError):
+                        num = Atelier.objects.count() + 1
+                else:
+                    num = Atelier.objects.count() + 1
+                code = f"ATL-{num:03d}"
+
+            if Atelier.objects.filter(code=code).exists():
+                messages.error(request, f"Le code « {code} » existe déjà.")
+                return redirect('admin_ateliers')
+
+            chef_id = request.POST.get('chef_id', '').strip()
+            chef    = User.objects.filter(id=chef_id).first() if chef_id else None
+
+            a = Atelier.objects.create(
+                code         = code,
+                nom          = nom,
+                localisation = request.POST.get('localisation', '').strip(),
+                description  = request.POST.get('description', '').strip(),
+                responsable  = chef,
+                is_active    = 'is_active' in request.POST,
+            )
+            log_action(request, ActionType.CREATION, 'ADMIN', a)
+            messages.success(request, f"✅ Atelier « {a.nom} » créé.")
+
+        # ── MODIFIER ─────────────────────────────────────────────
+        elif action == 'modifier' and atelier_id:
+            a   = get_object_or_404(Atelier, id=atelier_id)
+            nom = request.POST.get('nom', '').strip()
+
+            if not nom:
+                messages.error(request, "Le nom est obligatoire.")
+                return redirect('admin_ateliers')
+
+            chef_id      = request.POST.get('chef_id', '').strip()
+            chef         = User.objects.filter(id=chef_id).first() if chef_id else None
+
+            a.nom          = nom
+            a.localisation = request.POST.get('localisation', '').strip()
+            a.description  = request.POST.get('description', '').strip()
+            a.responsable  = chef
+            a.is_active    = 'is_active' in request.POST
+            a.save()
+
+            log_action(request, ActionType.MODIFICATION, 'ADMIN', a)
+            messages.success(request, f"✅ Atelier « {a.nom} » mis à jour.")
+
+        # ── SUPPRIMER ─────────────────────────────────────────────
+        elif action == 'supprimer' and atelier_id:
+            a = get_object_or_404(Atelier, id=atelier_id)
+
+            nb_actifs = a.ordres_reparation.filter(
+                statut__in=['OUVERT', 'EN_COURS', 'REOUVERT']
+            ).count()
+
+            if nb_actifs > 0:
+                messages.error(
+                    request,
+                    f"Impossible : l'atelier « {a.nom} » a {nb_actifs} OR actif(s). "
+                    "Clôturez-les d'abord."
+                )
+                return redirect('admin_ateliers')
+
+            nom = a.nom
+            log_action(
+                request,
+                ActionType.SUPPRESSION,
+                'ADMIN',
+                details={'atelier': nom, 'id': str(a.id)},
+            )
+            a.delete()
+            messages.success(request, f"✅ Atelier « {nom} » supprimé.")
+
+        return redirect('admin_ateliers')
+
+    # ── GET : liste ───────────────────────────────────────────────
+    ateliers = list(
+    Atelier.objects
+    .select_related('responsable')
+    .annotate(
+        nb_or_en_cours=Count(
+            'ordres_reparation',
+            filter=Q(ordres_reparation__statut__in=['OUVERT', 'EN_COURS', 'REOUVERT']),
+            distinct=True,
+        ),
+        nb_or_total=Count('ordres_reparation', distinct=True),
+        # ✅ Utilisateurs assignés à cet atelier via User.atelier
+        nb_techniciens=Count('employes', distinct=True),
+    )
+    .order_by('is_active', 'nom')
+    )
+
+    # Chefs disponibles = utilisateurs avec rôle RESP_ATELIER
+    chefs_disponibles = (
+        User.objects
+        .filter(role=Role.RESP_ATELIER, is_active=True)
+        .order_by('nom', 'prenom')
+    )
+
+    stats = {
+        'total':       len(ateliers),
+        'actifs':      sum(1 for a in ateliers if a.is_active),
+        'inactifs':    sum(1 for a in ateliers if not a.is_active),
+        'nb_techniciens': sum(a.nb_techniciens for a in ateliers),
+        'or_en_cours': sum(a.nb_or_en_cours for a in ateliers),
+    }
+
+    return render(request, 'admin_custom/ateliers/liste.html', {
+        'ateliers':          ateliers,
+        'stats':             stats,
+        'chefs_disponibles': chefs_disponibles,
+    })

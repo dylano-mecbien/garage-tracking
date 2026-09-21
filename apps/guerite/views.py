@@ -15,6 +15,8 @@ import os
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.db.models.functions import Coalesce
+
+from apps.notifications.hook import notifier_sortie_vehicule
 from .models import EnregistrementEntree, BonSortie, EtatBon, StatutEntree, MotifEntree, StatutViewHinstorisue
 from .forms import RechercheVehiculeForm, VehiculeForm, ClientForm, ConducteurForm, EntreeForm, SortieForm
 from apps.vehicules.models import Marque, Modele, Vehicule, Client, Conducteur
@@ -207,6 +209,7 @@ def modifier_vehicule(request, vehicule_id=None):
                 v.photo = None
 
             v.save()
+            log_action(request, ActionType.MODIFICATION, 'GUERITE', v)
             messages.success(request, f"Véhicule {v.immatriculation} mis à jour avec succès.")
             return redirect('modifier_vehicule', vehicule_id=v.id)
     else:
@@ -640,6 +643,7 @@ def modifier_motif_entree(request, entree_id):
                 request,
                 f"Motif modifié : {entree.get_motif_display()}"
             )
+            
     log_action(
         request,
         ActionType.MODIFICATION,
@@ -670,7 +674,7 @@ def enregistrer_sortie(request, entree_id):
     bon_sortie = None
 
     # Recherche du bon de sortie uniquement pour une réparation
-    if entree.motif == MotifEntree.REPARATION:
+    if entree.motif != MotifEntree.VISITE:
         bons = BonSortie.objects.filter(
             vehicule=entree.vehicule,
             etats=EtatBon.APPROBATION,
@@ -685,7 +689,7 @@ def enregistrer_sortie(request, entree_id):
         form = SortieForm(request.POST)
 
         # Vérification du bon de sortie pour les réparations
-        if entree.motif == MotifEntree.REPARATION and not bon_sortie:
+        if entree.motif != MotifEntree.VISITE and not bon_sortie:
             messages.error(
                 request,
                 "Aucun bon de sortie valide trouvé. Contactez la réception."
@@ -721,7 +725,7 @@ def enregistrer_sortie(request, entree_id):
         entree.agent_sortie = request.user
 
         # Mise à jour du bon uniquement pour une réparation
-        if entree.motif == MotifEntree.REPARATION and bon_sortie:
+        if entree.motif != MotifEntree.VISITE and bon_sortie:
             # Sauvegarde de la signature client sur le bon
             if not save_signature_from_dataurl(bon_sortie, signature_data, 'signature_client'):
                 messages.error(request, "Erreur lors de l'enregistrement de la signature.")
@@ -739,7 +743,7 @@ def enregistrer_sortie(request, entree_id):
             bon_sortie.date_validation = timezone.now()
             bon_sortie.etats = EtatBon.VALIDER
             bon_sortie.save()
-
+            notifier_sortie_vehicule(bon_sortie)
             entree.bon_sortie = bon_sortie
 
         entree.save()
@@ -756,6 +760,7 @@ def enregistrer_sortie(request, entree_id):
             request,
             f"Sortie du véhicule {entree.vehicule.immatriculation} enregistrée."
         )
+        
 
         return redirect('dashboard_guerite')
 

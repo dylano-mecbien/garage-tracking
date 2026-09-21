@@ -127,7 +127,7 @@ class Vehicule(models.Model):
     
     photos = models.CharField(max_length=500, blank=True, null=True) # stocke les chemins séparés par ;
     # Assurance
-    num_assurance = models.CharField(max_length=50, blank=True, verbose_name="N° Assurance")
+    num_assurance = models.CharField(max_length=50, blank=True, verbose_name="Nom Assurance")
     expiry_assurance = models.DateField(null=True, blank=True, verbose_name="Expiration assurance")
     # Visite technique
     date_visite = models.DateField(null=True, blank=True, verbose_name="Visite technique")

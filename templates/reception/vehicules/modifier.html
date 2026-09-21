@@ -109,7 +109,7 @@ value="{{ v.puissance|default:'' }}" placeholder="—" min="0">
 
 <div class="form-row">
 <div class="form-group">
-<label class="form-label">N° Assurance</label>
+<label class="form-label">Nom de l'assurance</label>
 <input type="text" name="num_assurance" class="form-input"
 value="{{ v.num_assurance|default:'' }}">
 </div>
@@ -121,7 +121,7 @@ value="{{ v.expiry_assurance|date:'Y-m-d'|default:'' }}">
 </div>
 
 <div class="form-group">
-<label class="form-label">🔧 Date visite technique</label>
+<label class="form-label">🔧 Date prochaine visite technique</label>
 <input type="date" name="date_visite" class="form-input"
 value="{{ v.date_visite|date:'Y-m-d'|default:'' }}" style="max-width:220px;">
 {% if v.date_visite %}

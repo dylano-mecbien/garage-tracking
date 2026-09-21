@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+{% block title %}Ateliers — Administration{% endblock %}
+{% block page_title %}🏭 Ateliers{% endblock %}
+
+{% block sidebar_nav %}
+
+<ul class="sidebar-nav">
+<li><a href="{% url 'index' %}" class="active"><span class="icon">📊</span> Tableau de bord</a></li>
+<li class="sidebar-section">Administration</li>
+<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+<li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
+
+<div class="sidebar-section">Bases</div>
+<ul class="sidebar-nav">
+<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+<li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+<li><a href="{% url 'admin_ateliers' %}" class="active" ><span class="icon">🏭</span> Ateliers</a></li>
+
+</ul>
+
+
+</li>
+<li class="sidebar-section">Mouvements</li>
+<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+<li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
+<li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+</ul>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Formulaire inline ── */
+.inline-form {
+  display: none;
+  background: var(--surface2);
+  border: 1.5px solid var(--primary-light);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+  position: relative;
+  animation: fadeIn .2s ease;
+}
+.inline-form.open { display: block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;} }
+
+.spinner-ov {
+  display: none; position: absolute; inset: 0;
+  background: rgba(255,255,255,.85); border-radius: var(--radius);
+  align-items: center; justify-content: center; flex-direction: column; gap: 8px; z-index: 10;
+}
+[data-theme="dark"] .spinner-ov { background: rgba(15,23,42,.85); }
+.spinner-ov.show { display: flex; }
+.sp { width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg);} }
+
+/* ── Carte atelier ── */
+.atelier-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 12px;
+  transition: all .2s;
+  position: relative;
+}
+.atelier-card:hover { border-color: var(--primary-light); box-shadow: var(--shadow); }
+.atelier-card.inactive { opacity: .6; border-style: dashed; }
+.atelier-card .ac-header { display: flex; align-items: flex-start; gap: 14px; }
+.atelier-card .ac-icon {
+  width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: #fff;
+}
+.atelier-card .ac-name { font-size: 16px; font-weight: 800; margin-bottom: 3px; }
+.atelier-card .ac-loc  { font-size: 13px; color: var(--text-muted); }
+.atelier-card .ac-body { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.stat-chip { background: var(--surface2); border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; text-align: center; }
+.stat-chip .sc-val { font-size: 18px; font-weight: 800; color: var(--primary); }
+.stat-chip .sc-lbl { color: var(--text-muted); font-size: 11px; }
+
+/* ── Modal suppression ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 1000;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--surface); border-radius: var(--radius);
+  padding: 28px; max-width: 440px; width: 90%; box-shadow: var(--shadow-xl);
+}
+.modal-box h3 { margin-bottom: 10px; color: var(--danger); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Gestion des ateliers</h1>
+    <div class="breadcrumb">
+      {{ stats.total }} atelier{{ stats.total|pluralize }} —
+      {{ stats.actifs }} actif{{ stats.actifs|pluralize }},
+      {{ stats.or_en_cours }} OR en cours
+    </div>
+  </div>
+  <button onclick="openForm()" class="btn btn-primary">➕ Nouvel atelier</button>
+</div>
+
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags }}" style="margin-bottom:12px;">{{ msg }}</div>
+{% endfor %}
+
+<!-- ══ FORMULAIRE INLINE ══════════════════════════════════════ -->
+<div class="inline-form" id="inline-form">
+  <div class="spinner-ov" id="form-spin">
+    <div class="sp"></div>
+    <div style="font-size:13px;color:var(--text-muted);">Enregistrement...</div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <strong id="form-title" style="font-size:16px;">➕ Nouvel atelier</strong>
+    <button type="button" onclick="closeForm()" class="btn btn-outline btn-sm">✕ Fermer</button>
+  </div>
+
+  <form method="post" id="atelier-form">
+    {% csrf_token %}
+    <input type="hidden" name="action"     id="f-action"     value="creer">
+    <input type="hidden" name="atelier_id" id="f-atelier-id" value="">
+
+    {# ── Ligne 1 : Nom + Code ── #}
+    <div class="form-row">
+      <div class="form-group" style="flex:2;">
+        <label class="form-label">Nom de l'atelier *</label>
+        <input type="text" name="nom" id="f-nom" class="form-input" required
+               placeholder="Ex : Atelier Mécanique, Carrosserie, Électricité...">
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Code</label>
+        <input type="text" name="code" id="f-code" class="form-input"
+               placeholder="Auto si vide" maxlength="20">
+      </div>
+    </div>
+
+    {# ── Ligne 2 : Localisation + Responsable ── #}
+    <div class="form-row">
+      <div class="form-group" style="flex:2;">
+        <label class="form-label">Localisation</label>
+        <input type="text" name="localisation" id="f-localisation" class="form-input"
+               placeholder="Ex : Bâtiment A, Zone Nord, Hall 2...">
+      </div>
+      <div class="form-group" style="flex:2;">
+        <label class="form-label">Responsable d'atelier</label>
+        <select name="chef_id" id="f-chef" class="form-select">
+          <option value="">— Aucun responsable assigné —</option>
+          {% for u in chefs_disponibles %}
+          <option value="{{ u.id }}">{{ u.nom }} {{ u.prenom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    {# ── Ligne 3 : Description ── #}
+    <div class="form-group">
+      <label class="form-label">Description / Notes</label>
+      <textarea name="description" id="f-description" class="form-textarea" rows="2"
+                placeholder="Informations complémentaires sur cet atelier..."></textarea>
+    </div>
+
+    {# ── Actif ── #}
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <input type="checkbox" name="is_active" id="f-active" value="1" checked
+             style="width:18px;height:18px;accent-color:var(--primary);">
+      <label for="f-active" class="font-bold" style="cursor:pointer;">Atelier actif</label>
+      <span class="text-small text-muted">(désactiver cache l'atelier dans les formulaires)</span>
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button type="submit" class="btn btn-primary" style="padding:10px 24px;">
+        💾 <span id="btn-lbl">Créer l'atelier</span>
+      </button>
+      <button type="button" onclick="closeForm()" class="btn btn-outline">Annuler</button>
+    </div>
+  </form>
+</div>
+
+<!-- ══ STATS GLOBALES ════════════════════════════════════════ -->
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;">
+    🏭 {{ stats.total }} atelier{{ stats.total|pluralize }}
+  </div>
+  <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#065f46;">
+    ✅ {{ stats.actifs }} actif{{ stats.actifs|pluralize }}
+  </div>
+  <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#92400e;">
+    🔧 {{ stats.or_en_cours }} OR en cours
+  </div>
+  {% if stats.inactifs %}
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--text-muted);">
+    💤 {{ stats.inactifs }} inactif{{ stats.inactifs|pluralize }}
+  </div>
+  {% endif %}
+</div>
+
+<!-- ══ LISTE DES ATELIERS ════════════════════════════════════ -->
+{% if ateliers %}
+{% for a in ateliers %}
+<div class="atelier-card {% if not a.is_active %}inactive{% endif %}">
+
+  <div class="ac-header">
+    <div class="ac-icon">🏭</div>
+
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
+        <span class="ac-name">{{ a.nom }}</span>
+        <span class="badge" style="background:var(--surface2);color:var(--text-muted);font-size:10px;">{{ a.code }}</span>
+        {% if not a.is_active %}
+        <span class="badge" style="background:#f1f5f9;color:var(--text-muted);font-size:10px;">💤 Inactif</span>
+        {% else %}
+        <span class="badge badge-success" style="font-size:10px;">✅ Actif</span>
+        {% endif %}
+      </div>
+      {% if a.localisation %}
+      <div class="ac-loc">📍 {{ a.localisation }}</div>
+      {% endif %}
+      {% if a.responsable %}
+      <div class="text-small text-muted" style="margin-top:2px;">
+        👤 Responsable : <strong>{{ a.responsable.nom }} {{ a.responsable.prenom }}</strong>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:6px;flex-shrink:0;">
+      <button onclick="editAtelier(
+          '{{ a.id }}',
+          '{{ a.code|escapejs }}',
+          '{{ a.nom|escapejs }}',
+          '{{ a.localisation|default:''|escapejs }}',
+          '{{ a.responsable_id|default:'' }}',
+          '{{ a.description|default:''|escapejs }}',
+          {{ a.is_active|yesno:'true,false' }}
+        )" class="btn btn-outline btn-sm" title="Modifier">✏️ Modifier</button>
+
+      {% if a.nb_or_en_cours > 0 %}
+      <button class="btn btn-sm" disabled
+              style="border:1.5px solid var(--border);color:var(--text-muted);background:transparent;cursor:not-allowed;"
+              title="{{ a.nb_or_en_cours }} OR actif(s) — impossible de supprimer">
+        🗑 ({{ a.nb_or_en_cours }} OR)
+      </button>
+      {% else %}
+      <button onclick="demanderSuppression('{{ a.id }}', '{{ a.nom|escapejs }}')"
+              class="btn btn-sm"
+              style="border:1.5px solid var(--danger);color:var(--danger);background:transparent;">
+        🗑 Supprimer
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Stats de l'atelier -->
+  <div class="ac-body">
+    <div class="stat-chip">
+      <div class="sc-val">{{ a.nb_or_total }}</div>
+      <div class="sc-lbl">OR total</div>
+    </div>
+
+    <div class="stat-chip">
+      <div class="sc-val">{{ a.nb_or_en_cours }}</div>
+      <div class="sc-lbl">En cours</div>
+    </div>
+
+    <div class="stat-chip">
+      <div class="sc-val">{{ a.nb_techniciens }}</div>
+      <div class="sc-lbl">Technicien{{ a.nb_techniciens|pluralize }}</div>
+    </div>
+  </div>
+
+  {% if a.description %}
+  <div style="margin-top:8px;font-size:12px;color:var(--text-muted);font-style:italic;">
+    {{ a.description }}
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+{% else %}
+<div style="text-align:center;padding:60px;color:var(--text-muted);">
+  <div style="font-size:56px;margin-bottom:12px;">🏭</div>
+  <div class="font-bold" style="font-size:16px;margin-bottom:6px;">Aucun atelier créé</div>
+  <div class="text-small" style="margin-bottom:16px;">Créez votre premier atelier pour commencer à gérer les réparations.</div>
+  <button onclick="openForm()" class="btn btn-primary">➕ Créer le premier atelier</button>
+</div>
+{% endif %}
+
+<!-- ══ MODAL SUPPRESSION ════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-del">
+  <div class="modal-box">
+    <h3>🗑 Supprimer l'atelier</h3>
+    <p style="color:var(--text-muted);margin-bottom:16px;font-size:14px;">
+      Vous êtes sur le point de supprimer <strong id="modal-atelier-nom"></strong>.
+      Cette action est <strong>irréversible</strong>.
+    </p>
+    <div style="background:#fee2e2;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:20px;color:#991b1b;">
+      ⚠️ L'historique des OR passés sera conservé mais l'atelier ne sera plus disponible.
+    </div>
+    <form method="post" id="modal-del-form">
+      {% csrf_token %}
+      <input type="hidden" name="action"     value="supprimer">
+      <input type="hidden" name="atelier_id" id="modal-atelier-id" value="">
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="btn btn-danger" style="flex:1;">🗑 Confirmer la suppression</button>
+        <button type="button" onclick="fermerModal()" class="btn btn-outline" style="flex:1;">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Helpers tolérants ─────────────────────────────────────────
+function setVal(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value;
+}
+function setCheck(id, checked) {
+  const el = document.getElementById(id);
+  if (el) el.checked = checked;
+}
+
+// ── Formulaire ────────────────────────────────────────────────
+function openForm() {
+  setFormMode('creer');
+  document.getElementById('inline-form').classList.add('open');
+  document.getElementById('inline-form').scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(() => document.getElementById('f-nom').focus(), 200);
+}
+
+function closeForm() {
+  document.getElementById('inline-form').classList.remove('open');
+}
+
+function setFormMode(mode) {
+  const isCreer = mode === 'creer';
+  document.getElementById('form-title').textContent = isCreer ? '➕ Nouvel atelier' : '✏️ Modifier l\'atelier';
+  document.getElementById('f-action').value         = mode;
+  document.getElementById('f-atelier-id').value     = '';
+  document.getElementById('btn-lbl').textContent    = isCreer ? 'Créer l\'atelier' : 'Enregistrer les modifications';
+
+  if (isCreer) {
+    setVal('f-code', '');
+    setVal('f-nom', '');
+    setVal('f-localisation', '');
+    setVal('f-chef', '');
+    setVal('f-description', '');
+    setCheck('f-active', true);
+  }
+}
+
+function editAtelier(id, code, nom, loc, chefId, desc, isActive) {
+  setFormMode('modifier');
+  setVal('f-atelier-id', id);
+  setVal('f-code', code);
+  setVal('f-nom', nom);
+  setVal('f-localisation', loc);
+  setVal('f-chef', chefId);
+  setVal('f-description', desc);
+  setCheck('f-active', isActive);
+
+  const form = document.getElementById('inline-form');
+  form.classList.add('open');
+  form.scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(() => document.getElementById('f-nom').focus(), 200);
+}
+
+document.getElementById('atelier-form').addEventListener('submit', function() {
+  document.getElementById('form-spin').classList.add('show');
+});
+
+// ── Modal suppression ─────────────────────────────────────────
+function demanderSuppression(id, nom) {
+  document.getElementById('modal-atelier-id').value        = id;
+  document.getElementById('modal-atelier-nom').textContent = nom;
+  document.getElementById('modal-del').classList.add('open');
+}
+
+function fermerModal() {
+  document.getElementById('modal-del').classList.remove('open');
+}
+
+document.getElementById('modal-del').addEventListener('click', function(e) {
+  if (e.target === this) fermerModal();
+});
+</script>
+{% endblock %}

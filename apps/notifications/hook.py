@@ -10,6 +10,7 @@ Usage dans guerite/views.py :
 import logging
 
 from apps.notifications.services import envoyer_notification_bon_sortie
+from apps.notifications.sortie_mail import envoyer_notification_sortie_vehicule
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,22 @@ def notifier_bon_sortie_cree(bon):
     """
     try:
         ok = envoyer_notification_bon_sortie(bon)
+        if ok:
+            logger.info(f"Notification envoyée pour bon {bon.numero}")
+        else:
+            logger.warning(f"Notification non envoyée pour bon {bon.numero} (aucun destinataire ?)")
+    except Exception as e:
+        # On ne fait jamais crasher la vue à cause de l'email
+        logger.error(f"Erreur notification bon {bon.numero}: {e}")
+
+
+def notifier_sortie_vehicule(bon):
+    """
+    Appeler cette fonction juste après la création de n'importe quel bon de sortie.
+    Elle envoie automatiquement l'email aux destinataires actifs.
+    """
+    try:
+        ok = envoyer_notification_sortie_vehicule(bon)
         if ok:
             logger.info(f"Notification envoyée pour bon {bon.numero}")
         else:

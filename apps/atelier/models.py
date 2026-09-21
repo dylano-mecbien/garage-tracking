@@ -14,7 +14,6 @@ class Atelier(models.Model):
     nom = models.CharField(max_length=100, verbose_name="Nom de l'atelier")
     description = models.TextField(blank=True, verbose_name="Description")
     localisation = models.CharField(max_length=200, blank=True, verbose_name="Localisation")
-    capacite = models.IntegerField(default=10, verbose_name="Capacité (véhicules)")
     responsable = models.ForeignKey(
         'accounts.User', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='atelier_dirige',

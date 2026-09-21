@@ -200,7 +200,6 @@
 
 
 
-
   <div class="grid-2" style="margin-top:20px;"> 
 
   <!-- ═══ Véhicules présents ═══ -->
@@ -213,7 +212,7 @@
       {% if nb_a_traiter %}<span class="badge badge-danger" style="margin-left:6px;">{{ nb_a_traiter }} nouveau{{ nb_a_traiter|pluralize }}</span>{% endif %}
     </div>
 
-    {% for entree in entrees %}
+    {% for entree in entrees_sans_rec %}
     <div class="vcard {% if not entree.reception %}nouveau{% elif entree.reception.statut == 'TRAVAUX_TERMINES' or entree.reception.statut == 'BON_SORTIE_FAIT' %}termines{% elif entree.reception.statut == 'EN_ATELIER' or entree.reception.statut == 'PRESENT_ATELIER' or entree.reception.statut == 'TRAVAUX_EN_COURS' %}en-atelier{% endif %}">
       <div style="display:flex;justify-content:space-between;gap:10px;">
         <div style="flex:1;">

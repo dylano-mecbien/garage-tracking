@@ -186,7 +186,7 @@
   <a href="{% url 'index' %}" class="btn btn-outline">← Retour</a>
   {% if entree.motif == 'VISITE' or entree.bon_sortie.etats == 'APPROBATION'  %}
     <a href="{% url 'enregistrer_sortie' entree.id %}" class="btn btn-warning">
-      📤 Enregistrer SORTI
+      📤 Enregistrer la sortie
     </a>
   {% endif %}
 </div>

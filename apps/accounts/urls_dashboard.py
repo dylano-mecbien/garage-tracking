@@ -24,6 +24,9 @@ urlpatterns = [
   
     path('admin-garage/vehicule/<uuid:vehicule_id>/',         views.detail_vehicule,    name='detail_vehicule_admin'),
 
+     # Ateliers
+    path('ateliers/',                              views.admin_ateliers,                name='admin_ateliers'),
+ 
     path('dashboard/',                     views.admin_dashboard,             name='admin_dashboard'),
     path('utilisateurs/',                  views.liste_utilisateurs,          name='liste_utilisateurs'),
     path('utilisateurs/creer/',            views.creer_utilisateur,           name='creer_utilisateur'),

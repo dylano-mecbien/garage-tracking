@@ -91,6 +91,8 @@
   <div class="card-header"><div class="card-title">📤 Confirmer la sortie</div></div>
 
   {% if entree.motif == 'VISITE' or bon_sortie %}
+
+  
   <form method="post">
     {% csrf_token %}
     

@@ -36,7 +36,6 @@ urlpatterns = [
     path('bon-sortie/consulter/', views.consulter_bon_sortie, name='consulter_bon_sortie'),
 
 
- 
     # ── AJAX ────────────────────────────────────────────────────
     path('ajax/clients/',             views.autocomplete_clients,    name='autocomplete_clients'),
     path('ajax/client/creer/',        views.creer_client_ajax,       name='creer_client_ajax'),

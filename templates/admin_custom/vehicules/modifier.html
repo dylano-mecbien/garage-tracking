@@ -10,13 +10,14 @@
 <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
 <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
 <li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
-<li class="has-submenu">
-<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
-<ul class="submenu">
+
+<div class="sidebar-section">Bases</div>
+<ul class="sidebar-nav">
 <li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
 <li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
 <li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
 <li><a href="{% url 'admin_vehicules' %}" class="active"><span class="icon">🚗</span> Véhicules</a></li>
+<li><a href="{% url 'admin_ateliers' %}" ><span class="icon">🏭</span> Ateliers</a></li>
 </ul>
 </li>
 <li class="sidebar-section">Mouvements</li>
@@ -115,7 +116,7 @@ value="{{ v.puissance|default:'' }}" placeholder="—" min="0">
 
 <div class="form-row">
 <div class="form-group">
-<label class="form-label">N° Assurance</label>
+<label class="form-label">Nom de l'assurance</label>
 <input type="text" name="num_assurance" class="form-input"
 value="{{ v.num_assurance|default:'' }}">
 </div>
@@ -127,7 +128,7 @@ value="{{ v.expiry_assurance|date:'Y-m-d'|default:'' }}">
 </div>
 
 <div class="form-group">
-<label class="form-label">🔧 Date visite technique</label>
+<label class="form-label">🔧 Date prochaine visite technique</label>
 <input type="date" name="date_visite" class="form-input"
 value="{{ v.date_visite|date:'Y-m-d'|default:'' }}" style="max-width:220px;">
 {% if v.date_visite %}

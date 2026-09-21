@@ -15,7 +15,7 @@ from django.utils import timezone
 class StatutVehicule(models.TextChoices):
     # Étape 1 : en réception
     EN_COURS            = 'EN_COURS',           'Réception — En cours'
-    RAPPORT_FAIT        = 'RAPPORT_FAIT',        'Réception — Rapport établi'
+    RAPPORT_FAIT        = 'RAPPORT_FAIT',        'Réception — Reception etablie'
     # Étape 2 : atelier
     EN_ATELIER          = 'EN_ATELIER',          'Atelier — En transit'
     PRESENT_ATELIER     = 'PRESENT_ATELIER',     'Atelier — Présent (fiche contrôle OK)'
@@ -211,3 +211,16 @@ class Notification(models.Model):
     class Meta:
         db_table = 'notifications_reception'
         ordering = ['-created_at']
+
+
+
+
+
+
+
+
+
+
+
+
+

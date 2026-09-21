@@ -1,55 +1,71 @@
 from django.urls import path
 from . import views
 
+
 urlpatterns = [
-    path('dashboard/',                           views.dashboard,          name='dashboard_reception'),
-    path('liste/',                               views.liste_receptions,   name='liste_receptions'),
-    path('creer/',                               views.creer_reception,    name='creer_reception'),
-    path('<uuid:rec_id>/',                       views.detail_reception,   name='detail_reception'),
-    path('<uuid:rec_id>/rapport/',               views.creer_rapport,      name='creer_rapport'),
-    path('<uuid:rec_id>/ateliers/',              views.choisir_ateliers,   name='choisir_ateliers'),
-    path('<uuid:rec_id>/or/',                    views.creer_or,           name='creer_or_rec'),
+    # ── Dashboard & liste ────────────────────────────────────────
+    path('dashboard/',                              views.dashboard,                   name='dashboard_reception'),
+    path('liste/',                                  views.liste_receptions,            name='liste_receptions'),
+    path('creer/',                                   views.creer_reception,             name='creer_reception'),
 
-    path('historique/',                          views.historique_entrees, name='historique_entrees_rec'),
-    path('vehicule/<uuid:vehicule_id>/',         views.detail_vehicule,    name='detail_vehicule_rec'),
-    path('or/<uuid:or_id>/cloture/',             views.cloture_or,         name='cloture_or_rec'),
-    path('or/<uuid:or_id>/reouverture/',         views.reouverture_or,     name='reouverture_or_rec'),
-    path('bon/<uuid:bon_id>/',                   views.detail_bon_sortie,  name='detail_bon_sortie_rec'),
-    path('bon/<uuid:bon_id>/pdf/',               views.pdf_bon_sortie,     name='pdf_bon_sortie_rec'),
-    path('bons/export-pdf/',                     views.export_bons_pdf, name='export_bons_liste_pdf'),
-    path('notifs/json/',                         views.notifs_json,        name='notifs_json_rec'),
-    path('notifs/lues/',                         views.marquer_lues,       name='marquer_lues_rec'),
-    path('vehicules-presents/', views.liste_vehicules_presents, name='vehicules_presents_rec'),
-    path('<uuid:rec_id>/bon-sortie/',            views.creer_bon_sortie,   name='creer_bon_sortie_rec'),
-    path('bons-sortie/creer/',                        views.creer_bon_sortie_direct,   name='creer_bon_sortie_direct'),
-    path('entree/<uuid:entree_id>/', views.detail_entree, name='detail_entree_rec'),
-        # ── Bons de sortie ──────────────────────────────────────────
-    path('bons-sortie/',                              views.liste_bons_sortie,         name='liste_bons_sortie'),
-    path('bons-sortie/<uuid:bon_id>/',                views.detail_bon_sortie_guerite, name='detail_bon_sortie_guerite'),
-    path('bons-sortie/<uuid:bon_id>/valider/',        views.valider_bon_sortie_divers,name='valider_bon_sortie_guerite'),
-    path('bons-sortie/<uuid:bon_id>/validerAdmin/',        views.valider_bon_sortie_vehicule,name='valider_bon_sortie_super'),
+    # ── Réceptions (détail + actions) ────────────────────────────
+    path('<uuid:rec_id>/',                          views.detail_reception,            name='detail_reception'),
+    path('<uuid:rec_id>/rapport/',                  views.creer_rapport,               name='creer_rapport'),
+    path('<uuid:rec_id>/ateliers/',                 views.choisir_ateliers,            name='choisir_ateliers'),
+    path('<uuid:rec_id>/or/',                       views.creer_or,                    name='creer_or_rec'),
+    path('<uuid:rec_id>/bon-sortie/',               views.creer_bon_sortie,            name='creer_bon_sortie_rec'),
 
-    path('bons-sortie/<uuid:bon_id>/pdf/',            views.pdf_bon_sortie_guerite,    name='pdf_bon_sortie_guerite'),
-    path('bons-sortie/creer-divers/',            views.creer_bon_sortie_divers,    name='creer_bon_sortie_divers'),
-    path('autocomplete/vehicules-presents/', views.autocomplete_vehicules_presents, name='autocomplete_vehicules_presents'),
-    path('autocomplete/demandeur/', views.autocomplete_demandeur, name='autocomplete_demandeur'),
-    path('demandeur/creer-ajax/', views.creer_demandeur_ajax, name='creer_demandeur_ajax'),
-    path('api_vehicules/',                    views.api_vehicules,      name='api_vehicules'),
-    path('api_entrees_vehicule/',             views.api_entrees_vehicule,      name='api_entrees_vehicule'),
+    # ── Historique & véhicules présents ──────────────────────────
+    path('historique/',                             views.historique_entrees,          name='historique_entrees_rec'),
+    path('vehicules-presents/',                     views.liste_vehicules_presents,    name='vehicules_presents_rec'),
+    path('entree/<uuid:entree_id>/',                views.detail_entree,               name='detail_entree_rec'),
+    path('vehicule/<uuid:vehicule_id>/',            views.detail_vehicule,             name='detail_vehicule_rec'),
 
+    # ── Ordres de réparation ─────────────────────────────────────
+    path('or/<uuid:or_id>/cloture/',                views.cloture_or,                  name='cloture_or_rec'),
+    path('or/<uuid:or_id>/reouverture/',            views.reouverture_or,              name='reouverture_or_rec'),
 
-        # Véhicules
-    path('vehicules/',                                views.rec_vehicules,               name='rec_vehicules'),
-    path('vehicules/<uuid:vehicule_id>/modifier/',    views.rec_modifier_vehicule,       name='rec_modifier_vehicule'),
-    path('vehicules/<uuid:vehicule_id>/mouvements/',  views.rec_mouvements_vehicule,     name='rec_mouvements_vehicule'),
-        # Clients
-    path('clients/',                               views.rec_clients,             name='rec_clients'),
-    path('clients/<uuid:client_id>/',              views.rec_detail_client,       name='rec_detail_client'),
-    path('clients/<uuid:client_id>/modifier/',     views.rec_modifier_client,     name='rec_modifier_client'),
-    # Conducteurs
-    path('conducteurs/',                              views.rec_conducteurs,             name='rec_conducteurs'),
+    # ── Bons de sortie — liste & export ──────────────────────────
+    path('bons-sortie/',                            views.liste_bons_sortie,           name='liste_bons_sortie'),
+    path('bons/export-pdf/',                        views.export_bons_pdf,             name='export_bons_liste_pdf'),
 
-    path('client/export-pdf/',                     views.export_client_pdf, name='export_client_pdf'),
-     path('vehicules/export-pdf/',                     views.export_vehicules_pdf, name='export_vehicules_pdf'),
+    # ── Bons de sortie — création ────────────────────────────────
+    path('bons-sortie/creer/',                      views.creer_bon_sortie_direct,     name='creer_bon_sortie_direct'),
+    path('bons-sortie/creer-divers/',               views.creer_bon_sortie_divers,     name='creer_bon_sortie_divers'),
 
+    # ── Bons de sortie — détail & actions ────────────────────────
+    path('bons-sortie/<uuid:bon_id>/',              views.detail_bon_sortie_guerite,   name='detail_bon_sortie_guerite'),
+    path('bons-sortie/<uuid:bon_id>/valider/',      views.valider_bon_sortie_divers,   name='valider_bon_sortie_guerite'),
+    path('bons-sortie/<uuid:bon_id>/validerAdmin/', views.valider_bon_sortie_vehicule, name='valider_bon_sortie_super'),
+    path('bons-sortie/<uuid:bon_id>/pdf/',          views.pdf_bon_sortie_guerite,      name='pdf_bon_sortie_guerite'),
+
+    # ── Bons de sortie — alias reception (bon/<id>) ──────────────
+    path('bon/<uuid:bon_id>/',                      views.detail_bon_sortie,           name='detail_bon_sortie_rec'),
+    path('bon/<uuid:bon_id>/pdf/',                  views.pdf_bon_sortie,              name='pdf_bon_sortie_rec'),
+
+    # ── Autocomplete & AJAX ──────────────────────────────────────
+    path('autocomplete/vehicules-presents/',        views.autocomplete_vehicules_presents, name='autocomplete_vehicules_presents'),
+    path('autocomplete/demandeur/',                 views.autocomplete_demandeur,      name='autocomplete_demandeur'),
+    path('demandeur/creer-ajax/',                   views.creer_demandeur_ajax,        name='creer_demandeur_ajax'),
+    path('api/vehicules/',                          views.api_vehicules,               name='api_vehicules'),
+    path('api/entrees_vehicule/',                   views.api_entrees_vehicule,        name='api_entrees_vehicule'),
+
+    # ── Notifications ────────────────────────────────────────────
+    path('notifs/json/',                            views.notifs_json,                 name='notifs_json_rec'),
+    path('notifs/lues/',                            views.marquer_lues,                name='marquer_lues_rec'),
+
+    # ── Bases — Véhicules ────────────────────────────────────────
+    path('vehicules/',                              views.rec_vehicules,               name='rec_vehicules'),
+    path('vehicules/<uuid:vehicule_id>/modifier/',  views.rec_modifier_vehicule,       name='rec_modifier_vehicule'),
+    path('vehicules/<uuid:vehicule_id>/mouvements/', views.rec_mouvements_vehicule,    name='rec_mouvements_vehicule'),
+    path('vehicules/export-pdf/',                   views.export_vehicules_pdf,        name='export_vehicules_pdf'),
+
+    # ── Bases — Clients ──────────────────────────────────────────
+    path('clients/',                                views.rec_clients,                 name='rec_clients'),
+    path('clients/<uuid:client_id>/',               views.rec_detail_client,           name='rec_detail_client'),
+    path('clients/<uuid:client_id>/modifier/',      views.rec_modifier_client,         name='rec_modifier_client'),
+    path('client/export-pdf/',                      views.export_client_pdf,           name='export_client_pdf'),
+
+    # ── Bases — Conducteurs ──────────────────────────────────────
+    path('conducteurs/',                            views.rec_conducteurs,             name='rec_conducteurs'),
 ]
