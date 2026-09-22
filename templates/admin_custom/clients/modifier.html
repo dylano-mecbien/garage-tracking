@@ -1,104 +1,166 @@
 {% extends "base.html" %}
 {% block title %}Modifier {{ c }}{% endblock %}
 {% block page_title %}✏️ Modifier le client{% endblock %}
+
 {% block sidebar_nav %}
 <ul class="sidebar-nav">
-<li><a href="{% url 'index' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
+<li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
 <li class="sidebar-section">Administration</li>
 <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
 <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
-<li><a href="{% url 'admin_nettoyage' %}" ><span class="icon">🧹</span> Nettoyage</a></li>
-
-<div class="sidebar-section">Bases</div>
-<ul class="sidebar-nav">
+<li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
+<li class="sidebar-section">Bases</li>
 <li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
 <li><a href="{% url 'admin_clients' %}" class="active"><span class="icon">👥</span> Clients</a></li>
-<li><a href="{% url 'admin_conducteurs' %}" ><span class="icon">🪪</span> Conducteurs</a></li>
+<li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
 <li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
-<li><a href="{% url 'admin_ateliers' %}" ><span class="icon">🏭</span> Ateliers</a></li>
-</ul>
-
-</li>
+<li><a href="{% url 'admin_ateliers' %}"><span class="icon">🏭</span> Ateliers</a></li>
 <li class="sidebar-section">Mouvements</li>
 <li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
 <li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
-<li><a href="{% url 'liste_receptions_admin' %}" ><span class="icon">📥</span> Historique des réceptions</a></li>
+<li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
 <li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
 </ul>
-
 {% endblock %}
+
 {% block content %}
 <div class="page-header">
   <div>
     <h1>{{ c }}</h1>
     <div class="breadcrumb"><a href="{% url 'admin_clients' %}">Clients</a> › Modifier</div>
   </div>
-   <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
 </div>
-<div class="card" style="max-width:620px;">
-  <form method="post">
-    {% csrf_token %}
-    {% if c.type_client == 'ENTREPRISE' %}
+
+<div class="card" style="max-width:640px;">
+<form method="post" id="client-form">
+  {% csrf_token %}
+
+  <!-- Type -->
+  <div class="form-group">
+    <label class="form-label">Type de client</label>
+    <select name="type_client" id="type_client" class="form-select">
+      <option value="PARTICULIER" {% if c.type_client != 'ENTREPRISE' %}selected{% endif %}>Particulier</option>
+      <option value="ENTREPRISE" {% if c.type_client == 'ENTREPRISE' %}selected{% endif %}>Entreprise</option>
+    </select>
+  </div>
+
+  <!-- ── Particulier ── -->
+  <div id="flds-part">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label"><span class="required-label">Nom</span> *</label>
+        <input type="text" id="p-nom" name="nom" class="form-input"
+               placeholder="Nom de famille" value="{{ c.nom }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prénom</label>
+        <input type="text" id="p-prenom" name="prenom" class="form-input"
+               placeholder="Prénom" value="{{ c.prenom|default:'' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Téléphone</label>
+        <input type="tel" id="p-tel" name="telephone" class="form-input"
+               placeholder="6XX XXX XXX" value="{{ c.telephone|default:'' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="p-email" name="email" class="form-input"
+               placeholder="email@exemple.cm" value="{{ c.email|default:'' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Adresse</label>
+        <input type="text" id="p-adresse" name="adresse" class="form-input"
+               placeholder="Quartier, rue..." value="{{ c.adresse|default:'' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ville</label>
+        <input type="text" id="p-ville" name="ville" class="form-input"
+               placeholder="Douala, Yaoundé..." value="{{ c.ville|default:'' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Entreprise ── -->
+  <div id="flds-ent" style="display:none">
     <div class="form-group">
-      <label class="form-label">Raison sociale *</label>
-      <input type="text" name="nom" class="form-input" value="{{ c.nom }}" required>
+      <label class="form-label"><span class="required-label">Raison sociale</span> *</label>
+      <input type="text" id="e-nom" name="nom" class="form-input"
+             placeholder="Nom de l'entreprise" value="{{ c.nom }}">
     </div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">NINEA / RC</label>
-        <input type="text" name="ninea" class="form-input" value="{{ c.ninea|default:'' }}">
+        <input type="text" id="e-ninea" name="ninea" class="form-input"
+               placeholder="NINEA ou RC" value="{{ c.ninea|default:'' }}">
       </div>
-      <div class="form-group">
-        <label class="form-label">Téléphone *</label>
-        <input type="tel" name="telephone" class="form-input" value="{{ c.telephone }}" required>
-      </div>
-    </div>
-    {% else %}
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Nom *</label>
-        <input type="text" name="nom" class="form-input" value="{{ c.nom }}" required>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Prénom</label>
-        <input type="text" name="prenom" class="form-input" value="{{ c.prenom|default:'' }}">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Téléphone *</label>
-        <input type="tel" name="telephone" class="form-input" value="{{ c.telephone }}" required>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Téléphone 2</label>
-        <input type="tel" name="telephone2" class="form-input" value="{{ c.telephone2|default:'' }}">
-      </div>
-    </div>
-    {% endif %}
-    <div class="form-row">
       <div class="form-group">
         <label class="form-label">Email</label>
-        <input type="email" name="email" class="form-input" value="{{ c.email|default:'' }}">
+        <input type="email" id="e-email" name="email" class="form-input"
+               placeholder="contact@entreprise.com" value="{{ c.email|default:'' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label"><span class="required-label">Nom du correspondant</span> *</label>
+        <input type="text" id="e-contact-nom" name="nom_correspondant" class="form-input"
+               placeholder="Nom du contact"
+               value="{{ c.nom_correspondant|default:c.prenom|default:'' }}">
       </div>
       <div class="form-group">
-        <label class="form-label">Ville</label>
-        <input type="text" name="ville" class="form-input" value="{{ c.ville|default:'' }}">
+        <label class="form-label">Téléphone du correspondant</label>
+        <input type="tel" id="e-contact-tel" name="telephone" class="form-input"
+               placeholder="6XX XXX XXX" value="{{ c.telephone|default:'' }}">
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Adresse</label>
-      <textarea name="adresse" class="form-textarea" rows="2">{{ c.adresse|default:'' }}</textarea>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Ville</label>
+        <input type="text" id="e-ville" name="ville" class="form-input"
+               placeholder="Douala, Yaoundé..." value="{{ c.ville|default:'' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Adresse</label>
+        <input type="text" id="e-adresse" name="adresse" class="form-input"
+               placeholder="Quartier, rue, immeuble..." value="{{ c.adresse|default:'' }}">
+      </div>
     </div>
-    <!-- Badge type -->
-    <div style="padding:10px 14px;background:var(--surface2);border-radius:8px;font-size:13px;margin-bottom:16px;">
-      Type : <strong>{% if c.type_client == 'ENTREPRISE' %}🏢 Entreprise{% else %}🧑 Particulier{% endif %}</strong>
-      <span class="text-muted"> — non modifiable</span>
-    </div>
-    <hr>
-    <div style="display:flex;gap:10px;">
-      <button type="submit" class="btn btn-primary" style="padding:10px 24px;">💾 Enregistrer</button>
-      <a href="{% url 'admin_clients' %}" class="btn btn-outline">Annuler</a>
-    </div>
-  </form>
+  </div>
+
+  <hr>
+  <div style="display:flex;gap:12px;">
+    <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+    <a href="{% url 'admin_clients' %}" class="btn btn-outline">Annuler</a>
+  </div>
+</form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const typeClientSelect = document.getElementById('type_client');
+const fldsPart = document.getElementById('flds-part');
+const fldsEnt = document.getElementById('flds-ent');
+
+function disableFields(container, disabled) {
+  container.querySelectorAll('input, select, textarea').forEach(el => {
+    el.disabled = disabled;
+  });
+}
+
+function updateClientType() {
+  const isEntreprise = typeClientSelect.value === 'ENTREPRISE';
+  fldsPart.style.display = isEntreprise ? 'none' : 'block';
+  fldsEnt.style.display = isEntreprise ? 'block' : 'none';
+  disableFields(fldsPart, isEntreprise);
+  disableFields(fldsEnt, !isEntreprise);
+}
+
+typeClientSelect.addEventListener('change', updateClientType);
+updateClientType();
+</script>
 {% endblock %}

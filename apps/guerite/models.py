@@ -5,6 +5,9 @@ import uuid
 from django.db import models
 from django.utils import timezone
 
+import re
+from django.db import transaction
+
 
 class MotifEntree(models.TextChoices):
     VISITE = 'VISITE', 'Visite'
@@ -72,11 +75,32 @@ class EnregistrementEntree(models.Model):
     def save(self, *args, **kwargs):
         if not self.numero:
             now = timezone.now()
-            count = EnregistrementEntree.objects.filter(
-                date_entree__date=now.date()
-            ).count() + 1
-            self.numero = f"ENT-{now.strftime('%Y%m%d')}-{count:03d}"
-        super().save(*args, **kwargs)
+            prefix = f"ENT-{now.strftime('%Y%m%d')}-"
+
+            with transaction.atomic():
+                last = (
+                    EnregistrementEntree.objects
+                    .select_for_update()
+                    .filter(numero__startswith=prefix)
+                    .order_by('-numero')
+                    .values_list('numero', flat=True)
+                    .first()
+                    )
+                if last:
+                    match = re.search(r'(\d+)$', last)
+                    next_num = int(match.group(1)) + 1 if match else 1
+                else:
+                    next_num = 1
+
+                self.numero = f"{prefix}{next_num:03d}"
+
+                while EnregistrementEntree.objects.filter(numero=self.numero).exists():
+                    next_num += 1
+                    self.numero = f"{prefix}{next_num:03d}"
+
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
 
     @property

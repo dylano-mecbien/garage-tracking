@@ -743,11 +743,14 @@ def enregistrer_sortie(request, entree_id):
             bon_sortie.date_validation = timezone.now()
             bon_sortie.etats = EtatBon.VALIDER
             bon_sortie.save()
-            notifier_sortie_vehicule(bon_sortie)
+            
             entree.bon_sortie = bon_sortie
 
         entree.save()
 
+        if entree.motif != MotifEntree.VISITE:
+            notifier_sortie_vehicule(bon_sortie)
+            
         log_action(
             request,
             ActionType.CHANGEMENT_STATUT,

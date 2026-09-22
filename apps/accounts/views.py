@@ -13,6 +13,7 @@ from django.utils import timezone
 from django.db.models import Count, Q
 from django.core.files.base import ContentFile
 import json
+from apps.guerite.forms import ClientForm, VehiculeForm
 from apps.guerite.views import PHOTO_FIELDS
 from apps.notifications.hook import notifier_bon_sortie_cree
 from apps.reception.forms import BonSortieForm
@@ -23,7 +24,7 @@ from .models import User, Role, LoginAttempt
 from .decorators import admin_required
 from apps.audit.service import log_action
 from apps.audit.models import ActionType
-from apps.vehicules.models import Vehicule, Client
+from apps.vehicules.models import Marque, Vehicule, Client
 from apps.atelier.models import OrdreReparation, Atelier
 from apps.guerite.models import BonSortie, EnregistrementEntree, MotifEntree, StatutEntree, StatutViewHinstorisue, TypeBon
 from django.core.serializers.json import DjangoJSONEncoder
@@ -569,6 +570,97 @@ def liste_vehicules_presents(request):
 
 
 @admin_required
+def admin_creer_vehicule(request):
+    """Version améliorée avec type propriétaire et photos multiples."""
+    client_id = request.GET.get('client_id')
+    client_preselect = None
+    if client_id:
+        try:
+            c = Client.objects.get(id=client_id)
+            client_preselect = str(c)
+        except Client.DoesNotExist:
+            client_id = None
+ 
+    form = VehiculeForm(initial={'client': client_id} if client_id else {})
+ 
+    if request.method == 'POST':
+        form = VehiculeForm(request.POST, request.FILES)
+        # Validation manuelle du client (sélectionné via AJAX)
+        client_id_post = request.POST.get('client')
+        if not client_id_post:
+            form.add_error('client', 'Veuillez sélectionner un propriétaire.')
+ 
+        if form.is_valid():
+            vehicule = form.save(commit=False)
+            vehicule.created_by = request.user
+
+            # Récupération ou création de la marque
+            marque_nom = form.cleaned_data['marque'].strip()
+            marque, _ = Marque.objects.get_or_create(nom=marque_nom)
+            
+            # Récupération ou création du modèle (lié à cette marque)
+            modele_nom = form.cleaned_data['modele'].strip()
+
+
+
+            # Immatriculation en majuscules 
+            vehicule.immatriculation = vehicule.immatriculation.upper()
+            vehicule.save()
+ 
+        
+            photos_paths = []
+            for i in range(3):
+                 photo_file = request.FILES.get(f'photo_{i}')
+                 if photo_file:
+                      ext = os.path.splitext(photo_file.name)[1]
+                      immat_clean = vehicule.immatriculation.replace(' ', '').replace('-', '').upper()
+                      filename = f"vehicules/photos/{immat_clean}_{i}{ext}"
+                      saved_path = default_storage.save(filename, ContentFile(photo_file.read())) 
+                      photos_paths.append(saved_path)
+
+                      if photos_paths:
+                         vehicule.photos = ';'.join(photos_paths)
+                         vehicule.photo = photos_paths[0]
+                         vehicule.save(update_fields=['photos', 'photo'])
+               
+            log_action(request, ActionType.CREATION, 'GUERITE', vehicule)
+            messages.success(request, f"Véhicule {vehicule.immatriculation} créé.")
+            return redirect(f"/admin/admin-garage/vehicule/{vehicule.id}")
+        
+    return render(request, 'admin_custom/vehicules/creer_vehicule.html', { 
+        'form':             form,
+        'client_id':        client_id,
+        'client_preselect': client_preselect,
+    })
+
+
+
+@admin_required
+def modifier_motif_admin(request, entree_id):
+    entree = get_object_or_404(EnregistrementEntree, pk=entree_id)
+
+    if request.method == "POST":
+        motif = request.POST.get("motif")
+
+        if motif in ["REPARATION", "VISITE" , "STATIONNEMENT", "INTERNE"]:
+            entree.motif = motif
+            entree.save()
+
+            messages.success(
+                request,
+                f"Motif modifié : {entree.get_motif_display()}"
+            )
+            
+    log_action(
+        request,
+        ActionType.MODIFICATION,
+        'ADMIN',
+        entree,
+        {'motif': entree.motif}
+    )
+    return redirect("detail_entree_admin", entree_id=entree.id)
+
+@admin_required
 def admin_vehicules(request):
     from apps.vehicules.models import Vehicule
  
@@ -813,6 +905,25 @@ def admin_modifier_vehicule(request, vehicule_id):
 #  CLIENTS
 # ════════════════════════════════════════════════════════
  
+
+
+@admin_required 
+def admin_creer_client(request):
+    form = ClientForm()
+    if request.method == 'POST':
+        form = ClientForm(request.POST)
+        if form.is_valid():
+            client = form.save(commit=False)
+            client.created_by = request.user
+            client.save()
+            log_action(request, ActionType.CREATION, 'GUERITE', client)
+            messages.success(request, f"Client {client} créé.")
+            return redirect('admin_clients')
+
+        
+    return render(request, 'admin_custom/clients/creer_client.html', {'form': form})
+
+
 @admin_required
 def admin_clients(request):
     from apps.vehicules.models import Client
@@ -896,24 +1007,38 @@ def admin_detail_client(request, client_id):
  
 @admin_required
 def admin_modifier_client(request, client_id):
-    from apps.vehicules.models import Client
- 
     c = get_object_or_404(Client, id=client_id)
- 
+
     if request.method == 'POST':
-        c.nom        = request.POST.get('nom', c.nom).strip()
-        c.prenom     = request.POST.get('prenom', c.prenom or '').strip()
-        c.telephone  = request.POST.get('telephone', c.telephone).strip()
-        c.telephone2 = request.POST.get('telephone2', c.telephone2 or '').strip()
-        c.email      = request.POST.get('email', c.email or '').strip()
-        c.adresse    = request.POST.get('adresse', c.adresse or '').strip()
-        c.ville      = request.POST.get('ville', c.ville or '').strip()
-        c.ninea      = request.POST.get('ninea', c.ninea or '').strip()
+        c.type_client = request.POST.get('type_client', c.type_client)
+
+        if c.type_client == 'ENTREPRISE':
+            c.nom = (request.POST.get('nom_entreprise') or request.POST.get('nom') or c.nom).strip()
+            c.prenom = ''  # jamais None
+            c.ninea = request.POST.get('ninea', '').strip() or ''
+            c.telephone = (
+                request.POST.get('telephone_entreprise')
+                or request.POST.get('telephone')
+                or ''
+            ).strip()
+            c.nom_correspondant = request.POST.get('nom_correspondant', '').strip() or ''
+            c.telephone2 = ''
+        else:
+            c.nom = request.POST.get('nom', c.nom).strip()
+            # Important : '' au lieu de None
+            c.prenom = request.POST.get('prenom', '').strip() or ''
+            c.ninea = ''
+            c.telephone = request.POST.get('telephone', '').strip() or ''
+            c.telephone2 = request.POST.get('telephone2', '').strip() or ''
+
+        c.email = request.POST.get('email', '').strip() or ''
+        c.ville = request.POST.get('ville', '').strip() or ''
+        c.adresse = request.POST.get('adresse', '').strip() or ''
+
         c.save()
-        log_action(request, ActionType.MODIFICATION, 'ADMIN', c)
         messages.success(request, f"Client {c} mis à jour.")
         return redirect('admin_clients')
- 
+
     return render(request, 'admin_custom/clients/modifier.html', {'c': c})
  
 

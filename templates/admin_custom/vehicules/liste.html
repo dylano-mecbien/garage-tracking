@@ -147,10 +147,13 @@
     <div class="filter-grid">
       <div>
         <label class="form-label">🔍 Recherche</label>
+        
         <input type="text" name="q" value="{{ filters.q }}" class="form-input"
-               placeholder="Immatriculation, marque, client, châssis..."
-               oninput="debounceSubmit()">
+       placeholder="Immatriculation, marque, client, châssis..."
+       id="search-q">
       </div>
+
+      
       <div>
         <label class="form-label">Carburant</label>
         <select name="carburant" class="form-select" onchange="this.form.submit()">
@@ -320,15 +323,20 @@
             <div id="mvt-content-{{ v.id }}"><div class="text-small text-muted">Chargement...</div></div>
           </td>
         </tr>
-        {% empty %}
-        <tr>
-          <td colspan="9" style="text-align:center;padding:50px;color:var(--text-muted);">
-            <div style="font-size:40px;margin-bottom:10px;">🚗</div>
-            Aucun véhicule trouvé
-            {% if filters.q %}<br><a href="{% url 'admin_vehicules' %}">Voir tous</a>{% endif %}
-          </td>
-        </tr>
-        {% endfor %}
+{% empty %}
+<tr>
+  <td colspan="9" style="text-align:center;padding:50px;color:var(--text-muted);">
+    <div style="font-size:40px;margin-bottom:10px;">🚗</div>
+    <div>Aucun véhicule trouvé</div>
+    {% if filters.q %}
+      <div class="text-muted" style="margin-top:6px;">Aucun résultat pour « {{ filters.q }} »</div>
+      <div class="mt-2">
+        <a href="{% url 'creer_vehicule_admin' %}">Nouveau Véhicule</a>
+      </div>
+    {% endif %}
+  </td>
+</tr>
+{% endfor %}
       </tbody>
     </table>
   </div>
@@ -348,8 +356,17 @@ function filtrerPresence(val){
   document.getElementById('filter-form').submit();
 }
 let dbt;
-function debounceSubmit(){clearTimeout(dbt);dbt=setTimeout(()=>document.getElementById('filter-form').submit(),500);}
 document.addEventListener('click',e=>{if(!e.target.closest('.export-wrap'))document.getElementById('exp-menu').classList.remove('open');});
+
+
+// Plus de submit automatique à chaque frappe
+document.getElementById('search-q').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('filter-form').submit();
+  }
+});
+
 
 function exportCSV(){
   const rows=[['Immat.','Marque','Modèle','Année','Couleur','Carburant','Transmission','Propriétaire','Téléphone','Présence','Assurance exp.','Visite tech.']];

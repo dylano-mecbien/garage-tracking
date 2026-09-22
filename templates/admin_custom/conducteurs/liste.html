@@ -102,7 +102,8 @@
     <div class="filter-grid">
       <div><label class="form-label">🔍 Recherche</label>
         <input type="text" name="q" value="{{ filters.q }}" class="form-input"
-               placeholder="Nom, téléphone, CNI, permis..." oninput="debounceSubmit()"></div>
+               placeholder="Nom, téléphone, CNI, permis..." id="search-q">
+              </div>
       <div><label class="form-label">Catégorie permis</label>
         <select name="categorie" class="form-select" onchange="this.form.submit()">
           <option value="">Toutes</option>
@@ -189,7 +190,15 @@ function editCond(id,nom,prenom,tel,tel2,cni,permis,cat){
   document.getElementById('inline-form').scrollIntoView({behavior:'smooth',block:'start'});
 }
 document.getElementById('cond-form').addEventListener('submit',function(){document.getElementById('form-spin').classList.add('show');});
-let dbt;function debounceSubmit(){clearTimeout(dbt);dbt=setTimeout(()=>document.getElementById('filter-form').submit(),500);}
+
+// Plus de submit automatique à chaque frappe
+document.getElementById('search-q').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('filter-form').submit();
+  }
+});
+
 document.addEventListener('click',e=>{if(!e.target.closest('.export-wrap'))document.getElementById('exp-menu')?.classList.remove('open');});
 function exportCSV(){
   const rows=[['Nom','Prénom','Téléphone','Téléphone 2','CNI','Permis','Catégorie','Passages']];

@@ -160,9 +160,12 @@
 
     <hr>
     <div style="display:flex;gap:12px;">
-      <button type="submit" class="btn btn-accent" style="font-size:15px;padding:12px 24px;">
-        ✅ Enregistrer l'entrée
-      </button>
+
+
+      <button type="submit" id="btn-enregistrer" class="btn btn-accent" style="font-size:15px;padding:12px 24px;">
+  ✅ Enregistrer l'entrée
+</button>
+
       <a href="{% url 'index' %}" class="btn btn-outline">Annuler</a>
     </div>
   </form>
@@ -184,6 +187,21 @@
 {% block extra_js %}
 <script>
 let dbt;
+
+
+// ── Anti double-clic ──────────────────────────────────────
+document.getElementById('entree-form').addEventListener('submit', function (e) {
+  const btn = document.getElementById('btn-enregistrer');
+  if (btn.disabled) {
+    e.preventDefault();
+    return;
+  }
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+  btn.style.cursor = 'not-allowed';
+  btn.innerHTML = '⏳ Enregistrement...';
+});
+
 
 // ── Recherche conducteur ──────────────────────────────────────
 document.getElementById('cond-search').addEventListener('input', function() {

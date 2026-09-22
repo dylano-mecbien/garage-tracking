@@ -59,6 +59,11 @@ urlpatterns = [
     path('vehicules/<uuid:vehicule_id>/modifier/',  views.rec_modifier_vehicule,       name='rec_modifier_vehicule'),
     path('vehicules/<uuid:vehicule_id>/mouvements/', views.rec_mouvements_vehicule,    name='rec_mouvements_vehicule'),
     path('vehicules/export-pdf/',                   views.export_vehicules_pdf,        name='export_vehicules_pdf'),
+    path(
+            "entrees/<uuid:entree_id>/modifier-motif/",
+            views.modifier_motif_reception,
+            name="modifier_motif_reception"
+        ),
 
     # ── Bases — Clients ──────────────────────────────────────────
     path('clients/',                                views.rec_clients,                 name='rec_clients'),

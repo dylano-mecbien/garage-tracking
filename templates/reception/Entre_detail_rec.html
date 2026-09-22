@@ -156,7 +156,7 @@
     <div class="card-header">
       <div class="card-title">✏️ Modifier le motif</div>
     </div>
-    <form method="post" action="{% url 'modifier_motif_entree' entree.id %}">
+    <form method="post" action="{% url 'modifier_motif_reception' entree.id %}">
       {% csrf_token %}
       <div style="padding:20px;">
         <select name="motif" class="form-input">

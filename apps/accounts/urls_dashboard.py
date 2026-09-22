@@ -36,10 +36,17 @@ urlpatterns = [
     path('audit/',                         views.audit_logs_view,             name='audit_logs'),
     # Véhicules
     path('vehicules/',                                views.admin_vehicules,               name='admin_vehicules'),
+    path('vehicules/creer-vehicule/',                 views.admin_creer_vehicule, name='creer_vehicule_admin'),
     path('vehicules/<uuid:vehicule_id>/modifier/',    views.admin_modifier_vehicule,       name='admin_modifier_vehicule'),
     path('vehicules/<uuid:vehicule_id>/mouvements/',  views.admin_mouvements_vehicule,     name='admin_mouvements_vehicule'),
+    path(
+        "entrees/<uuid:entree_id>/modifier-motif/",
+        views.modifier_motif_admin,
+        name="modifier_motif_admin"
+    ),
     # Clients
     path('clients/',                               views.admin_clients,             name='admin_clients'),
+    path('clients/creer-vehicule/',             views.admin_creer_client, name='creer_client_admin'),
     path('clients/<uuid:client_id>/',              views.admin_detail_client,       name='admin_detail_client'),
     path('clients/<uuid:client_id>/modifier/',     views.admin_modifier_client,     name='admin_modifier_client'),
     # Conducteurs

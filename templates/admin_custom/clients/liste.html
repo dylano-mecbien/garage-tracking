@@ -130,6 +130,11 @@
 </div>      </div>
     </div>
   </div>
+
+<a href="{% url 'creer_client_admin' %}" class="btn btn-primary">
+    ➕ Nouveau Client
+</a>
+
 </div>
 
 <!-- Stats -->
@@ -167,7 +172,9 @@
         <label class="form-label">🔍 Recherche</label>
         <input type="text" name="q" value="{{ filters.q }}" class="form-input"
                placeholder="Nom, téléphone, email, NINEA, ville..."
-               oninput="debounceSubmit()">
+                id="search-q">
+
+               
       </div>
       <div>
         <label class="form-label">Ville</label>
@@ -360,10 +367,13 @@ function filtrerType(val) {
 }
 
 let dbt;
-function debounceSubmit() {
-  clearTimeout(dbt);
-  dbt = setTimeout(() => document.getElementById('filter-form').submit(), 500);
-}
+// Plus de submit automatique à chaque frappe
+document.getElementById('search-q').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('filter-form').submit();
+  }
+});
 
 const openVeh = new Set();
 function toggleVeh(id) {

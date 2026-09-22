@@ -958,6 +958,31 @@ def creer_bon_sortie(request, rec_id):
     })
 
 
+@receptionniste_required
+def modifier_motif_reception(request, entree_id):
+    entree = get_object_or_404(EnregistrementEntree, pk=entree_id)
+
+    if request.method == "POST":
+        motif = request.POST.get("motif")
+
+        if motif in ["REPARATION", "VISITE" , "STATIONNEMENT", "INTERNE"]:
+            entree.motif = motif
+            entree.save()
+
+            messages.success(
+                request,
+                f"Motif modifié : {entree.get_motif_display()}"
+            )
+            
+    log_action(
+        request,
+        ActionType.MODIFICATION,
+        'ADMIN',
+        entree,
+        {'motif': entree.motif}
+    )
+    return redirect("detail_entree_rec", entree_id=entree.id)
+
 
 def autocomplete_vehicules_presents(request):
     q = request.GET.get('q', '').strip()

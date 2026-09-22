@@ -3,7 +3,8 @@ Modèles Véhicules, Clients, Conducteurs
 """
 import uuid
 from django.db import models
-
+import re
+from django.db import models, transaction
 
 
 class Marque(models.Model):
@@ -71,11 +72,35 @@ class Client(ContactBase):
         verbose_name = "Client"
         ordering = ['nom']
 
+
     def save(self, *args, **kwargs):
         if not self.numero_client:
-            count = Client.objects.count() + 1
-            self.numero_client = f"CLI-{count:05d}"
-        super().save(*args, **kwargs)
+            with transaction.atomic():
+            # Cherche le plus grand numéro existant (y compris soft-deleted si tu en as)
+                last = (
+                    Client.objects
+                    .select_for_update()
+                    .filter(numero_client__startswith='CLI-')
+                    .order_by('-numero_client')
+                    .values_list('numero_client', flat=True)
+                    .first()
+                )
+                if last:
+                    match = re.search(r'(\d+)$', last)
+                    next_num = int(match.group(1)) + 1 if match else 1
+                else:
+                    next_num = 1
+
+                self.numero_client = f"CLI-{next_num:05d}"
+
+            # En cas de collision rare (concurrence), on réessaie
+                while Client.objects.filter(numero_client=self.numero_client).exists():
+                    next_num += 1
+                    self.numero_client = f"CLI-{next_num:05d}"
+
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
 
 class Conducteur(ContactBase):
