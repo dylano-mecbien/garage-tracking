@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}{{ u.full_name }}{% endblock %}
+{% block page_title %}👤 {{ u.full_name }}{% endblock %}
+
+{% block sidebar_nav %}
+<ul class="sidebar-nav">
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li class="sidebar-section">Administration</li>
+  <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+  <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+  <li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
+  <li class="sidebar-section">Bases</li>
+  <li><a href="{% url 'liste_utilisateurs' %}" class="active"><span class="icon">👥</span> Utilisateurs</a></li>
+  <li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+  <li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+  <li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+  <li><a href="{% url 'admin_ateliers' %}"><span class="icon">🏭</span> Ateliers</a></li>
+  <li class="sidebar-section">Mouvements</li>
+  <li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
+  <li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.hero {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.avatar-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  border: 2px solid rgba(255,255,255,.4);
+  flex-shrink: 0;
+}
+.period-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.kpi-na { color: var(--text-muted); font-size: 16px; }
+
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+.kpi{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;}
+.kpi-val{font-size:26px;font-weight:800;}
+.kpi-lbl{font-size:11px;color:var(--text-muted);margin-top:4px;}
+.tache-line{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.tache-line:last-child{border-bottom:none;}
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ u.full_name }}</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'liste_utilisateurs' %}">Utilisateurs</a> › {{ u.full_name }}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% url 'editer_utilisateur' u.id %}" class="btn btn-outline">✏️ Modifier</a>
+    <form method="post" action="{% url 'detail_utilisateur' u.id %}"
+          onsubmit="return confirm('Réinitialiser le mot de passe ?')"
+          style="display:inline;">
+      {% csrf_token %}
+      <input type="hidden" name="new_password" value="garage2026">
+      <button type="submit" class="btn btn-outline">🔑 Reset MDP</button>
+    </form>
+    <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">← Retour</a>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="avatar-lg">
+    {{ u.prenom|first|upper }}{{ u.nom|first|upper }}
+  </div>
+  <div style="flex:1;">
+    <div style="font-size:20px;font-weight:800;">{{ u.full_name }}</div>
+    <div style="font-size:13px;opacity:.85;">
+      {{ u.email }} — {{ u.get_role_display }}
+      {% if u.atelier %} · {{ u.atelier.nom }}{% endif %}
+    </div>
+    <div style="font-size:12px;opacity:.7;margin-top:2px;">
+      {% if u.is_active %}✅ Actif{% else %}❌ Inactif{% endif %}
+      — Créé le {{ u.date_joined|date:"d/m/Y" }}
+      {% if u.matricule %} · Matricule {{ u.matricule }}{% endif %}
+      {% if u.telephone %} · {{ u.telephone }}{% endif %}
+    </div>
+  </div>
+  <form method="post" action="{% url 'toggle_utilisateur' u.id %}">
+    {% csrf_token %}
+    <button type="submit"
+            class="btn btn-sm {% if u.is_active %}btn-warning{% else %}btn-success{% endif %}">
+      {% if u.is_active %}⏸ Désactiver{% else %}▶ Activer{% endif %}
+    </button>
+  </form>
+</div>
+
+<!-- Filtre période -->
+<form method="get" class="period-bar">
+  <div>
+    <label class="form-label">Du</label>
+    <input type="date" name="debut" value="{{ debut|date:'Y-m-d' }}" class="form-input">
+  </div>
+  <div>
+    <label class="form-label">Au</label>
+    <input type="date" name="fin" value="{{ fin|date:'Y-m-d' }}" class="form-input">
+  </div>
+  <button type="submit" class="btn btn-primary">Filtrer</button>
+  <a href="{% url 'detail_utilisateur' u.id %}" class="btn btn-outline">Réinitialiser (30 j.)</a>
+</form>
+
+<!-- ═══ RÉCEPTIONNISTE ═══ -->
+{% if role == 'RECEPTIONNISTE'  or role == 'SUPER_RECEPTIONNISTE' %}
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="kpi-val">
+      {% if stats.nb_receptions != None %}{{ stats.nb_receptions }}{% else %}<span class="kpi-na">—</span>{% endif %}
+    </div>
+    <div class="kpi-lbl">Réceptions créées</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val">
+      {% if stats.nb_bons_crees != None %}{{ stats.nb_bons_crees }}{% else %}<span class="kpi-na">—</span>{% endif %}
+    </div>
+    <div class="kpi-lbl">Bons de sortie créés</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val" style="color:var(--success);">
+      {% if stats.nb_bons_signes != None %}{{ stats.nb_bons_signes }}{% else %}<span class="kpi-na">—</span>{% endif %}
+    </div>
+    <div class="kpi-lbl">Bons validés / signés</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ GUÉRITE ═══ -->
+{% if role == 'GUERITE' %}
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="kpi-val" style="color:var(--info);">
+      {% if stats.nb_entrees != None %}{{ stats.nb_entrees }}{% else %}<span class="kpi-na">—</span>{% endif %}
+    </div>
+    <div class="kpi-lbl">Véhicules entrés</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val" style="color:var(--success);">
+      {% if stats.nb_sorties != None %}{{ stats.nb_sorties }}{% else %}<span class="kpi-na">—</span>{% endif %}
+    </div>
+    <div class="kpi-lbl">Véhicules sortis</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val">
+      {% if stats.nb_vehicules != None %}{{ stats.nb_vehicules }}{% else %}<span class="kpi-na">—</span>{% endif %}
+    </div>
+    <div class="kpi-lbl">Véhicules créés</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val">
+      {% if stats.nb_clients != None %}{{ stats.nb_clients }}{% else %}<span class="kpi-na">—</span>{% endif %}
+    </div>
+    <div class="kpi-lbl">Clients créés</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ RESP. ATELIER / TECHNICIEN ═══ -->
+{% if role == 'RESP_ATELIER' or role == 'TECHNICIEN' %}
+<div class="kpi-grid" style="margin-bottom:16px;">
+  <div class="kpi">
+    <div class="kpi-val" style="color:var(--success);">{{ stats.nb_taches|default:0 }}</div>
+    <div class="kpi-lbl">Tâches effectuées</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val" style="color:var(--danger);">{{ stats.nb_en_retard|default:0 }}</div>
+    <div class="kpi-lbl">Tâches en retard</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val">{{ stats.duree_totale_label|default:0 }} </div>
+    <div class="kpi-lbl">Durée totale</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val">{{ stats.duree_moyenne_label|default:0 }} </div>
+    <div class="kpi-lbl">Durée moyenne / tâche</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val">{{ stats.delai_moyen_demarrage_label|default:0 }} </div>
+    <div class="kpi-lbl">Délai assignation → démarrage</div>
+  </div>
+</div>
+
+{% if role == 'RESP_ATELIER' and stats.atelier %}
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">🏭 En tant que chef de {{ stats.atelier.nom }}</div>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-val">{{ stats.nb_or_traites|default:0 }}</div>
+      <div class="kpi-lbl">OR créés (période)</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-val" style="color:var(--success);">{{ stats.nb_or_clotures|default:0 }}</div>
+      <div class="kpi-lbl">OR clôturés (période)</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-val">{{ stats.nb_taches_validees_par_moi|default:0 }}</div>
+      <div class="kpi-lbl">Tâches validées par lui</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header"><div class="card-title">📋 Tâches restantes ({{ stats.taches_restantes|length }})</div></div>
+    {% for t in stats.taches_restantes %}
+    <div class="tache-line">
+      <div style="flex:1;">
+        <div class="font-bold">{{ t.libelle }}</div>
+        <div class="text-muted">🚗 {{ t.ordre_reparation.vehicule.immatriculation }} · 🏭 {{ t.ordre_reparation.atelier.nom }}</div>
+      </div>
+      {% if t.statut == 'EN_COURS' %}<span class="badge" style="background:var(--warning);color:#fff;">En cours</span>
+      {% else %}<span class="badge badge-secondary">À faire</span>{% endif %}
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucune tâche en attente</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">✅ Historique des tâches effectuées ({{ stats.taches_faites|length }})</div></div>
+    {% for t in stats.taches_faites %}
+    <div class="tache-line">
+      <div style="flex:1;">
+        <div class="font-bold">{{ t.libelle }}</div>
+        <div class="text-muted">
+          🚗 {{ t.ordre_reparation.vehicule.immatriculation }}
+          · ⏱️ {{ t.duree_reelle_minutes|default:"?" }} min (est. {{ t.duree_estimee_minutes }} min)
+          {% if t.delai_avant_demarrage_minutes != None %} · Démarré {{ t.delai_avant_demarrage_minutes }} min après assignation{% endif %}
+        </div>
+      </div>
+      <div style="text-align:right;">
+        {% if t.statut == 'VALIDEE' %}<span class="badge badge-success">Validée</span>{% else %}<span class="badge badge-warning">En attente</span>{% endif %}
+        {% if t.en_retard %}<div class="text-small" style="color:var(--danger);">⚠️ Retard</div>{% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucune tâche effectuée</div>
+    {% endfor %}
+  </div>
+</div>
+
+
+{% endif %}
+
+<!-- ═══ ADMIN ═══ -->
+{% if role == 'ADMIN' %}
+<div class="card" style="text-align:center;padding:30px;color:var(--text-muted);">
+  Aucune statistique spécifique pour le rôle Administrateur.
+</div>
+{% endif %}
+{% endblock %}

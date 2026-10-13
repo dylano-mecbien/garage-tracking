@@ -2,6 +2,7 @@
 from django.urls import path
 from . import views
 from . import admin_views_conducteurs_nettoyage as views2
+from .views_user_stats import detail_utilisateur
 
 
 urlpatterns = [
@@ -10,13 +11,19 @@ urlpatterns = [
 
     path('admin-garage/audit/', views.audit_logs_view, name='audit_logs'),
     path('admin-garage/bons-sortie/',  views.liste_bons_sortie,         name='liste_bons_admin'),
+    path('Ordre-reparation/admin/',                            views.liste_or,           name='liste_or_admin'),
+    path('<uuid:or_id>/details_or/',               views.detail_or_admin,            name='detail_or_admin'),
+        
+    
 
     path('admin-garage/bons-sortie/creer-divers/',            views.creer_bon_sortie_divers,    name='creer_bon_divers_admin'),
     path('admin-garage/bons-sortie/creer/',                        views.creer_bon_sortie_direct,   name='creer_bon_direct_admin'),
     path('entree/<uuid:entree_id>/', views.detail_entree, name='detail_entree_admin'),
+     path('utilisateurs/<uuid:user_id>/', detail_utilisateur, name='detail_utilisateur'),
+    path('admin-garage/<uuid:rec_id>/rec',                          views.detail_reception,            name='detail_rec_admin'),
 
     path('admin-garage/<uuid:rec_id>/bon-sortie/',            views.creer_bon_sortie,   name='creer_sortie_lien_admin'),
-
+ 
     path('admin-garage/historique/',                          views.historique_entrees, name='historique_entrees_admin'),
     path('admin-garage/vehicules-presents/',            views.liste_vehicules_presents, name='vehicules_presents_admin'),
     path('admin-garage/liste-receptions/',                               views.liste_receptions,   name='liste_receptions_admin'),

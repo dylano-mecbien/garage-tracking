@@ -10,6 +10,8 @@
 <li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
 <li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
 <li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_or' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+
 <li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
 <li class="has-submenu">
 <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
@@ -133,20 +135,6 @@
   </div>
 </div>
 
-<!-- ALERTE REPARATION -->
-{% if entree.statut != 'SORTI' and entree.motif == 'REPARATION' %}
-<div class="card mt-2" style="max-width:800px;border-left:4px solid var(--warning);">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <span style="font-size:28px;">⚠️</span>
-    <div>
-      <div class="font-bold">Véhicule en réparation</div>
-      <div class="text-muted text-small">
-        Ce véhicule nécessite un bon de SORTI valide pour quitter le local.
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
 
 <!-- MODAL MODIFICATION MOTIF (uniquement si non sorti) -->
 {% if entree.statut != 'SORTI' %}

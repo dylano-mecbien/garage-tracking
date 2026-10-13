@@ -31,6 +31,7 @@ urlpatterns = [
     path("documents/",     include("apps.documents.urls")),
     path("audit/",         include("apps.audit.urls")),
     path("notifications/", include("apps.notifications.urls")),
+    path('inventaire/', include('apps.inventaire.urls')),
     path('admin-garage/notifications/', include('apps.notifications.urls')),
     # API REST
 

@@ -1,0 +1,6 @@
+<div class="sidebar-section">Guérite</div>
+<ul class="sidebar-nav">
+  {% url 'dashboard_guerite' as u_dash %}{% if u_dash %}<li><a href="{{ u_dash }}"><span class="icon">📊</span> Tableau de bord</a></li>{% endif %}
+  {% url 'vehicules_presents' as u_pres %}{% if u_pres %}<li><a href="{{ u_pres }}"><span class="icon">🚗</span> Véhicules présents</a></li>{% endif %}
+  <li><a href="{% url 'inventaire_accueil' %}" class="active"><span class="icon">📝</span> Inventaires</a></li>
+</ul>

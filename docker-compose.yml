@@ -68,6 +68,7 @@ services:
              python manage.py makemigrations guerite &&
              python manage.py makemigrations audit &&
              python manage.py makemigrations notifications &&
+             python manage.py makemigrations inventaire &&
              python manage.py migrate &&
              python manage.py collectstatic --noinput &&
              python manage.py create_default_admin &&

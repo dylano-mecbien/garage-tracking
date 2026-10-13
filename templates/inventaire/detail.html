@@ -1,0 +1,646 @@
+{% extends "base.html" %}
+{% block title %}{{ inv }}{% endblock %}
+{% block page_title %}📝 {{ inv }}{% endblock %}
+
+{% block sidebar_nav %}
+{% include "inventaire/_sb_guerite.html" %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ══ Progression ══ */
+.prog{height:10px;background:var(--border);border-radius:5px;overflow:hidden;}
+.prog>div{height:100%;background:var(--success);transition:width .3s;}
+
+/* ══ Lignes inventaire ══ */
+.row-inv{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);}
+.row-inv:last-child{border-bottom:none;}
+.row-inv .immat{font-weight:800;font-size:15px;min-width:110px;}
+.row-inv.PRESENT{background:rgba(34,197,94,.07);}
+.row-inv.ABSENT{background:rgba(239,68,68,.08);}
+
+/* ══ Boutons présence ══ */
+.pbtn{border:2px solid var(--border);background:var(--surface);border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;}
+.pbtn.p.on{background:var(--success);border-color:var(--success);color:#fff;}
+.pbtn.a.on{background:var(--danger);border-color:var(--danger);color:#fff;}
+.pbtn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ══ Mouvements ══ */
+.mv{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.mv:last-child{border-bottom:none;}
+.tag{display:inline-block;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;}
+.tag.E{background:#d1fae5;color:#065f46;}
+.tag.S{background:#fee2e2;color:#991b1b;}
+
+/* ══ Bandeaux ══ */
+.banner{border-radius:var(--radius);padding:14px 18px;margin-bottom:14px;border:1.5px solid;}
+.banner.SOUMIS{background:#eff6ff;border-color:#93c5fd;}
+.banner.VALIDE{background:#ecfdf5;border-color:#6ee7b7;}
+.banner.REVOQUE{background:#fef2f2;border-color:#fca5a5;}
+
+/* ══ Modales ══ */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:16px;}
+.modal-ov.open{display:flex;}
+.modal-box{background:var(--surface);border-radius:var(--radius);padding:22px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+
+/* ══ Résultat plaque ══ */
+#res-plaque{font-size:13px;margin-top:6px;min-height:20px;}
+#res-plaque.ok{color:#15803d;font-weight:600;}
+#res-plaque.ko{color:#b91c1c;font-weight:600;}
+
+/* ══ Autocomplete chauffeur ══ */
+.chauffeur-ac-wrap{position:relative;}
+.chauffeur-ac-input{
+  width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:13px;background:var(--surface);color:inherit;
+}
+.chauffeur-ac-input:focus{outline:none;border-color:var(--primary);}
+.chauffeur-ac-drop{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:400;
+  background:var(--surface);border:1.5px solid var(--primary-light);
+  border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12);
+  max-height:220px;overflow-y:auto;display:none;
+}
+.chauffeur-ac-drop.open{display:block;}
+.chauffeur-ac-item{
+  padding:9px 12px;cursor:pointer;font-size:13px;
+  border-bottom:1px solid var(--border);transition:background .12s;
+}
+.chauffeur-ac-item:last-child{border-bottom:none;}
+.chauffeur-ac-item:hover,
+.chauffeur-ac-item.highlight{background:var(--surface2);}
+.chauffeur-ac-empty{padding:12px;font-size:12px;color:var(--text-muted);text-align:center;}
+.chauffeur-ac-meta{font-size:11px;color:var(--text-muted);margin-top:2px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ inv }}</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'inventaire_accueil' %}">Inventaire</a> › {{ inv.date|date:"d/m/Y" }}
+    </div>
+  </div>
+  <a href="{% url 'inventaire_accueil' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+{% for m in messages %}
+<div class="alert alert-{{ m.tags }}" style="margin-bottom:12px;">{{ m }}</div>
+{% endfor %}
+
+{% csrf_token %}
+
+{# ══ Bandeau selon statut ══ #}
+{% if inv.statut == 'SOUMIS' %}
+<div class="banner SOUMIS">
+  📨 <b>Inventaire validé — en attente de la décision de l'administrateur.</b>
+  <div class="text-small text-muted">
+    Envoyé le {{ inv.date_soumission|date:"d/m/Y à H:i" }}
+    {% if inv.email_envoye %} · e-mail envoyé{% endif %}
+  </div>
+</div>
+{% elif inv.statut == 'VALIDE' %}
+<div class="banner VALIDE">
+  ✅ <b>Validé par l'administrateur</b>
+  ({{ inv.decide_par.full_name }}, {{ inv.date_decision|date:"d/m/Y H:i" }})
+  — les mouvements choisis sont enregistrés définitivement.
+</div>
+{% elif inv.statut == 'REVOQUE' %}
+<div class="banner REVOQUE">
+  🚫 <b>Inventaire révoqué</b> par {{ inv.decide_par.full_name }} :
+  « {{ inv.motif_revocation }} »
+</div>
+{% endif %}
+
+{# ══ Barre de progression ══ #}
+<div class="card mb-2">
+  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+    <div>
+      <strong id="txt-verifies"></strong>
+      <span class="text-muted text-small" id="txt-detail"></span>
+    </div>
+  </div>
+  <div class="prog"><div id="bar" style="width:0"></div></div>
+</div>
+
+<div class="grid-2" style="align-items:start;">
+
+  {# ═══ Colonne gauche : véhicules ═══ #}
+  <div class="card" style="padding:0;">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;">
+      <strong>🚗 Véhicules présents selon le système ({{ lignes|length }})</strong>
+      <input type="text" id="filtre" class="form-input"
+             placeholder="Rechercher une plaque…"
+             style="max-width:200px;margin-left:auto;">
+    </div>
+
+    {% for l in lignes %}
+    <div class="row-inv {{ l.presence }}"
+         data-id="{{ l.id }}"
+         data-s="{{ l.vehicule.immatriculation|lower }} {{ l.vehicule.marque|lower }} {{ l.vehicule.modele|lower }} {{ l.vehicule.client|lower }}">
+      <div class="immat">{{ l.vehicule.immatriculation }}</div>
+      <div style="flex:1;">
+        <div class="text-small">{{ l.vehicule.marque }} {{ l.vehicule.modele }}</div>
+        <div class="text-small text-muted">{{ l.vehicule.client }}</div>
+      </div>
+      <button type="button"
+              class="pbtn p {% if l.presence == 'PRESENT' %}on{% endif %}"
+              {% if not inv.en_cours %}disabled{% endif %}
+              onclick="marquer('{{ l.id }}','PRESENT')">✓ Présent</button>
+      <button type="button"
+              class="pbtn a {% if l.presence == 'ABSENT' %}on{% endif %}"
+              {% if not inv.en_cours %}disabled{% endif %}
+              onclick="marquer('{{ l.id }}','ABSENT')">✗ Absent</button>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:30px;color:var(--text-muted);">
+      Aucun véhicule présent selon le système.
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ═══ Colonne droite : mouvements + validation ═══ #}
+  <div>
+
+    {# ── Entrées ── #}
+    <div class="card mb-2" style="border-left:4px solid var(--success);">
+      <div class="card-header">
+        <div class="card-title">
+          ➡️ Entrées à faire valider (<span id="nb-entrees">{{ entrees|length }}</span>)
+        </div>
+        {% if inv.en_cours %}
+        <button type="button" class="btn btn-primary btn-sm" onclick="openModal()">➕ Faire entrer</button>
+        {% endif %}
+      </div>
+      <div class="text-small text-muted" style="margin-bottom:8px;">
+        Véhicules présents sur le site mais absents du système.
+      </div>
+
+      {% for m in entrees %}
+      <div class="mv">
+        <span class="tag E">Entrée</span>
+        <div style="flex:1;">
+          <b>{{ m.matricule }}</b> · {{ m.chauffeur }}
+          <div class="text-muted">{{ m.motif_libelle }}</div>
+        </div>
+        {% if inv.en_cours %}
+        <form method="post" action="{% url 'inventaire_supprimer_mouvement' inv.id m.id %}">
+          {% csrf_token %}
+          <button class="btn btn-outline btn-sm" title="Annuler">✕</button>
+        </form>
+        {% endif %}
+      </div>
+      {% empty %}
+      <div class="text-small text-muted">Aucune.</div>
+      {% endfor %}
+    </div>
+
+    {# ── Sorties ── #}
+    <div class="card mb-2" style="border-left:4px solid var(--danger);">
+      <div class="card-header">
+        <div class="card-title">
+          ⬅️ Sorties à faire valider (<span id="nb-sorties">{{ sorties|length }}</span>)
+        </div>
+      </div>
+      <div class="text-small text-muted" style="margin-bottom:8px;">
+        Véhicules marqués « Absent » : le système les croit encore présents.
+      </div>
+      <div id="liste-sorties">
+        {% for m in sorties %}
+        <div class="mv"><span class="tag S">Sortie</span><b>{{ m.matricule }}</b></div>
+        {% empty %}
+        <div class="text-small text-muted">Aucune.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# ── Validation ══ #}
+    {% if inv.en_cours %}
+    <form method="post" action="{% url 'inventaire_soumettre' inv.id %}" id="form-valider" class="card">
+      {% csrf_token %}
+      <div class="card-title" style="margin-bottom:8px;">✅ Valider l'inventaire</div>
+      <div class="form-group">
+        <label class="form-label">Observation (facultatif)</label>
+        <textarea name="observation" class="form-textarea" rows="2"></textarea>
+      </div>
+      <div id="msg-bloque" class="text-small text-muted" style="margin-bottom:8px;"></div>
+      <button class="btn btn-success" id="btn-valider" style="width:100%;padding:11px;" disabled>
+        ✅ Valider l'inventaire — envoyer à l'administrateur
+      </button>
+    </form>
+    {% elif inv.observation %}
+    <div class="card">
+      <b>📝 Observation de la guérite</b>
+      <div style="white-space:pre-line;margin-top:6px;">{{ inv.observation }}</div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     POP-UP : Faire entrer
+     ══════════════════════════════════════════════════════════════ -->
+<div class="modal-ov" id="modal-entree">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;margin-bottom:14px;">
+      <strong style="font-size:16px;">➡️ Faire entrer un véhicule</strong>
+      <button type="button" class="btn btn-outline btn-sm" onclick="closeModal()">✕</button>
+    </div>
+
+    <form id="form-entree" autocomplete="off">
+
+      {# ── Matricule ── #}
+      <div class="form-group">
+        <label class="form-label">Matricule du véhicule *</label>
+        <input type="text" name="matricule" id="f-matricule" class="form-input" required
+               placeholder="Ex : LT 977 LV" style="text-transform:uppercase;">
+        <div id="res-plaque"></div>
+      </div>
+
+      {# ── Chauffeur (autocomplete) ── #}
+      <div class="form-group">
+        <label class="form-label">Chauffeur *</label>
+
+        <div class="chauffeur-ac-wrap">
+          <input type="text"
+                 id="chauffeur-ac-input"
+                 class="chauffeur-ac-input"
+                 placeholder="Rechercher un chauffeur..."
+                 autocomplete="off"
+                 required>
+          <div class="chauffeur-ac-drop" id="chauffeur-ac-drop"></div>
+
+          {# Inputs cachés envoyés au POST #}
+          <input type="hidden" name="chauffeur"     id="f-chauffeur"     value="">
+          <input type="hidden" name="chauffeur_id"  id="f-chauffeur-id"  value="">
+          <input type="hidden" name="chauffeur_tel" id="f-chauffeur-tel" value="">
+        </div>
+
+        <div class="text-small text-muted" style="margin-top:4px;">
+          Tapez pour rechercher (nom, prénom, téléphone). Ou saisissez un nom libre.
+        </div>
+      </div>
+
+      {# ── Motif ── #}
+      <div class="form-group">
+        <label class="form-label">Motif d'entrée *</label>
+        <select name="motif" class="form-select" required>
+          <option value="">— Choisir —</option>
+          {% for v, l in motifs %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div id="err-entree" class="text-small" style="color:#b91c1c;font-weight:600;margin-bottom:8px;"></div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" id="btn-entree" style="flex:1;padding:10px;" disabled>
+          ✅ Valider
+        </button>
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{{ etat|json_script:"etat-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ══════════════════════════════════════════════════════════════
+//  CONSTANTES GLOBALES
+// ══════════════════════════════════════════════════════════════
+const EN_COURS            = {{ inv.en_cours|yesno:"true,false" }};
+const URL_MARQUER         = "{% url 'inventaire_marquer' inv.id %}";
+const URL_PLAQUE          = "{% url 'inventaire_verifier_plaque' inv.id %}";
+const URL_ENTREE          = "{% url 'inventaire_ajouter_entree' inv.id %}";
+const URL_CREER_VEHICULE  = "{{ url_creer_vehicule }}";
+const URL_AC_CHAUFFEUR    = "{% url 'autocomplete_inventaires' %}";
+
+const csrf = () => document.querySelector('[name=csrfmiddlewaretoken]').value;
+const esc  = s => String(s || '').replace(/[&<>"]/g, c => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+));
+
+
+// ══════════════════════════════════════════════════════════════
+//  PROGRESSION + ÉTAT
+// ══════════════════════════════════════════════════════════════
+function render(e) {
+  const faits = e.nb_total - e.a_verifier;
+
+  document.getElementById('txt-verifies').textContent =
+    faits + ' / ' + e.nb_total + ' vérifiés';
+  document.getElementById('txt-detail').textContent =
+    '· ' + e.nb_present + ' présent(s) · ' + e.nb_absent + ' absent(s)';
+  document.getElementById('bar').style.width =
+    (e.nb_total ? faits * 100 / e.nb_total : 100) + '%';
+
+  document.getElementById('nb-sorties').textContent = e.sorties.length;
+  document.getElementById('liste-sorties').innerHTML = e.sorties.length
+    ? e.sorties.map(s =>
+        `<div class="mv"><span class="tag S">Sortie</span><b>${esc(s.matricule)}</b></div>`
+      ).join('')
+    : '<div class="text-small text-muted">Aucune.</div>';
+
+  const b = document.getElementById('btn-valider');
+  if (b) {
+    b.disabled = e.a_verifier > 0;
+    document.getElementById('msg-bloque').textContent =
+      e.a_verifier > 0
+        ? e.a_verifier + ' véhicule(s) à vérifier avant de valider.'
+        : '';
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════════
+//  MARQUER PRÉSENT / ABSENT
+// ══════════════════════════════════════════════════════════════
+async function marquer(ligneId, presence) {
+  const row = document.querySelector(`.row-inv[data-id="${ligneId}"]`);
+  const nouveau = row.classList.contains(presence) ? 'A_VERIFIER' : presence;
+
+  const fd = new FormData();
+  fd.append('ligne_id', ligneId);
+  fd.append('presence', nouveau);
+
+  const r = await fetch(URL_MARQUER, {
+    method: 'POST', body: fd, headers: { 'X-CSRFToken': csrf() },
+  });
+  const j = await r.json();
+
+  if (!j.ok) { alert(j.erreur || 'Erreur'); return; }
+
+  row.classList.remove('PRESENT', 'ABSENT', 'A_VERIFIER');
+  row.classList.add(nouveau);
+  row.querySelector('.pbtn.p').classList.toggle('on', nouveau === 'PRESENT');
+  row.querySelector('.pbtn.a').classList.toggle('on', nouveau === 'ABSENT');
+  render(j.etat);
+}
+
+
+// ══════════════════════════════════════════════════════════════
+//  FILTRE PLAQUE
+// ══════════════════════════════════════════════════════════════
+document.getElementById('filtre').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase().trim();
+  document.querySelectorAll('.row-inv').forEach(r => {
+    r.style.display = r.dataset.s.includes(q) ? '' : 'none';
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  POP-UP « Faire entrer »
+// ══════════════════════════════════════════════════════════════
+const modalEntree = document.getElementById('modal-entree');
+let plaqueOk = false;
+let plaqueTimer = null;
+
+function openModal() {
+  modalEntree.classList.add('open');
+  document.getElementById('f-matricule').focus();
+}
+
+function closeModal() {
+  modalEntree.classList.remove('open');
+  document.getElementById('form-entree').reset();
+
+  // Reset champs cachés chauffeur
+  document.getElementById('f-chauffeur').value      = '';
+  document.getElementById('f-chauffeur-id').value   = '';
+  document.getElementById('f-chauffeur-tel').value  = '';
+
+  // Reset autocomplete chauffeur visuel
+  const acInput = document.getElementById('chauffeur-ac-input');
+  if (acInput) acInput.value = '';
+  const acDrop = document.getElementById('chauffeur-ac-drop');
+  if (acDrop) { acDrop.classList.remove('open'); acDrop.innerHTML = ''; }
+
+  // Reset autres
+  document.getElementById('res-plaque').textContent = '';
+  document.getElementById('res-plaque').className   = '';
+  document.getElementById('err-entree').textContent = '';
+  document.getElementById('btn-entree').disabled    = true;
+  plaqueOk = false;
+}
+
+modalEntree.addEventListener('mousedown', e => {
+  if (e.target === modalEntree) closeModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && modalEntree.classList.contains('open')) closeModal();
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  VÉRIFICATION PLAQUE (AJAX)
+// ══════════════════════════════════════════════════════════════
+document.getElementById('f-matricule').addEventListener('input', e => {
+  clearTimeout(plaqueTimer);
+  plaqueOk = false;
+  document.getElementById('btn-entree').disabled = true;
+
+  const q = e.target.value.trim();
+  const res = document.getElementById('res-plaque');
+
+  if (q.length < 3) { res.textContent = ''; res.className = ''; return; }
+
+  plaqueTimer = setTimeout(async () => {
+    const j = await (await fetch(URL_PLAQUE + '?q=' + encodeURIComponent(q))).json();
+    plaqueOk = j.ok;
+    res.className = j.ok ? 'ok' : 'ko';
+    res.textContent = j.message;
+
+    if (j.code === 'inconnu' && URL_CREER_VEHICULE) {
+      res.innerHTML = esc(j.message)
+        + ' <a href="' + URL_CREER_VEHICULE + '">Créer le véhicule</a>';
+    }
+    document.getElementById('btn-entree').disabled = !plaqueOk;
+  }, 350);
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  SOUMISSION FORMULAIRE ENTRÉE
+// ══════════════════════════════════════════════════════════════
+document.getElementById('form-entree').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!plaqueOk) return;
+
+  // Vérif chauffeur
+  const chauffeurNom = document.getElementById('f-chauffeur').value.trim();
+  if (!chauffeurNom) {
+    document.getElementById('err-entree').textContent =
+      "Le nom du chauffeur est obligatoire.";
+    return;
+  }
+
+  const btn = document.getElementById('btn-entree');
+  btn.disabled = true;
+  btn.textContent = '⏳ …';
+
+  const r = await fetch(URL_ENTREE, {
+    method: 'POST',
+    body: new FormData(e.target),
+    headers: { 'X-CSRFToken': csrf() },
+  });
+  const j = await r.json();
+
+  if (j.ok) { location.reload(); return; }
+
+  document.getElementById('err-entree').textContent = j.erreur || 'Erreur';
+  btn.disabled = false;
+  btn.textContent = '✅ Valider';
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  FORMULAIRE VALIDATION INVENTAIRE
+// ══════════════════════════════════════════════════════════════
+const formValider = document.getElementById('form-valider');
+if (formValider) {
+  formValider.addEventListener('submit', e => {
+    if (!confirm("Valider l'inventaire et l'envoyer à l'administrateur ?")) {
+      e.preventDefault();
+    }
+  });
+}
+
+
+// ══════════════════════════════════════════════════════════════
+//  AUTOCOMPLETE CHAUFFEUR — API : autocomplete_inventaires
+//  Réponse : [{ id, nom, prenom, label, telephone }, ...]
+// ══════════════════════════════════════════════════════════════
+(function initChauffeurAutocomplete() {
+  const input     = document.getElementById('chauffeur-ac-input');
+  const drop      = document.getElementById('chauffeur-ac-drop');
+  const hiddenNom = document.getElementById('f-chauffeur');
+  const hiddenId  = document.getElementById('f-chauffeur-id');
+  const hiddenTel = document.getElementById('f-chauffeur-tel');
+
+  if (!input || !drop) return;
+
+  let acTimer = null;
+  let highlighted = -1;
+
+  function closeDrop() {
+    drop.classList.remove('open');
+    drop.innerHTML = '';
+    highlighted = -1;
+  }
+
+  function renderDrop(results) {
+    highlighted = -1;
+    drop.innerHTML = '';
+
+    if (!results.length) {
+      drop.innerHTML =
+        '<div class="chauffeur-ac-empty">Aucun conducteur trouvé — saisie libre autorisée</div>';
+      drop.classList.add('open');
+      return;
+    }
+
+    results.forEach((c, i) => {
+      const div = document.createElement('div');
+      div.className = 'chauffeur-ac-item';
+      div.dataset.id  = c.id;
+      div.dataset.idx = i;
+
+      const label = c.label || `${c.prenom || ''} ${c.nom || ''}`.trim() || '—';
+      const tel   = c.telephone || '';
+
+      div.innerHTML = `
+        <div><strong>${esc(label)}</strong></div>
+        ${tel ? `<div class="chauffeur-ac-meta">📞 ${esc(tel)}</div>` : ''}
+      `;
+
+      div.addEventListener('mousedown', e => {
+        e.preventDefault();
+        selectConducteur(c);
+      });
+      drop.appendChild(div);
+    });
+    drop.classList.add('open');
+  }
+
+  function selectConducteur(c) {
+    const label = c.label || `${c.prenom || ''} ${c.nom || ''}`.trim();
+
+    input.value     = label;
+    hiddenNom.value = label;
+    hiddenId.value  = c.id || '';
+    hiddenTel.value = c.telephone || '';
+
+    closeDrop();
+  }
+
+  async function search(q) {
+    try {
+      const r = await fetch(`${URL_AC_CHAUFFEUR}?q=${encodeURIComponent(q)}`);
+      const j = await r.json();
+      renderDrop(j.results || []);
+    } catch (err) {
+      console.error('Autocomplete chauffeur :', err);
+    }
+  }
+
+  // ── Saisie ──
+  input.addEventListener('input', () => {
+    // Saisie libre : reset de l'ID si l'utilisateur modifie manuellement
+    hiddenId.value  = '';
+    hiddenTel.value = '';
+    hiddenNom.value = input.value.trim();
+
+    clearTimeout(acTimer);
+    const q = input.value.trim();
+    if (q.length < 2) { closeDrop(); return; }
+    acTimer = setTimeout(() => search(q), 300);
+  });
+
+  // ── Focus ──
+  input.addEventListener('focus', () => {
+    if (input.value.trim().length >= 2) search(input.value.trim());
+  });
+
+  // ── Clavier ──
+  input.addEventListener('keydown', e => {
+    const items = drop.querySelectorAll('.chauffeur-ac-item');
+    if (!items.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      highlighted = (highlighted + 1) % items.length;
+      items.forEach((el, i) => el.classList.toggle('highlight', i === highlighted));
+    }
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      highlighted = (highlighted - 1 + items.length) % items.length;
+      items.forEach((el, i) => el.classList.toggle('highlight', i === highlighted));
+    }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const el = items[highlighted >= 0 ? highlighted : 0];
+      if (el) el.dispatchEvent(new MouseEvent('mousedown'));
+    }
+    else if (e.key === 'Escape') {
+      closeDrop();
+    }
+  });
+
+  // ── Fermer au clic extérieur ──
+  document.addEventListener('mousedown', e => {
+    if (!input.parentElement.contains(e.target)) closeDrop();
+  });
+})();
+
+
+// ══════════════════════════════════════════════════════════════
+//  INITIALISATION
+// ══════════════════════════════════════════════════════════════
+render(JSON.parse(document.getElementById('etat-data').textContent));
+</script>
+{% endblock %}

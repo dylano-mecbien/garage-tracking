@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ inv }}{% endblock %}
+{% block page_title %}📝 {{ inv }}{% endblock %}
+{% block sidebar_nav %}{% include "inventaire/_sb_admin.html" %}{% endblock %}
+{% block extra_css %}
+<style>.bdg{display:inline-block;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;}
+.bdg.EN_COURS{background:#fef3c7;color:#92400e;}.bdg.SOUMIS{background:#dbeafe;color:#1e40af;}.bdg.VALIDE{background:#d1fae5;color:#065f46;}.bdg.REVOQUE{background:#fee2e2;color:#991b1b;}
+.pick{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;}
+.pick:last-child{border-bottom:none;} .pick input{width:18px;height:18px;accent-color:var(--primary);}
+.err{color:#b91c1c;font-size:12px;font-weight:600;}
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:16px;}
+.modal-ov.open{display:flex;} .modal-box{background:var(--surface);border-radius:var(--radius);padding:22px;width:100%;max-width:460px;}</style>
+{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>{{ inv }}</h1><div class="breadcrumb"><a href="{% url 'inventaire_admin_liste' %}">Inventaires</a> › {{ inv.date|date:"d/m/Y" }}</div></div>
+  <a href="{% url 'inventaire_admin_liste' %}" class="btn btn-outline">← Retour</a></div>
+{% for m in messages %}<div class="alert alert-{{ m.tags }}" style="margin-bottom:12px;">{{ m }}</div>{% endfor %}
+
+<div class="card mb-2">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;">
+    <div><span class="bdg {{ inv.statut }}">{{ inv.get_statut_display }}</span>
+      <div class="text-small text-muted" style="margin-top:6px;">Validé par la guérite : {{ inv.soumis_par.get_full_name|default:"—" }}{% if inv.date_soumission %} le {{ inv.date_soumission|date:"d/m/Y H:i" }}{% endif %}
+        · {{ etat.nb_present }} présent(s), {{ etat.nb_absent }} absent(s) sur {{ etat.nb_total }}</div>
+      {% if inv.decide_par %}<div class="text-small text-muted">Décision : {{ inv.decide_par.get_full_name }} le {{ inv.date_decision|date:"d/m/Y H:i" }}</div>{% endif %}
+    </div>
+    {% if peut_revoquer %}<button type="button" class="btn btn-outline" style="border-color:var(--danger);color:var(--danger);" onclick="document.getElementById('modal-rev').classList.add('open')">🚫 Révoquer l'inventaire</button>{% endif %}
+  </div>
+  {% if inv.observation %}<div style="margin-top:10px;background:#fef3c7;border-left:4px solid #f59e0b;padding:8px 12px;white-space:pre-line;"><b>Observation de la guérite :</b><br>{{ inv.observation }}</div>{% endif %}
+  {% if inv.statut == 'REVOQUE' %}<div style="margin-top:10px;background:#fef2f2;border-left:4px solid #ef4444;padding:8px 12px;"><b>Motif de la révocation :</b> {{ inv.motif_revocation }}</div>{% endif %}
+</div>
+
+{% if peut_decider %}
+<form method="post" action="{% url 'inventaire_admin_valider' inv.id %}">
+  {% csrf_token %}
+  <div class="grid-2" style="align-items:start;">
+    <div class="card" style="padding:0;border-left:4px solid var(--success);">
+      <div class="card-header" style="padding:12px 14px;"><div class="card-title">➡️ Entrées proposées ({{ entrees|length }})</div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="tout('E',true)">Tout sélectionner</button></div>
+      {% for m in entrees %}<label class="pick"><input type="checkbox" name="mouvements" value="{{ m.id }}" class="cb-E">
+        <div style="flex:1;"><b>{{ m.matricule }}</b> — {{ m.vehicule.marque }} {{ m.vehicule.modele }} <span class="text-muted">({{ m.vehicule.client }})</span>
+          <div class="text-small text-muted">Chauffeur : {{ m.chauffeur }}{% if m.chauffeur_tel %} ({{ m.chauffeur_tel }}){% endif %} · Motif : {{ m.motif_libelle }}</div>
+          {% if m.erreur %}<div class="err">⚠️ {{ m.erreur }}</div>{% endif %}</div></label>
+      {% empty %}<div style="padding:18px;color:var(--text-muted);" class="text-small">Aucune entrée proposée.</div>{% endfor %}
+    </div>
+    <div class="card" style="padding:0;border-left:4px solid var(--danger);">
+      <div class="card-header" style="padding:12px 14px;"><div class="card-title">⬅️ Sorties proposées ({{ sorties|length }})</div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="tout('S',true)">Tout sélectionner</button></div>
+      {% for m in sorties %}<label class="pick"><input type="checkbox" name="mouvements" value="{{ m.id }}" class="cb-S">
+        <div style="flex:1;"><b>{{ m.matricule }}</b> — {{ m.vehicule.marque }} {{ m.vehicule.modele }} <span class="text-muted">({{ m.vehicule.client }})</span>
+          <div class="text-small text-muted">Marqué absent par la guérite — le système le croit encore présent.</div>
+          {% if m.erreur %}<div class="err">⚠️ {{ m.erreur }}</div>{% endif %}</div></label>
+      {% empty %}<div style="padding:18px;color:var(--text-muted);" class="text-small">Aucune sortie proposée.</div>{% endfor %}
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div class="text-small text-muted" style="flex:1;">Coche les mouvements à enregistrer définitivement. Les mouvements non cochés seront écartés.</div>
+    <button class="btn btn-success" style="padding:11px 26px;" onclick="return confirm('Enregistrer définitivement les mouvements cochés et clôturer cet inventaire ?')">✅ Valider la sélection</button>
+  </div>
+</form>
+{% endif %}
+
+{% if rapport %}
+<div class="card mb-2" style="margin-top:14px;"><div class="card-header"><div class="card-title">📋 Décisions</div></div>
+<table><thead><tr><th>Mouvement</th><th>Matricule</th><th>Chauffeur</th><th>Décision</th></tr></thead><tbody>
+{% for r in rapport %}<tr><td>{% if r.type == 'ENTREE' %}➡️ Entrée{% else %}⬅️ Sortie{% endif %}</td><td><b>{{ r.matricule }}</b></td><td>{{ r.chauffeur|default:"—" }}</td>
+  <td>{% if r.decision == 'VALIDE' %}<span class="bdg VALIDE">Enregistré</span>{% elif r.decision == 'ECARTE' %}<span class="bdg EN_COURS">Écarté</span>{% else %}<span class="bdg REVOQUE">Révoqué</span>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+
+<div class="card" style="margin-top:14px;"><div class="card-header"><div class="card-title">🚗 Fiche de la guérite ({{ lignes|length }} véhicules)</div></div>
+<table><thead><tr><th>Immatriculation</th><th>Véhicule</th><th>Client</th><th>Constat</th></tr></thead><tbody>
+{% for l in lignes %}<tr><td><b>{{ l.vehicule.immatriculation }}</b></td><td>{{ l.vehicule.marque }} {{ l.vehicule.modele }}</td><td>{{ l.vehicule.client }}</td>
+  <td>{% if l.presence == 'PRESENT' %}<span class="badge badge-success">Présent</span>{% elif l.presence == 'ABSENT' %}<span class="badge badge-danger">Absent</span>{% else %}—{% endif %}</td></tr>
+{% empty %}<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Aucune ligne</td></tr>{% endfor %}
+</tbody></table></div>
+
+<!-- Révocation -->
+<div class="modal-ov" id="modal-rev"><div class="modal-box">
+  <div style="display:flex;justify-content:space-between;margin-bottom:12px;"><strong style="font-size:16px;">🚫 Révoquer l'inventaire</strong>
+    <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('modal-rev').classList.remove('open')">✕</button></div>
+  <div class="text-small text-muted" style="margin-bottom:10px;">Aucun mouvement ne sera appliqué ; la table temporaire est vidée.</div>
+  <form method="post" action="{% url 'inventaire_admin_revoquer' inv.id %}">{% csrf_token %}
+    <div class="form-group"><label class="form-label">Motif *</label><textarea name="motif" class="form-textarea" rows="3" required></textarea></div>
+    <button class="btn btn-danger" style="width:100%;padding:10px;">🚫 Révoquer</button></form>
+</div></div>
+{% endblock %}
+{% block extra_js %}<script>
+function tout(t, v){ document.querySelectorAll('.cb-'+t).forEach(c=>c.checked=v); }
+document.getElementById('modal-rev').addEventListener('mousedown',e=>{if(e.target.id==='modal-rev')e.target.classList.remove('open');});
+</script>{% endblock %}

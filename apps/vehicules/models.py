@@ -124,6 +124,42 @@ class Conducteur(ContactBase):
         ordering = ['nom', 'prenom']
 
 
+
+class Centre(models.Model):
+    """Site / agence rattaché à un client (particulier ou entreprise)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='centres',
+        verbose_name="Client",
+    )
+    nom = models.CharField(max_length=150, verbose_name="Nom du centre")
+    code = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name="Code centre",
+        help_text="Ex. CTR-001 (optionnel)",
+    )
+    adresse = models.TextField(blank=True)
+    ville = models.CharField(max_length=100, blank=True)
+    telephone = models.CharField(max_length=30, blank=True)
+    email = models.EmailField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'centres'
+        verbose_name = "Centre"
+        verbose_name_plural = "Centres"
+        ordering = ['nom']
+        # Un même nom unique par client (optionnel)
+        unique_together = [('client', 'nom')]
+
+    def __str__(self):
+        return f"{self.nom} ({self.client})"
+
 class Vehicule(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     immatriculation = models.CharField(max_length=20, unique=True, verbose_name="Immatriculation")

@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{% block title %}{{ titre }} — page {{ step }}/{{ total }}{% endblock %}
+{% block page_title %}{{ titre }}{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Atelier</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ══════ Progression ══════ */
+.steps{display:flex;align-items:center;margin-bottom:20px;}
+.st{display:flex;align-items:center;gap:8px;}
+.st-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--border);color:var(--text-muted);}
+.st.done .st-dot{background:var(--success);color:#fff;}
+.st.active .st-dot{background:var(--primary);color:#fff;}
+.st-label{font-size:12px;font-weight:600;}
+.st-line{flex:1;height:2px;background:var(--border);margin:0 8px;min-width:20px;}
+.st-line.done{background:var(--success);}
+
+/* ══════ Corps fiche ══════ */
+.fiche-body{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;}
+.fi{display:flex;flex-direction:column;gap:4px;}
+.fi.wide{grid-column:1/-1;}
+.fi-label{font-size:12px;font-weight:600;color:var(--text-muted);}
+.fi-help{font-size:11px;color:var(--text-muted);}
+.fi-err{font-size:12px;color:var(--danger);font-weight:600;}
+
+/* ══════ Pills radio ══════ */
+.pills{display:flex;flex-wrap:wrap;border:1.5px solid var(--border);border-radius:6px;overflow:hidden;width:fit-content;}
+.pills label{padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;background:var(--surface);color:var(--text-muted);}
+.pills input{display:none;}
+.pills input:checked+label{background:var(--primary);color:#fff;}
+
+/* ══════ Check ══════ */
+.check-line{display:flex;align-items:center;gap:8px;}
+.check-line input{width:17px;height:17px;accent-color:var(--primary);}
+
+/* ══════ Canvas signatures & schéma ══════ */
+.sig-canvas{border:1.5px dashed var(--border);border-radius:8px;background:#fff;width:100%;height:100px;touch-action:none;cursor:crosshair;}
+#schema-canvas{border:1.5px solid var(--border);border-radius:8px;background:#f8fafc;max-width:100%;cursor:crosshair;}
+.tool-btn{opacity:.55;}
+.tool-btn.tool-active{opacity:1;outline:2px solid currentColor;outline-offset:2px;}
+
+/* ══════ Champs verrouillés (read-only) ══════ */
+/* ══════ Champs verrouillés (read-only) — plus foncés ══════ */
+.fi-locked,
+.form-input.fi-locked,
+input.fi-locked,
+select.fi-locked,
+textarea.fi-locked {
+    background: #e2e8f0 !important;         /* ← gris plus soutenu */
+    color: #64748b !important;              /* texte gris ardoise */
+    border-color: #cbd5e1 !important;       /* bordure plus visible */
+    font-weight: 600 !important;            /* légèrement gras */
+
+    /* Comportement inerte */
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    cursor: default !important;
+    caret-color: transparent !important;
+    outline: none !important;
+}
+
+/* Si vous êtes en thème sombre */
+[data-theme="dark"] .fi-locked,
+[data-theme="dark"] .form-input.fi-locked {
+    background: #1e293b !important;         /* slate-800 */
+    color: #94a3b8 !important;              /* slate-400 */
+    border-color: #334155 !important;       /* slate-700 */
+}
+
+/* Label verrouillé : discret + cadenas */
+.fi.is-locked .fi-label {
+    user-select: none;
+    cursor: default;
+    opacity: .85;
+}
+.fi.is-locked .fi-label::after {
+    content: ' 🔒';
+    font-size: 11px;
+    opacity: .5;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ titre }}</h1>
+    <div class="breadcrumb">{{ rec.numero }} — {{ rec.vehicule.immatriculation }}</div>
+  </div>
+  <a href="{% url 'detail_reception_atelier' rec.id %}" class="btn btn-outline">← Quitter</a>
+</div>
+
+<!-- Progression : 3 pages -->
+<div class="steps">
+  <div class="st {% if step > 1 %}done{% elif step == 1 %}active{% endif %}">
+    <div class="st-dot">{% if step > 1 %}✓{% else %}1{% endif %}</div>
+    <span class="st-label">En-tête et sécurité</span>
+  </div>
+  <div class="st-line {% if step > 1 %}done{% endif %}"></div>
+  <div class="st {% if step > 2 %}done{% elif step == 2 %}active{% endif %}">
+    <div class="st-dot">{% if step > 2 %}✓{% else %}2{% endif %}</div>
+    <span class="st-label">Mécanique et intérieur</span>
+  </div>
+  <div class="st-line {% if step > 2 %}done{% endif %}"></div>
+  <div class="st {% if step == 3 %}active{% endif %}">
+    <div class="st-dot">3</div>
+    <span class="st-label">Synthèse et signature</span>
+  </div>
+</div>
+
+<div class="card mb-2" style="border-left:4px solid var(--primary);">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div style="font-size:24px;">🚗</div>
+    <div>
+      <div style="font-weight:800;">{{ rec.vehicule.immatriculation }}</div>
+      <div class="text-small text-muted">{{ rec.vehicule.marque }} {{ rec.vehicule.modele }} — {{ rec.vehicule.client }}</div>
+    </div>
+  </div>
+</div>
+
+<h2 style="font-size:16px;margin-bottom:12px;">Page {{ step }}/{{ total }} — {{ step_title }}</h2>
+
+{% if form.non_field_errors %}<div class="alert alert-error">{{ form.non_field_errors }}</div>{% endif %}
+{% if form.errors %}<div class="alert alert-error">Certains champs obligatoires sont manquants ou invalides (signalés en rouge).</div>{% endif %}
+
+<form method="post" id="wizard-form">
+  {% csrf_token %}
+  <div class="fiche-body">
+    {% for f in fields %}
+    <div class="fi {% if f.kind == 'textarea' or f.kind == 'damage' or f.kind == 'signature' %}wide{% endif %} {% if f.readonly %}is-locked{% endif %}">
+      <label class="fi-label" for="{{ f.bf.id_for_label }}">{{ f.label }}</label>
+
+      {% if f.kind == 'radio' %}
+        <div class="pills">
+          {% for radio in f.bf %}
+            {{ radio.tag }}<label for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+          {% endfor %}
+        </div>
+
+      {% elif f.kind == 'check' %}
+        <div class="check-line">{{ f.bf }}</div>
+
+      {% elif f.kind == 'damage' %}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center;">
+          <span class="text-small font-bold text-muted">Outil :</span>
+          <button type="button" class="btn btn-sm tool-btn tool-active" id="tool-PIQURE" style="color:#6366f1;border-color:#6366f1;" onclick="setTool('PIQURE')">✕ Piqûre</button>
+          <button type="button" class="btn btn-sm tool-btn" id="tool-RAYURE" style="color:var(--warning);border-color:var(--warning);" onclick="setTool('RAYURE')">✦ Rayure</button>
+          <button type="button" class="btn btn-sm tool-btn" id="tool-BOSSE" style="color:var(--info);border-color:var(--info);" onclick="setTool('BOSSE')">● Bosse</button>
+          <button type="button" class="btn btn-sm tool-btn" id="tool-CASSE" style="color:var(--danger);border-color:var(--danger);" onclick="setTool('CASSE')"># Cassé</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="clearDamage()">🗑 Effacer</button>
+        </div>
+        <canvas id="schema-canvas" width="600" height="280" onclick="schemaClick(event)"></canvas>
+        {{ f.bf }}
+
+      {% elif f.kind == 'signature' %}
+        <canvas id="sig-{{ f.name }}" class="sig-canvas" data-prev="{{ f.preview_url|default:'' }}"></canvas>
+        {{ f.bf }}
+        <button type="button" class="btn btn-outline btn-sm" style="width:fit-content;" onclick="clearSig('{{ f.name }}')">🗑 Effacer la signature</button>
+
+      {% else %}
+        {{ f.bf }}
+      {% endif %}
+
+      {% if f.help %}<span class="fi-help">{{ f.help }}</span>{% endif %}
+      {% if f.bf.errors %}<span class="fi-err">{{ f.bf.errors|striptags }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div style="display:flex;gap:12px;margin-bottom:30px;flex-wrap:wrap;">
+    {% if step > 1 %}
+      <a href="{% url url_name rec.id step|add:'-1' %}" class="btn btn-outline" style="padding:11px 24px;">← Précédent</a>
+    {% endif %}
+    <button type="submit" class="btn {% if step == total %}btn-success{% else %}btn-primary{% endif %}" id="next-btn" style="padding:11px 32px;font-size:15px;">
+      {% if step == total %}✅ Terminer{% else %}Suivant →{% endif %}
+    </button>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ══════════════════════════════════════════════════════════════════
+//  SIGNATURES
+// ══════════════════════════════════════════════════════════════════
+function initSig(name){
+  const canvas = document.getElementById('sig-' + name);
+  const input  = document.getElementById('id_' + name);
+  if (!canvas || !input) return;
+
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = 100;
+
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth   = 2;
+  ctx.lineCap     = 'round';
+
+  let drawing = false;
+
+  const pos = e => {
+    const r = canvas.getBoundingClientRect();
+    const sc = canvas.width / r.width;
+    if (e.touches) return { x: (e.touches[0].clientX - r.left) * sc, y: (e.touches[0].clientY - r.top) * sc };
+    return { x: (e.clientX - r.left) * sc, y: (e.clientY - r.top) * sc };
+  };
+
+  const save = () => { input.value = canvas.toDataURL('image/png'); };
+
+  canvas.addEventListener('mousedown', e => { drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+  canvas.addEventListener('mousemove', e => { if (!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
+  canvas.addEventListener('mouseup',   () => { drawing = false; save(); });
+
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }, { passive: false });
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }, { passive: false });
+  canvas.addEventListener('touchend',   () => { drawing = false; save(); });
+
+  // ── Pré-remplir via data-prev (URL déjà calculée côté serveur) ──
+  const prev = canvas.dataset.prev;
+  if (prev) {
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    img.src = prev;
+  } else if (input.value) {
+    // Fallback : si data-prev absent, on gère base64 ou chemin
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    img.src = input.value.startsWith('data:')
+      ? input.value
+      : '{{ MEDIA_URL }}' + input.value;
+  }
+
+  canvas._clear = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    input.value = '';
+  };
+}
+
+function clearSig(name){
+  const c = document.getElementById('sig-' + name);
+  if (c && c._clear) c._clear();
+}
+
+document.querySelectorAll('canvas[id^="sig-"]').forEach(c => initSig(c.id.replace('sig-', '')));
+
+
+// ══════════════════════════════════════════════════════════════════
+//  SCHÉMA CARROSSERIE (fiche de contrôle, page 2)
+// ══════════════════════════════════════════════════════════════════
+{% if degats_json %}
+let tool = 'PIQURE';
+let pts  = [];
+try { pts = JSON.parse('{{ degats_json|escapejs }}') || []; } catch(e) { pts = []; }
+
+const COL = { PIQURE:'#6366f1', RAYURE:'#f59e0b', BOSSE:'#3b82f6', CASSE:'#ef4444' };
+const SYM = { PIQURE:'✕',       RAYURE:'✦',       BOSSE:'●',       CASSE:'#' };
+
+function setTool(t){
+  tool = t;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('tool-active'));
+  const btn = document.getElementById('tool-' + t);
+  if (btn) btn.classList.add('tool-active');
+}
+
+function drawCar(ctx){
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.5;
+  ctx.fillStyle = '#eef2f6';
+  ctx.beginPath(); ctx.roundRect(60, 25, 480, 225, 20); ctx.fill(); ctx.stroke();
+
+  ctx.fillStyle = '#e2e8f0';
+  ctx.beginPath(); ctx.roundRect(140, 70, 320, 130, 12); ctx.fill(); ctx.stroke();
+
+  ctx.fillStyle = '#475569';
+  [[55,45,20,50],[55,185,20,50],[505,45,20,50],[505,185,20,50]].forEach(([x,y,w,h]) => {
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, 5); ctx.fill();
+  });
+
+  ctx.fillStyle = '#64748b';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('AVANT ▲', 300, 16);
+  ctx.fillText('ARRIÈRE ▼', 300, 272);
+}
+
+function render(){
+  const c = document.getElementById('schema-canvas');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  drawCar(ctx);
+  pts.forEach(p => {
+    ctx.fillStyle = COL[p.type] || '#000';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(SYM[p.type] || '?', p.x, p.y);
+  });
+}
+
+function saveDamage(){
+  const el = document.getElementById('id_points_degats_carrosserie');
+  if (el) el.value = JSON.stringify(pts);
+}
+
+function schemaClick(e){
+  const c = document.getElementById('schema-canvas');
+  const r = c.getBoundingClientRect();
+  const sc = c.width / r.width;
+  pts.push({
+    x: Math.round((e.clientX - r.left) * sc),
+    y: Math.round((e.clientY - r.top) * sc),
+    type: tool,
+  });
+  render();
+  saveDamage();
+}
+
+function clearDamage(){ pts = []; render(); saveDamage(); }
+
+render();
+saveDamage();
+{% endif %}
+
+
+// ══════════════════════════════════════════════════════════════════
+//  SOUMISSION
+// ══════════════════════════════════════════════════════════════════
+document.getElementById('wizard-form').addEventListener('submit', function(){
+  const b = document.getElementById('next-btn');
+  b.disabled = true;
+  b.textContent = '⏳ Enregistrement...';
+});
+</script>
+{% endblock %}

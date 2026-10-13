@@ -9,6 +9,8 @@
 <li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
 <li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
 <li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_or' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+
 <li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
 <li class="has-submenu">
 <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
@@ -84,9 +86,9 @@
 <div class="page-header">
   <div>
     <h1>Nouvelle réception</h1>
-    <div class="breadcrumb"><a href="{% url 'index' %}">Réception</a> › Créer</div>
+    <div class="breadcrumb"><a href="{% url 'liste_receptions' %}">Réception</a> › Créer</div>
   </div>
-  <a href="{% url 'index' %}" class="btn btn-outline">← Retour</a>
+  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
 </div>
 
 <!-- Étapes -->
@@ -130,8 +132,7 @@
           — Entré le {{ entree.date_entree|date:"d/m/Y H:i" }}
         </div>
       </div>
-      <a href="{% url 'recherche_vehicule' %}" class="btn btn-outline btn-sm">Changer</a>
-    </div>
+<a href="{% url 'creer_reception' %}" class="btn btn-outline btn-sm">✕ Changer</a>    </div>
     {% else %} 
     <!-- Recherche libre -->
     <div class="form-group">
@@ -152,10 +153,7 @@
         </div>
         <button type="button" onclick="clearVehicule()" class="btn btn-outline btn-sm">✕ Changer</button>
       </div>
-      <div class="text-small text-muted mt-1">
-        Véhicule non trouvé ?
-        <a href="{% url 'creer_vehicule_guerite' %}">Créer un véhicule</a>
-      </div>
+
     </div>
     {% endif %}
 
@@ -217,7 +215,7 @@
     <button type="submit" class="btn btn-primary" style="font-size:15px;padding:11px 28px;">
       ✅ Créer la réception
     </button>
-    <a href="{% url 'index' %}" class="btn btn-outline">Annuler</a>
+    <a href="{% url 'liste_receptions' %}" class="btn btn-outline">Annuler</a>
   </div>
 </form>
 {% endblock %}
@@ -243,7 +241,10 @@ document.getElementById('veh-search').addEventListener('input', function() {
 
 async function searchVehicule(q) {
   try {
-    const r    = await fetch(`/api/vehicules/?q=${encodeURIComponent(q)}&en_cours=1`);
+    const r    = await fetch(`{% url 'autocomplete_vehicules_reception' %}?q=${encodeURIComponent(q)}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+                
     const data = await r.json();
     renderVehResults(data.results || []);
   } catch(e) { console.error(e); }
@@ -279,15 +280,18 @@ function renderVehResults(results) {
 
 function selectVehicule(v) {
   document.getElementById('vehicule-id-hidden').value = v.id;
+  document.getElementById('entree-id-hidden').value   = v.entree_id || '';
   document.getElementById('veh-immat').textContent  = v.immatriculation;
   document.getElementById('veh-detail').textContent = `${v.marque} ${v.modele} ${v.annee}`;
-  document.getElementById('veh-client').textContent = `Propriétaire : ${v.client} — ${v.telephone}`;
+  document.getElementById('veh-client').textContent =
+    `Propriétaire : ${v.client} — ${v.telephone}` +
+    (v.date_entree ? ` — Entré le ${v.date_entree}` : '');
   document.getElementById('veh-box').classList.add('show');
   document.getElementById('veh-search').style.display = 'none';
   closeVehRes();
 
-  // Charger les entrées en cours pour ce véhicule
-  if (v.en_cours) {
+  // Plus besoin de loadEntrees si entree_id est déjà fourni
+  if (!v.entree_id && v.en_cours) {
     loadEntrees(v.id);
   }
 }
@@ -354,3 +358,4 @@ document.getElementById('rec-form').addEventListener('submit', function(e) {
 });
 </script>
 {% endblock %}
+

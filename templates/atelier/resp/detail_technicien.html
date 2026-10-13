@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ tech.get_full_name }}{% endblock %}
+{% block page_title %}👷 {{ tech.get_full_name }}{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Atelier</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_receptions_atelier' %}" ><span class="icon">📋</span> Historique des Réceptions</a></li>
+
+  <li><a href="{% url 'liste_or_atelier' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_techniciens' %}" class="active"><span class="icon">👷</span> Techniciens</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+.kpi{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;}
+.kpi-val{font-size:26px;font-weight:800;}
+.kpi-lbl{font-size:11px;color:var(--text-muted);margin-top:4px;}
+.tache-line{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.tache-line:last-child{border-bottom:none;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div><h1>{{ tech.get_full_name }}</h1><div class="breadcrumb">{{ tech.email }}</div></div>
+  <a href="{% url 'liste_techniciens' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-val" style="color:var(--success);">{{ stats.nb_effectuees }}</div><div class="kpi-lbl">Tâches effectuées</div></div>
+  <div class="kpi"><div class="kpi-val">{{ stats.nb_restantes }}</div><div class="kpi-lbl">Restantes</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--danger);">{{ stats.nb_en_retard }}</div><div class="kpi-lbl">Tâches en retard</div></div>
+  <div class="kpi"><div class="kpi-val">{{ stats.duree_totale }} </div><div class="kpi-lbl">Durée totale travaillée</div></div>
+  <div class="kpi"><div class="kpi-val">{{ stats.duree_moyenne }} </div><div class="kpi-lbl">Durée moyenne/tâche</div></div>
+  <div class="kpi"><div class="kpi-val">{{ stats.delai_moyen_demarrage }} </div><div class="kpi-lbl">Délai moyen assignation→démarrage</div></div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header"><div class="card-title">📋 Tâches restantes ({{ taches_restantes|length }})</div></div>
+    {% for t in taches_restantes %}
+    <div class="tache-line">
+      <div style="flex:1;">
+        <div class="font-bold">{{ t.libelle }}</div>
+        <div class="text-muted">🚗 {{ t.ordre_reparation.vehicule.immatriculation }} · 🏭 {{ t.ordre_reparation.atelier.nom }}</div>
+      </div>
+      {% if t.statut == 'EN_COURS' %}<span class="badge" style="background:var(--warning);color:#fff;">En cours</span>
+      {% else %}<span class="badge badge-secondary">À faire</span>{% endif %}
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucune tâche en attente</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">✅ Historique des tâches effectuées ({{ taches_faites|length }})</div></div>
+    {% for t in taches_faites %}
+    <div class="tache-line">
+      <div style="flex:1;">
+        <div class="font-bold">{{ t.libelle }}</div>
+        <div class="text-muted">
+          🚗 {{ t.ordre_reparation.vehicule.immatriculation }}
+          · ⏱️ {{ t.duree_reelle_minutes|default:"?" }} min (est. {{ t.duree_estimee_minutes }} min)
+          {% if t.delai_avant_demarrage_minutes != None %} · Démarré {{ t.delai_avant_demarrage_minutes }} min après assignation{% endif %}
+        </div>
+      </div>
+      <div style="text-align:right;">
+        {% if t.statut == 'VALIDEE' %}<span class="badge badge-success">Validée</span>{% else %}<span class="badge badge-warning">En attente</span>{% endif %}
+        {% if t.en_retard %}<div class="text-small" style="color:var(--danger);">⚠️ Retard</div>{% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucune tâche effectuée</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

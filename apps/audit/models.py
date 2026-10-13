@@ -4,17 +4,9 @@ Audit Logs - Traçabilité complète
 import uuid
 from django.db import models
 
+from apps.accounts.choices import ActionType
 
-class ActionType(models.TextChoices):
-    CONNEXION = 'CONNEXION', 'Connexion'
-    DECONNEXION = 'DECONNEXION', 'Déconnexion'
-    CREATION = 'CREATION', 'Création'
-    MODIFICATION = 'MODIFICATION', 'Modification'
-    SUPPRESSION = 'SUPPRESSION', 'Suppression'
-    CHANGEMENT_STATUT = 'CHANGEMENT_STATUT', 'Changement de statut'
-    EXPORT = 'EXPORT', 'Export'
-    TELECHARGEMENT = 'TELECHARGEMENT', 'Téléchargement'
-    CONSULTATION = 'CONSULTATION', 'Consultation'
+
 
 
 class AuditLog(models.Model):

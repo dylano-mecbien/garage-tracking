@@ -10,6 +10,7 @@
 <li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
 <li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
 <li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_or' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
 <li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
 <li class="has-submenu">
 <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
@@ -60,48 +61,60 @@
   {% endfor %}
 </div>
 
-
-
-<!-- KPI Guerite-->
+<!-- KPI Guérite -->
 <div class="kpi-grid">
-  <div class="kpi-card success">
+
+  <a href="{% url 'historique_entrees_rec' %}?date_debut={{ today|date:'Y-m-d' }}&date_fin={{ today|date:'Y-m-d' }}"
+     class="kpi-card success">
     <div class="kpi-label">📥 Entrées aujourd'hui</div>
     <div class="kpi-value">{{ nb_entrees_today }}</div>
-  </div>
-  <div class="kpi-card info">
+    <div class="kpi-sub">Véhicules entrés ce jour</div>
+  </a>
+
+  <a href="{% url 'historique_entrees_rec' %}?statut=SORTI&date_debut={{ today|date:'Y-m-d' }}&date_fin={{ today|date:'Y-m-d' }}"
+     class="kpi-card info">
     <div class="kpi-label">📤 Sorties aujourd'hui</div>
     <div class="kpi-value">{{ nb_sorties_today }}</div>
-  </div>
-  <div class="kpi-card accent">
+    <div class="kpi-sub">Véhicules sortis ce jour</div>
+  </a>
+
+  <a href="{% url 'vehicules_presents_rec' %}" class="kpi-card accent">
     <div class="kpi-label">🚗 Véhicules présents</div>
     <div class="kpi-value">{{ entreesNbr|length }}</div>
     <div class="kpi-sub">Dans le local actuellement</div>
-  </div>
+  </a>
+
+
 </div>
 
-<!-- KPI -->
+<!-- KPI Atelier -->
 <div class="kpi-grid">
-  <div class="kpi-card accent">
+
+  <a href="{% url 'vehicules_presents_rec' %}?motif=REPARATION" class="kpi-card accent">
     <div class="kpi-label">⚠️ À traiter</div>
     <div class="kpi-value">{{ nb_a_traiter }}</div>
     <div class="kpi-sub">Sans réception</div>
-  </div>
-  <div class="kpi-card info">
+  </a>
+
+  <a href="{% url 'liste_receptions' %}?statut=RAPPORT_FAIT" class="kpi-card info">
     <div class="kpi-label">🏭 En attente atelier</div>
     <div class="kpi-value">{{ nb_en_atelier }}</div>
-  </div>
-  <div class="kpi-card">
+    <div class="kpi-sub">Fiche d'entrée à faire</div>
+  </a>
+
+  <a href="{% url 'liste_receptions' %}?statut=PRESENT_ATELIER" class="kpi-card">
     <div class="kpi-label">📋 Présents atelier</div>
     <div class="kpi-value">{{ nb_presents }}</div>
-    <div class="kpi-sub">Fiche contrôle faite</div>
-  </div>
-  <div class="kpi-card success">
+    <div class="kpi-sub">Fiche d'entrée faite</div>
+  </a>
+
+  <a href="{% url 'liste_receptions' %}?statut=TRAVAUX_TERMINES" class="kpi-card success">
     <div class="kpi-label">✅ Travaux terminés</div>
     <div class="kpi-value">{{ nb_termines }}</div>
     <div class="kpi-sub">Bon de sortie à créer</div>
-  </div>
-</div>
+  </a>
 
+</div>
 
 
 
@@ -110,7 +123,7 @@
   <div class="card">
     <div class="card-header"> 
       <div class="card-title">🚗 Véhicules dans le local</div>
-      <a href="{% url 'vehicules_presents' %}" class="btn btn-outline btn-sm">Voir tout</a>
+      <a href="{% url 'vehicules_presents_rec' %}" class="btn btn-outline btn-sm">Voir tout</a>
     </div>
     <div class="table-wrap">
       <table>
@@ -145,17 +158,15 @@
     <td class="text-muted">{{ entree.duree_sejour }}</td>
 
     <td onclick="event.stopPropagation();">
-        {% if entree.motif != 'VISITE' %}
-            {% if entree.bon_sortie_id == null %}
-                <a href="{% url 'creer_bon_sortie_rec' entree.id %}"
-                   class="btn btn-warning btn-sm">
-                    📤 Bon de sortie
-                </a>
-            {% endif %}
-        {% endif %}
+ {% if entree.motif == 'REPARATION' and not entree.reception %}
+    <a href="{% url 'creer_reception' %}?entree_id={{ entree.id }}"
+       class="btn btn-primary btn-sm">➕ Faire Réception</a>
+
+{% elif entree.motif != 'VISITE' and not entree.bon_sortie_id %}
+    <a href="{% url 'creer_bon_sortie_rec' entree.id %}"
+       class="btn btn-warning btn-sm">📤 Bon de sortie</a>
+{% endif %}
     </td>
-
-
 
 </tr> 
 {% endfor %}
@@ -164,11 +175,75 @@
     </div>
   </div>
 
+<!-- Attente de création OR -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Attente d'ordre de réparation {{ nb_attente_or }}</div>
+    <a href="{% url 'liste_receptions' %}?statut=FICHE_TECHNIQUE"
+       class="btn btn-outline btn-sm">Voir tout</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Immatriculation</th>
+          <th>Client</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fiche in fiches_attente_or %}
+        <tr onclick="window.location='{% url 'detail_reception' fiche.id %}'"
+            style="cursor:pointer;"
+            class="clickable-row">
+
+          <td>
+            <strong>{{ fiche.vehicule.immatriculation }}</strong><br>
+            <span class="text-small text-muted">
+              {{ fiche.vehicule.marque }} {{ fiche.vehicule.modele }}
+            </span>
+          </td>
+
+          <td>{{ fiche.vehicule.client }}</td>
+
+          <td onclick="event.stopPropagation();">
+            <a href="{% url 'detail_reception' fiche.id %}"
+               class="btn btn-primary btn-sm">
+              ➕ Consulter
+            </a>
+          </td>
+
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3" class="text-center text-muted" style="padding:20px;">
+            Aucune attente d'ordre de réparation.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div>
+ 
+
+
+
+
+  <div class="grid-2" style="margin-top:20px;"> 
+
+  <!-- ═══ Véhicules présents ═══ -->
+  
+
+
+
   <!-- Entrées récentes du jour -->
   <div class="card">
     <div class="card-header">
       <div class="card-title">📋 Historique des mouvements</div>
-            <a href="{% url 'historique_entrees' %}" class="btn btn-outline btn-sm">Voir tout</a>
+            <a href="{% url 'historique_entrees_rec' %}" class="btn btn-outline btn-sm">Voir tout</a>
 
     </div>
     <div class="table-wrap">
@@ -194,140 +269,85 @@
   </div>
 
 
-</div>
- 
 
-
-
-
-  <div class="grid-2" style="margin-top:20px;"> 
-
-  <!-- ═══ Véhicules présents ═══ -->
-  
-
-
-<div>
-    <div style="font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">
-      🚗 Véhicules présents pour réparation
-      {% if nb_a_traiter %}<span class="badge badge-danger" style="margin-left:6px;">{{ nb_a_traiter }} nouveau{{ nb_a_traiter|pluralize }}</span>{% endif %}
-    </div>
-
-    {% for entree in entrees_sans_rec %}
-    <div class="vcard {% if not entree.reception %}nouveau{% elif entree.reception.statut == 'TRAVAUX_TERMINES' or entree.reception.statut == 'BON_SORTIE_FAIT' %}termines{% elif entree.reception.statut == 'EN_ATELIER' or entree.reception.statut == 'PRESENT_ATELIER' or entree.reception.statut == 'TRAVAUX_EN_COURS' %}en-atelier{% endif %}">
-      <div style="display:flex;justify-content:space-between;gap:10px;">
-        <div style="flex:1;">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
-            <strong style="font-size:15px;">{{ entree.vehicule.immatriculation }}</strong>
-            {% if not entree.reception %}
-            <span class="badge badge-warning">🆕 Nouveau</span>
-            {% elif entree.reception.statut == 'EN_COURS' %}
-            <span class="badge badge-a-faire">En cours</span>
-            {% elif entree.reception.statut == 'RAPPORT_FAIT' %}
-            <span class="badge badge-info">Rapport fait</span>
-            {% elif entree.reception.statut == 'EN_ATELIER' %}
-            <span class="badge badge-en-cours">En atelier</span>
-            {% elif entree.reception.statut == 'PRESENT_ATELIER' %}
-            <span class="badge badge-ouvert">Présent atelier</span>
-            {% elif entree.reception.statut == 'TRAVAUX_EN_COURS' %}
-            <span class="badge badge-en-cours">Travaux en cours</span>
-            {% elif entree.reception.statut == 'TRAVAUX_TERMINES' %}
-            <span class="badge badge-success">✅ Terminé</span>
-            {% elif entree.reception.statut == 'BON_SORTIE_FAIT' %}
-            <span class="badge badge-cloture">📄 Bon créé</span>
-            {% endif %}
-          </div>
-          <div class="text-small text-muted">{{ entree.vehicule.marque }} {{ entree.vehicule.modele }} {{ entree.vehicule.annee }}</div>
-          <div class="text-small"><strong>{{ entree.vehicule.client }}</strong> — {{ entree.vehicule.client.telephone }}</div>
-          <div class="text-small text-muted">Entré {{ entree.date_entree|date:"d/m/Y H:i" }} ({{ entree.duree_sejour }})</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:5px;">
-          <a href="{% url 'detail_vehicule_rec' entree.vehicule.id %}" class="btn btn-info btn-sm">👁 Détails</a>
-          {% if not entree.reception %}
-          <a href="{% url 'creer_reception' %}?entree_id={{ entree.id }}" class="btn btn-primary btn-sm">➕ Réception</a>
-          {% else %}
-          <a href="{% url 'detail_reception' entree.reception.id %}" class="btn btn-outline btn-sm">📋 Voir</a>
-          {% if entree.reception.statut == 'TRAVAUX_TERMINES' %}
-          <a href="{% url 'creer_bon_sortie_rec' entree.reception.id %}" class="btn btn-success btn-sm">📄 Bon sortie</a>
-          {% endif %}
-          {% endif %}
-        </div>
-      </div>
-      <!-- Barre de progression si réception existe -->
-      {% if entree.reception %}
-      <div style="margin-top:10px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-          <span class="text-small text-muted">Progression</span>
-          <span class="text-small font-bold">{{ entree.reception.progression_pct }}%</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width:{{ entree.reception.progression_pct }}%;{% if entree.reception.progression_pct == 100 %}background:var(--success);{% endif %}"></div>
-        </div>
-      </div>
-      {% endif %}
-    </div>
-    {% empty %}
-    <div style="text-align:center;padding:40px;color:var(--text-muted);background:var(--surface);border-radius:var(--radius);border:2px dashed var(--border);">
-      <div style="font-size:40px;margin-bottom:8px;">🔧</div>
-      Aucun véhicule en attente
-    </div>
-    {% endfor %}
-  </div>
 
   <!-- ═══ OR actifs ═══ -->
-  <div>
-    <div style="font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">
-      🔧 Suivi des OR actifs
-    </div>
-
-    {% for o in or_actifs %}
-    <div class="vcard" style="border-left:4px solid {% if o.statut == 'EN_COURS' %}var(--warning){% else %}var(--info){% endif %};">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-        <div>
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:3px;">
-            <a href="{% url 'detail_or' o.id %}" style="font-weight:700;color:var(--primary);">{{ o.numero }}</a>
-            {% if o.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
-            {% elif o.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
-            {% elif o.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>{% endif %}
-          </div>
-          <div class="text-small"><strong>{{ o.vehicule.immatriculation }}</strong> — {{ o.atelier.nom }}</div>
-          {% with nb=o.taches.count term=o.taches.filter %}
-          {% if nb %}<div class="text-small text-muted">{{ nb }} tâche{{ nb|pluralize }}</div>{% endif %}
-          {% endwith %}
-          <div class="text-small text-muted">{{ o.date_creation|date:"d/m/Y" }}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <a href="{% url 'detail_reception' o.reception_id %}" class="btn btn-info btn-sm">📋</a>
-          <form method="post" action="{% url 'cloture_or_rec' o.id %}" onsubmit="return confirm('Clôturer OR ?')">
-            {% csrf_token %}<button class="btn btn-success btn-sm">✅ Clôturer</button>
-          </form>
-        </div>
-      </div>
-    </div>
-    {% empty %}
-    <div style="text-align:center;padding:30px;color:var(--text-muted);background:var(--surface);border-radius:var(--radius);border:2px dashed var(--border);">
-      <div style="font-size:36px;">🔧</div>
-      Aucun OR actif
-    </div>
-    {% endfor %}
-
-    <!-- Véhicules avec travaux terminés en attente de bon de sortie -->
-    {% for r in receptions %}
-    {% if r.statut == 'TRAVAUX_TERMINES' %}
-    <div class="vcard termines">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="display:flex;gap:6px;align-items:center;font-size:16px;">
-            ✅ <strong>{{ r.vehicule.immatriculation }}</strong>
-            <span class="badge badge-success">Travaux terminés</span>
-          </div>
-          <div class="text-small text-muted">{{ r.vehicule.marque }} {{ r.vehicule.modele }} — {{ r.vehicule.client }}</div>
-        </div>
-        <a href="{% url 'creer_bon_sortie_rec' r.id %}" class="btn btn-success">📄 Bon de sortie</a>
-      </div>
-    </div>
-    {% endif %}
-    {% endfor %}
+<div>
+  <div style="font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">
+    🔧 Suivi des OR actifs
   </div>
+
+  {% for o in or_actifs %}
+  <div class="vcard" style="border-left:4px solid {% if o.nb_taches and o.nb_validees == o.nb_taches %}var(--success){% elif o.statut == 'EN_COURS' %}var(--warning){% else %}var(--info){% endif %};">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+      <div>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:3px;flex-wrap:wrap;">
+          <a href="{% url 'detail_or_rec' o.id %}" style="font-weight:700;color:var(--primary);">
+            {{ o.vehicule.immatriculation }}
+          </a>
+          {% if o.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
+          {% elif o.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+          {% elif o.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>
+          {% endif %}
+        </div>
+
+        {% if o.nb_taches %}
+        <div class="text-small" style="margin-top:2px;">
+          <strong>{{ o.nb_validees }}/{{ o.nb_taches }}</strong> tâche{{ o.nb_taches|pluralize }}
+          {% if o.nb_validees == o.nb_taches %}
+          <span style="color:var(--success);font-weight:600;"> · Terminé</span>
+          {% endif %}
+        </div>
+        <!-- barre de progression -->
+        <div style="margin-top:6px;height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;max-width:160px;">
+          <div style="height:100%;width:{% widthratio o.nb_validees o.nb_taches 100 %}%;background:{% if o.nb_validees == o.nb_taches %}var(--success){% else %}var(--primary){% endif %};border-radius:4px;"></div>
+        </div>
+        {% else %}
+        <div class="text-small text-muted">Aucune tâche</div>
+        {% endif %}
+
+        <div class="text-small text-muted" style="margin-top:4px;">{{ o.date_creation|date:"d/m/Y" }}</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <a href="{% url 'detail_reception' o.reception_id %}" class="btn btn-info btn-sm">📋</a>
+        {% if o.nb_taches and o.nb_validees == o.nb_taches %}
+        <form method="post" action="{% url 'cloture_or_rec' o.id %}"
+              onsubmit="return confirm('Clôturer OR ?')">
+          {% csrf_token %}
+          <button class="btn btn-success btn-sm">✅ Clôturer</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:30px;color:var(--text-muted);background:var(--surface);border-radius:var(--radius);border:2px dashed var(--border);">
+    <div style="font-size:36px;">🔧</div>
+    Aucun OR actif
+  </div>
+  {% endfor %}
+
+  <!-- Véhicules travaux terminés → bon de sortie -->
+  {% for r in receptions %}
+  {% if r.statut == 'TRAVAUX_TERMINES' %}
+  <div class="vcard termines">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="display:flex;gap:6px;align-items:center;font-size:16px;">
+          <strong>{{ r.vehicule.immatriculation }}</strong>
+          <span class="badge badge-success">Travaux terminés</span>
+        </div>
+        <div class="text-small text-muted">
+          {{ r.vehicule.marque }} {{ r.vehicule.modele }} — {{ r.vehicule.client }}
+        </div>
+      </div>
+      <a href="{% url 'creer_bon_sortie_rec' r.entree.id %}" class="btn btn-success">📄 Bon de sortie</a>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
 
 </div>
 

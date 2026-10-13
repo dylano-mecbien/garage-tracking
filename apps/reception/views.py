@@ -4,6 +4,8 @@ Vues Réception — sans devis, sans facture
 
 import os
 
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
 from django.core.files.storage import default_storage
 from django.db.models import Count
 from django.utils import timezone
@@ -21,14 +23,17 @@ from django.utils import timezone
 from django.db.models import Q, Sum
 from django.http import HttpResponse, JsonResponse, request
 from django.views.decorators.http import require_POST
+from apps.accounts.views_user_stats import format_duree
+from apps.atelier.views import _entree_from_or, enrich_taches_duree
+from apps.guerite.models import BonSortie, EnregistrementEntree
 from apps.notifications.hook import notifier_bon_sortie_cree
 from apps.reception.pdf_bon_liste import generer_pdf_liste_bons
 from apps.reception.pdf_client_liste import generer_pdf_liste_clients
 from apps.reception.pdf_vehicules_pdf import generer_pdf_liste_vehicules
 from .models import Reception, StatutVehicule, RapportReception, TransfertAtelier, Notification
 from .forms import ReceptionForm, RapportReceptionForm, TransfertAtelierForm, BonSortieForm, ORReceptionForm
-from apps.guerite.models import EnregistrementEntree, BonSortie, StatutEntree, MotifEntree, StatutViewHinstorisue, TypeBon
-from apps.atelier.models import FicheTechnique, OrdreReparation, StatutOR, TypeOR, FicheControle, Tache, StatutTache
+from apps.accounts.choices import  MotifEntree, StatutReception, TypeBon
+from apps.atelier.models import FicheTechnique, OrdreReparation, StatutOR,  FicheControle, Tache, StatutTache
 from apps.vehicules.models import Client, Conducteur, Vehicule
 from apps.accounts.decorators import guerite_required, receptionniste_required
 from apps.accounts.models import Demandeur, Role, User
@@ -41,7 +46,8 @@ from django.core.files.base import ContentFile
 from datetime import datetime
 import base64
 import uuid
-
+from django.db.models import Count, Q, F, FloatField, Case, When, Value
+from django.db.models.functions import Coalesce, Cast
 # ─── Utilitaire notif ────────────────────────────────────────────────────────
 def _notifier(type_notif, titre, message, reception=None):
     from apps.accounts.models import User
@@ -51,7 +57,9 @@ def _notifier(type_notif, titre, message, reception=None):
             reception=reception, destinataire=user
         )
 
+
 def get_entrees_presentes_filtrees(request):
+    """Retourne le queryset filtré (sans pagination) — utile pour exports."""
     qs = (
         EnregistrementEntree.objects
         .select_related("vehicule", "vehicule__client", "conducteur", "conducteur__client")
@@ -59,14 +67,13 @@ def get_entrees_presentes_filtrees(request):
         .order_by("-date_entree")
     )
 
-    q            = request.GET.get("q")
-    motif        = request.GET.get("motif")
-    date_debut   = request.GET.get("date_debut", "").strip()
-    date_fin     = request.GET.get("date_fin", "").strip()
+    q = request.GET.get("q")
+    motif = request.GET.get("motif")
+    date_debut = request.GET.get("date_debut", "").strip()
+    date_fin = request.GET.get("date_fin", "").strip()
     duree_valeur = request.GET.get("duree_valeur", "").strip()
-    duree_unite  = request.GET.get("duree_unite", "h").strip() or "h"
+    duree_unite = request.GET.get("duree_unite", "h").strip() or "h"
 
-    # ── Recherche libre ──────────────────────────
     if q:
         qs = qs.filter(
             Q(vehicule__immatriculation__icontains=q)
@@ -75,11 +82,9 @@ def get_entrees_presentes_filtrees(request):
             | Q(conducteur__nom__icontains=q)
         )
 
-    # ── Motif ────────────────────────────────────
     if motif:
         qs = qs.filter(motif=motif)
 
-    # ── Dates ────────────────────────────────────
     if date_debut:
         dt = datetime.strptime(date_debut, "%Y-%m-%d")
         qs = qs.filter(date_entree__gte=timezone.make_aware(dt))
@@ -90,103 +95,184 @@ def get_entrees_presentes_filtrees(request):
         )
         qs = qs.filter(date_entree__lte=timezone.make_aware(dt))
 
-    # ── Durée de séjour (supérieure à n unités) ──
     if duree_valeur != "":
         try:
             n = int(duree_valeur)
-
             if duree_unite == "h":
                 unite_delta = timedelta(hours=1)
             elif duree_unite == "m":
                 unite_delta = timedelta(days=30)
-            else:  # "j"
+            else:
                 unite_delta = timedelta(days=1)
 
-            # 0 → plus d'1 unité (1h / 1j / 1 mois)
             if n == 0:
                 n = 1
 
             if n > 0:
                 seuil = timezone.now() - (unite_delta * n)
-                # séjour > n unités
                 qs = qs.filter(date_entree__lt=seuil)
-
         except (ValueError, TypeError):
             pass
 
     return qs
+
+
+def paginate_queryset(request, qs, per_page=25):
+    """Pagination réutilisable."""
+    paginator = Paginator(qs, per_page)
+    page_number = request.GET.get("page", 1)
+    try:
+        page = paginator.page(page_number)
+    except PageNotAnInteger:
+        page = paginator.page(1)
+    except EmptyPage:
+        page = paginator.page(paginator.num_pages)
+    return page
+
  
 # ─── DASHBOARD ───────────────────────────────────────────────────────────────
-@receptionniste_required 
+@receptionniste_required
 def dashboard(request):
-    # Tous les véhicules présents pour réparation (guérite)
-    entreesReparation = EnregistrementEntree.objects.filter(
-    motif=MotifEntree.REPARATION
-    ).filter(
-    statut=StatutEntree.EN_COURS
-    ).select_related('vehicule', 'vehicule__client').order_by('-date_entree')
+    today = timezone.localdate()
 
-    # Réceptions actives (pas encore sorties)
-    receptions = Reception.objects.exclude(
-        statut__in=[StatutVehicule.SORTI]
-    ).select_related('vehicule', 'vehicule__client').prefetch_related(
-        'transferts__atelier'
-    ).order_by('-created_at')
+    # ── Entrées guérite pour réparation, en cours ──
+    entreesReparation = (
+        EnregistrementEntree.objects
+        .filter(motif=MotifEntree.REPARATION, statut=StatutVehicule.EN_COURS)
+        .select_related('vehicule', 'vehicule__client')
+        .order_by('-date_entree')
+    )
 
-    # Notifications non lues
-    notifs = Notification.objects.filter(
-        destinataire=request.user, lue=False
-    ).select_related('reception')[:15]
+    # ── Réceptions actives (pas encore sorties) ──
+    receptions = (
+        Reception.objects
+        .exclude(statut=StatutVehicule.SORTI)
+        .select_related('vehicule', 'vehicule__client')
+        .prefetch_related('transferts__atelier')
+        .order_by('-created_at')
+    )
 
-    # OR actifs liés aux réceptions
-    or_actifs = OrdreReparation.objects.filter(
-        statut__in=[StatutOR.OUVERT, StatutOR.EN_COURS, StatutOR.REOUVERT],
-        reception__in=receptions
-    ).select_related('vehicule', 'atelier').order_by('-date_creation')
-    aujourd_hui = timezone.now().date()
-    entrees_today = EnregistrementEntree.objects.filter(date_entree__date=aujourd_hui)
-    sortie_today = EnregistrementEntree.objects.filter(date_sortie__date=aujourd_hui)
+    # ── Notifications non lues ──
+    notifs = (
+        Notification.objects
+        .filter(destinataire=request.user, lue=False)
+        .select_related('reception')[:9]
+    )
 
-    entrees = (
-           EnregistrementEntree.objects
-           .select_related('vehicule', 'vehicule__client', 'conducteur', 'agent_entree')
-           .annotate(date_tri=Coalesce('date_sortie', 'date_entree'))
-           .order_by(F('date_tri').desc())
-           )
-    
+    # ── OR actifs ──
+  
+    or_actifs = (
+        OrdreReparation.objects
+        .filter(
+            statut__in=[StatutOR.OUVERT, StatutOR.EN_COURS, StatutOR.REOUVERT],
+            reception__in=receptions,
+        )
+        .select_related('vehicule', 'reception')
+        .prefetch_related('ateliers', 'taches')
+        .annotate(
+            nb_taches=Count('taches', distinct=True),
+            nb_validees=Count(
+                'taches',
+                filter=Q(taches__statut=StatutTache.VALIDEE),
+                distinct=True,
+            ),
+        ).annotate(
+            # ratio 0..1 (0 si aucune tâche)
+            progression=Case(
+                When(nb_taches=0, then=Value(0.0)),
+                default=Cast(F('nb_validees'), FloatField())
+                         / Cast(F('nb_taches'), FloatField()),
+                output_field=FloatField(),
+            ),
+            # terminé à 100 % (et au moins 1 tâche)
+            est_complet=Case(
+                When(nb_taches__gt=0, nb_validees=F('nb_taches'), then=Value(1)),
+                default=Value(0),
+            ),
+        )
+        # 1) complets d'abord, 2) meilleure progression, 3) plus de tâches validées, 4) plus récent
+        .order_by('-est_complet', '-progression', '-nb_validees', '-date_creation')[:6]
+    )
+
+    # ── Entrées / sorties du jour ──
+    entrees_today = EnregistrementEntree.objects.filter(date_entree__date=today)
+    sorties_today = EnregistrementEntree.objects.filter(date_sortie__date=today)
+
+    # ══════════════════════════════════════════════════════════════
+    #  FICHES EN ATTENTE DE CRÉATION D'OR
+    #  → Réceptions SANS OR + avec FicheControle signée par le client
+    # ══════════════════════════════════════════════════════════════
+    base_attente_or = (
+        Reception.objects
+        .exclude(statut=StatutVehicule.SORTI)
+        .filter(ordre_reparation__isnull=True)                    # pas d'OR
+        .filter(entree__fiche_controle__isnull=False)             # fiche existe
+        .filter(
+            Q(entree__fiche_controle__signature_client_avant__isnull=False)
+            & ~Q(entree__fiche_controle__signature_client_avant='')
+        )                                                         # client signé
+    )
+
+    fiches_attente_or = (
+        base_attente_or
+        .select_related(
+            'vehicule', 'vehicule__client',
+            'entree',
+            'entree__fiche_controle',
+        )
+        .order_by('-created_at')[:7]
+    )
+
+    nb_attente_or = base_attente_or.count()
+
+    # ── Entrées récentes ──
+    entrees_recentes = (
+        EnregistrementEntree.objects
+        .select_related('vehicule', 'vehicule__client', 'conducteur', 'agent_entree')
+        .annotate(date_tri=Coalesce('date_sortie', 'date_entree'))
+        .order_by(F('date_tri').desc())[:7]
+    )
+
+    # ── Véhicules présents sans réception ──
+    vehicules_presents = (
+        EnregistrementEntree.objects
+        .filter(date_sortie__isnull=True)
+        .filter(bon_sortie__isnull=True)
+        .filter(reception__isnull=True)
+        .select_related('vehicule', 'vehicule__client', 'conducteur')
+        .order_by('-date_entree')[:7]
+    )
+
     ctx = {
-        'nb_entrees_today': entrees_today.count(),
-        'nb_sorties_today': sortie_today.count(),
-        'entrees':            entreesReparation[:5],
-        'entrees_sans_rec':   entreesReparation.filter(reception__isnull=True)[:3],
-        'receptions':         receptions,
-        'notifs':             notifs,
-        'nb_notifs':          notifs.count(),
-        'or_actifs':          or_actifs,
- 
+        # Compteurs
+        'nb_entrees_today':    entrees_today.count(),
+        'nb_sorties_today':    sorties_today.count(),
+        'nb_attente_or':       nb_attente_or,
 
-        'vehicules_presents': (
-                EnregistrementEntree.objects
-    .filter(date_sortie__isnull=True)          # encore présents
-    .filter(bon_sortie__isnull=True)           # sans bon de sortie lié (optionnel)
-    .select_related('vehicule', 'vehicule__client', 'conducteur')
-    .order_by('-date_entree')[:7]
-        ),
+        # Listes
+        'receptions':          receptions,
+        'notifs':              notifs,
+        'nb_notifs':           notifs.count(),
+        'or_actifs':           or_actifs,
+        'vehicules_presents':  vehicules_presents,
+        'entrees_recentes':    entrees_recentes,
+        'fiches_attente_or':   fiches_attente_or,
 
-        'entrees_recentes':   entrees[:9],
+        # KPI
+        'nb_a_traiter':        entreesReparation.filter(reception__isnull=True).count(),
+        'nb_en_atelier':       receptions.filter(statut=StatutVehicule.RAPPORT_FAIT).count(),
+        'nb_presents':         receptions.filter(statut=StatutVehicule.FICHE_CONTROLE).count(),
+        'nb_termines':         receptions.filter(statut=StatutVehicule.TRAVAUX_TERMINES).count(),
 
-        # Compteurs KPI
-        'nb_a_traiter':       entreesReparation.filter(reception__isnull=True).count(),
-        'nb_en_atelier':      receptions.filter(statut=StatutVehicule.EN_ATELIER).count(),
-        'nb_presents':        receptions.filter(statut=StatutVehicule.PRESENT_ATELIER).count(),
-        'nb_termines':        receptions.filter(statut=StatutVehicule.TRAVAUX_TERMINES).count(),
-        'entreesNbr' : get_entrees_presentes_filtrees(request),
-
+        # Helpers
+        'today':               today,
+        'entreesNbr':          get_entrees_presentes_filtrees(request),
     }
+
     return render(request, 'reception/dashboard.html', ctx)
 
 
-# ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+# ─── NOTIFICATIONS ──────────────────────────────────────────────────────────── 
 @receptionniste_required
 def notifs_json(request):
     notifs = list(Notification.objects.filter(
@@ -219,18 +305,19 @@ def liste_receptions(request):
             Q(numero__icontains=q) |
             Q(vehicule__client__nom__icontains=q)
         )
+    page_obj = paginate_queryset(request, qs, per_page=25)
     return render(request, 'reception/liste_receptions.html', {
-        'receptions': qs[:100],
-        'statuts':    StatutVehicule.choices,
+        'receptions': page_obj,
+        'page_obj': page_obj,
+        'statuts':    StatutReception.choices,
         'statut_filter': statut,
     })
 
 
 
+
 @receptionniste_required
 def creer_reception(request):
-
-
     entree_id = request.GET.get('entree_id')
     entree = None
     if entree_id:
@@ -238,7 +325,7 @@ def creer_reception(request):
             EnregistrementEntree,
             id=entree_id,
             motif=MotifEntree.REPARATION,
-            statut=StatutEntree.EN_COURS,
+
         )
         if hasattr(entree, 'reception'):
             messages.warning(request, "Cette entrée a déjà une réception.")
@@ -261,7 +348,7 @@ def creer_reception(request):
         else:
             if entree_id_post:
                 try:
-                    ent      = EnregistrementEntree.objects.get(id=entree_id_post)
+                    ent = EnregistrementEntree.objects.get(id=entree_id_post)
                     vehicule = ent.vehicule
                     entree   = ent
                 except EnregistrementEntree.DoesNotExist:
@@ -277,7 +364,7 @@ def creer_reception(request):
                 'entree': entree, 'error': error,
             })
 
-        # Créer la réception avec statut initial RAPPORT_FAIT
+        # Créer la réception
         rec = Reception.objects.create(
             entree         = entree,
             vehicule       = vehicule,
@@ -285,20 +372,21 @@ def creer_reception(request):
             receptionniste = request.user,
             observations   = observations,
         )
+
+        # ── Statut de l'entrée → RAPPORT_FAIT ──
+        if entree:
+            entree.statut = StatutVehicule.RAPPORT_FAIT
+            entree.save(update_fields=['statut'])
+
         log_action(request, ActionType.CREATION, 'RECEPTION', rec, {'decision': decision})
         messages.success(request, f"Réception {rec.numero} créée.")
 
-        # Redirection selon la décision
         if decision == 'SORTIE_DIRECTE':
-            # → Page de création du bon de sortie
             return redirect('creer_bon_sortie_rec', rec_id=entree.id)
 
-        # VERS_ATELIER → Créer l'ordre de réparation
         return redirect('detail_reception', rec_id=rec.id)
 
     return render(request, 'reception/creer_reception.html', {'entree': entree})
-
-
 
 
 
@@ -375,13 +463,15 @@ def api_entrees_vehicule(request):
 
 
 
-
 @guerite_required 
 def historique_entrees(request):
-    entrees = get_filtered_entrees(request)
+    qs = get_filtered_entrees(request)
+    page_obj = paginate_queryset(request, qs, per_page=25)
+
     return render(request, 'reception/historique.html', {
-        'entrees': entrees[:100],
-        'statuts': StatutViewHinstorisue.choices,
+        'entrees': page_obj,
+        'page_obj': page_obj,
+        'statuts': StatutVehicule.choices,
         'motifs': MotifEntree.choices,
     })
 
@@ -427,24 +517,43 @@ def detail_reception(request, rec_id):
         ).prefetch_related('transferts__atelier'),
         id=rec_id
     )
-    rapport      = getattr(rec, 'rapport', None)
-    or_list      = OrdreReparation.objects.filter(reception=rec).select_related(
-        'atelier'
-    ).prefetch_related('taches').order_by('-date_creation')
+
+    or_list = (
+    OrdreReparation.objects
+    .filter(reception=rec)
+    .prefetch_related('ateliers', 'taches')   # M2M en prefetch
+    .order_by('-date_creation')
+)
+    entree = getattr(rec, 'entree', None)
+    fiche_controle = getattr(entree, 'fiche_controle', None) if entree else None
+
+    technicien_a_signe = bool(
+            fiche_controle
+            and fiche_controle.signature_technicien
+            and str(fiche_controle.signature_technicien).strip()
+        )
+    client_a_signe = bool(
+            fiche_controle and fiche_controle.signature_client_avant
+        )
+    signature_apres_faite = bool(
+            fiche_controle
+            and fiche_controle.signature_client_apres
+            and str(fiche_controle.signature_client_apres).strip()
+    )
     bon_sortie   = BonSortie.objects.filter(vehicule=rec.vehicule, reception=rec).first()
-    fiche_controle = None
-    for o in or_list:
-        fc = getattr(o, 'fiche_controle', None)
-        if fc:
-            fiche_controle = fc
-            break
-
+    
     return render(request, 'reception/detail_reception.html', {
-        'rec': rec, 'rapport': rapport,
-        'or_list': or_list, 'bon_sortie': bon_sortie,
+        'rec': rec, 
+        'or_list': or_list,
+          'bon_sortie': bon_sortie,
+        'fiche_technique': getattr(entree, 'fiche_technique', None) if entree else None,
+        'a_fiche_controle': technicien_a_signe, 
+        'client_a_signe': client_a_signe,
         'fiche_controle': fiche_controle,
-    })
+        'signature_apres_faite':  signature_apres_faite, 
 
+    })
+ 
 
 @receptionniste_required
 def detail_vehicule(request, vehicule_id):
@@ -511,48 +620,124 @@ def choisir_ateliers(request, rec_id):
         'transferts': rec.transferts.select_related('atelier').order_by('-date_transfert')
     })
 
-
-# ─── OR depuis RÉCEPTION ──────────────────────────────────────────────────────
+ 
 @receptionniste_required
-def creer_or(request, rec_id):
-    rec  = get_object_or_404(Reception, id=rec_id)
-    form = ORReceptionForm()
-    if request.method == 'POST':
-        form = ORReceptionForm(request.POST)
-        if form.is_valid():
-            o                      = form.save(commit=False)
-            o.vehicule             = rec.vehicule
-            o.reception            = rec
-            o.responsable_atelier  = request.user
-            o.created_by           = request.user
-            o.save()
-            if rec.statut == StatutVehicule.EN_COURS:
-                rec.statut = StatutVehicule.EN_ATELIER
-                rec.save(update_fields=['statut'])
-            log_action(request, ActionType.CREATION, 'RECEPTION', o)
-            messages.success(request, f"OR {o.numero} créé.")
-            return redirect('detail_reception', rec_id=rec.id)
-    return render(request, 'reception/creer_or.html', {'form': form, 'rec': rec})
+def liste_or(request):
+    statut = request.GET.get('statut', '')
+    q = request.GET.get('q', '').strip()
+    qs = (
+        OrdreReparation.objects
+  
+        .select_related('vehicule', 'vehicule__client')
+        .prefetch_related('taches')
+    )
+    if statut:
+        qs = qs.filter(statut=statut)
+    if q:
+        qs = qs.filter(
+            Q(numero__icontains=q)
+            | Q(vehicule__immatriculation__icontains=q)
+            | Q(vehicule__client__nom__icontains=q)
+        )
+    ors = list(qs.order_by('statut', '-urgence', 'date_creation'))
+    return render(request, 'reception/liste_or.html', {
+         'ors': ors, 'statut': statut, 'q': q,
+    })
+
+
+@receptionniste_required
+def detail_or_rec(request, or_id):
+    or_obj = get_object_or_404(
+        OrdreReparation.objects
+        .select_related(
+            'vehicule', 'vehicule__client',
+            'reception',
+            'created_by',
+        )
+        .prefetch_related(
+            'ateliers',
+            'taches__atelier',
+            'taches__techniciens',
+            'taches__valide_par',
+            'taches__created_by',
+            'taches__comptes_rendus',
+            'taches__comptes_rendus__technicien',
+        ),
+        id=or_id,
+    )
+
+    entree = _entree_from_or(or_obj)
+    fiche_controle  = getattr(entree, 'fiche_controle',  None) if entree else None
+    fiche_technique = getattr(entree, 'fiche_technique', None) if entree else None
+
+    # ── Toutes les tâches (tous ateliers) ──
+    taches = list(
+        or_obj.taches
+        .select_related('atelier', 'valide_par', 'created_by')
+        .prefetch_related('techniciens', 'comptes_rendus', 'comptes_rendus__technicien')
+        .order_by('atelier__nom', 'created_at')
+    )
+
+    # ── Enrichissement des durées (évite les N+1) ──
+    enrich_taches_duree(taches)
+
+    nb_validees = sum(1 for t in taches if t.statut == StatutTache.VALIDEE)
+
+    return render(request, 'reception/detail_or.html', {
+        'or':              or_obj,
+        'entree':          entree,
+        'fiche_controle':  fiche_controle,
+        'fiche_technique': fiche_technique,
+        'taches':          taches,
+        'nb_validees':     nb_validees,
+    })
+
 
 
 @receptionniste_required
 def cloture_or(request, or_id):
     o = get_object_or_404(OrdreReparation, id=or_id)
-    if request.method == 'POST':
-        total = o.taches.aggregate(t=Sum('duree_reelle_minutes'))['t'] or 0
-        o.duree_totale_minutes = total
-        o.statut               = StatutOR.CLOTURE
-        o.date_cloture         = timezone.now()
-        o.save()
-        if o.reception:
-            o.reception.statut = StatutVehicule.TRAVAUX_TERMINES
-            o.reception.save(update_fields=['statut'])
-            _notifier('OR_CLOTURE',
-                      f"OR {o.numero} clôturé",
-                      f"Travaux terminés sur {o.vehicule.immatriculation}.",
-                      o.reception)
-        log_action(request, ActionType.CHANGEMENT_STATUT, 'RECEPTION', o, {'statut': 'CLOTURE'})
-        messages.success(request, f"OR {o.numero} clôturé.")
+    if request.method != 'POST':
+        return redirect('detail_or_rec', or_id=or_id)
+
+    now = timezone.now()
+    a_valider = list(o.taches.exclude(statut=StatutTache.VALIDEE))
+
+    for t in a_valider:
+        t.date_debut = t.date_debut or now
+        t.date_fin = t.date_fin or now
+        t.duree_reelle_minutes = t.duree_reelle_minutes or t.duree_estimee_minutes or 0
+        t.statut = StatutTache.VALIDEE
+        t.valide_par = request.user
+        t.date_validation = now
+        if not t.commentaire_validation:
+            t.commentaire_validation = "Validée automatiquement à la clôture de l'OR."
+        t.save()
+
+    total = o.taches.aggregate(t=Sum('duree_reelle_minutes'))['t'] or 0
+    o.duree_totale_minutes = total
+    o.statut = StatutOR.CLOTURE
+    o.date_cloture = now
+    o.save()
+
+    if o.reception:
+        o.reception.statut = StatutVehicule.TRAVAUX_TERMINES
+        o.reception.save(update_fields=['statut'])
+        _notifier(
+            'OR_CLOTURE',
+            f"OR {o.numero} clôturé",
+            f"Travaux terminés sur {o.vehicule.immatriculation}.",
+            o.reception,
+        )
+
+    log_action(request, ActionType.CHANGEMENT_STATUT, 'RECEPTION', o, {
+        'statut': 'CLOTURE',
+        'nb_taches_auto_validees': len(a_valider),
+    })
+    messages.success(
+        request,
+        f"OR {o.numero} clôturé ({len(a_valider)} tâche(s) validée(s)).",
+    )
     return redirect('detail_reception', rec_id=o.reception_id)
 
 
@@ -565,7 +750,7 @@ def reouverture_or(request, or_id):
         o.raison_reouverture  = request.POST.get('raison', '')
         o.save()
         if o.reception:
-            o.reception.statut = StatutVehicule.TRAVAUX_EN_COURS
+            o.reception.statut = StatutVehicule.REPARATION_EN_COURS
             o.reception.save(update_fields=['statut'])
             _notifier('OR_REOUVERT', f"OR {o.numero} réouvert",
                       f"Réouverture sur {o.vehicule.immatriculation}.", o.reception)
@@ -707,13 +892,14 @@ def liste_bons_sortie(request):
         'periode': periode, 'date_debut': date_debut,
         'date_fin': date_fin, 'sort': sort,
     }
- 
+    page_obj = paginate_queryset(request, qs, per_page=25)
+
     return render(request, 'reception/bons_sortie_liste.html', {
-        'bons':    qs[:50],
+        'bons':    page_obj,
+        'page_obj': page_obj,
         'stats':   stats,
         'filters': filters,
     })
- 
  
 # ─── DETAIL BON DE SORTIE (guérite) ──────────────────────────────────────────
 @guerite_required
@@ -756,7 +942,7 @@ def save_signature_from_dataurl(instance, data_url, field_name='signature'):
     except Exception as e:
         print("Erreur signature :", e)
         return False
-
+ 
     
  
 # ─── VALIDER BON DE SORTIE ────────────────────────────────────────────────────
@@ -879,8 +1065,6 @@ def pdf_bon_sortie_guerite(request, bon_id):
         return redirect('detail_bon_sortie_guerite', bon_id=bon_id)
  
 
- 
-
 
 # ─── BON DE SORTIE ────────────────────────────────────────────────────────────
 @receptionniste_required
@@ -893,7 +1077,7 @@ def creer_bon_sortie(request, rec_id):
 
     vehicules_presents = (
         EnregistrementEntree.objects
-        .exclude(statut=StatutEntree.SORTI)
+        .exclude(statut=StatutVehicule.SORTI)
         .select_related('vehicule', 'conducteur', 'vehicule__client')
     )
 
@@ -929,7 +1113,7 @@ def creer_bon_sortie(request, rec_id):
 
                 # 3) Faire passer la réception associée en SORTI (si elle existe)
                 if reception is not None:
-                    reception.statut = StatutVehicule.SORTI   # ← adapte la constante
+                    reception.statut = StatutVehicule.BON_SORTIE_FAIT   # ← adapte la constante
                     reception.date_sortie = timezone.now()    # si le champ existe
                     reception.save(update_fields=['statut'])
 
@@ -956,6 +1140,7 @@ def creer_bon_sortie(request, rec_id):
         'vehicles_json': json.dumps(vehicles_data, cls=DjangoJSONEncoder),
         'sortie_directe': bool(rapport and rapport.decision == 'SORTIE_DIRECTE'),
     })
+
 
 
 @receptionniste_required
@@ -1012,6 +1197,50 @@ def autocomplete_vehicules_presents(request):
     return JsonResponse({'results': results})
 
 
+
+
+def autocomplete_vehicules_reception(request):
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse({'results': []})
+
+    # Entrées encore présentes, motif réparation, sans réception
+    entrees = (
+        EnregistrementEntree.objects
+        .filter(
+            date_sortie__isnull=True,
+            motif=MotifEntree.REPARATION,
+        )
+        .filter(
+            Q(vehicule__immatriculation__icontains=q)
+            | Q(vehicule__marque__icontains=q)
+            | Q(vehicule__modele__icontains=q)
+            | Q(vehicule__client__nom__icontains=q)
+        )
+        .filter(reception__isnull=True)  # pas encore de réception
+        .select_related('vehicule', 'vehicule__client', 'conducteur')
+        .order_by('-date_entree')[:15]
+    )
+
+    results = []
+    for e in entrees:
+        v = e.vehicule
+        client = v.client
+        results.append({
+            'id': str(v.id),
+            'entree_id': str(e.id),
+            'immatriculation': v.immatriculation,
+            'marque': v.marque or '',
+            'modele': v.modele or '',
+            'annee': v.annee or '',
+            'client': str(client) if client else '—',
+            'telephone': getattr(client, 'telephone', '') or '',
+            'en_cours': True,
+            'date_entree': e.date_entree.strftime('%d/%m/%Y %H:%M') if e.date_entree else '',
+        })
+
+    return JsonResponse({'results': results})
+
 @guerite_required
 def detail_entree(request, entree_id):
     entree = get_object_or_404(
@@ -1029,7 +1258,7 @@ def creer_bon_sortie_direct(request):
     """
     # Récupérer tous les véhicules présents (non sortis) pour l'autocomplétion
     vehicules_presents = EnregistrementEntree.objects.exclude(
-        statut=StatutEntree.SORTI
+        statut=StatutVehicule.SORTI
     ).select_related('vehicule', 'conducteur', 'vehicule__client')
 
     vehicles_data = []
@@ -1075,7 +1304,7 @@ def creer_bon_sortie_direct(request):
         rec = EnregistrementEntree.objects.filter(
             vehicule=vehicule
         ).exclude(
-            statut=StatutEntree.SORTI
+            statut=StatutVehicule.SORTI
         ).order_by('-id').first()
 
 
@@ -1114,11 +1343,15 @@ def creer_bon_sortie_direct(request):
     })
 
 
-
-@guerite_required
 def liste_vehicules_presents(request):
-    entrees = get_entrees_presentes_filtrees(request)
-    return render(request, 'reception/vehicules_presents_rec.html', {'entrees': entrees, 'motifs': MotifEntree.choices})
+    qs = get_entrees_presentes_filtrees(request)
+    page_obj = paginate_queryset(request, qs, per_page=25)
+
+    return render(request, 'reception/vehicules_presents_rec.html', {
+        'entrees': page_obj,
+        'page_obj': page_obj,
+        'motifs': MotifEntree.choices,  # adapte
+    })
 
 
  
@@ -1330,7 +1563,6 @@ def rec_conducteurs(request):
 
 @receptionniste_required
 def rec_vehicules(request):
-    from apps.vehicules.models import Vehicule
  
     q           = request.GET.get('q', '').strip()
     carburant   = request.GET.get('carburant', '')

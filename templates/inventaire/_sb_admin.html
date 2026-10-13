@@ -1,0 +1,5 @@
+<div class="sidebar-section">Administration</div>
+<ul class="sidebar-nav">
+  {% url 'admin_dashboard' as u_dash %}{% if u_dash %}<li><a href="{{ u_dash }}"><span class="icon">📊</span> Tableau de bord</a></li>{% endif %}
+  <li><a href="{% url 'inventaire_admin_liste' %}" class="active"><span class="icon">📝</span> Inventaires</a></li>
+</ul>

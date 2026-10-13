@@ -1,97 +1,209 @@
 {% extends "base.html" %}
-{% block title %}Atelier — Tableau de bord{% endblock %}
-{% block page_title %}🏭 Responsable Atelier{% endblock %}
+{% block title %}{{ atelier.nom }}{% endblock %}
+{% block page_title %}🏭 {{ atelier.nom }}{% endblock %}
 
 {% block sidebar_nav %}
-<div class="sidebar-section">Atelier</div>
+<div class="sidebar-section">{{ atelier.nom }}</div>
 <ul class="sidebar-nav">
   <li><a href="{% url 'dashboard_atelier' %}" class="active"><span class="icon">📊</span> Tableau de bord</a></li>
-  <li><a href="{% url 'liste_or' %}"><span class="icon">📋</span> Ordres de réparation</a></li>
-  <li><a href="{% url 'kpi_atelier' %}"><span class="icon">📈</span> Performances KPI</a></li>
+  <li><a href="{% url 'liste_receptions_atelier' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
+
+  <li><a href="{% url 'liste_or_atelier' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_techniciens' %}"><span class="icon">👷</span> Techniciens</a></li>
 </ul>
-<div class="sidebar-section">Actions</div>
-<ul class="sidebar-nav">
-  <li><a href="{% url 'creer_or' %}"><span class="icon">➕</span> Nouvel OR</a></li>
-</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+.kpi{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;}
+.kpi-val{font-size:30px;font-weight:800;line-height:1;}
+.kpi-lbl{font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600;}
+
+.or-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);}
+.or-row:last-child{border-bottom:none;}
+.or-row:hover{background:var(--surface2);}
+.prog-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;width:100px;}
+.prog-fill{height:100%;background:var(--primary);}
+.prog-fill.done{background:var(--success);}
+
+.tache-attente{background:#fef3c7;border-left:4px solid var(--warning);border-radius:8px;padding:10px 14px;margin-bottom:8px;}
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>🏭 {% if atelier %}{{ atelier.nom }}{% else %}Tableau de bord Atelier{% endif %}</h1>
-    <div class="breadcrumb">{% if atelier %}{{ atelier.localisation }} — {% endif %}Gestion des ordres de réparation</div>
+    <h1>{{ atelier.nom }}</h1>
+    <div class="breadcrumb">📍 {{ atelier.localisation|default:"—" }}</div>
   </div>
-  <a href="{% url 'creer_or' %}" class="btn btn-accent">➕ Nouvel OR</a>
+  <span class="text-small text-muted">{{ today|date:"l d F Y" }}</span>
 </div>
 
 <div class="kpi-grid">
-  <div class="kpi-card info"><div class="kpi-label">📂 OR Ouverts</div><div class="kpi-value">{{ or_ouverts }}</div></div>
-  <div class="kpi-card warning"><div class="kpi-label">⚙️ OR En cours</div><div class="kpi-value">{{ or_en_cours }}</div></div>
-  <div class="kpi-card success"><div class="kpi-label">✅ OR Clôturés</div><div class="kpi-value">{{ or_clotures }}</div></div>
-  <div class="kpi-card danger"><div class="kpi-label">🔄 OR Réouverts</div><div class="kpi-value">{{ or_reouvert }}</div></div>
-  <div class="kpi-card accent"><div class="kpi-label">⚠️ Tâches non assignées</div><div class="kpi-value">{{ taches_non_assignees }}</div></div>
-</div>
-
-<div class="card">
-  <div class="card-header">
-    <div class="card-title">🔧 Ordres de réparation actifs</div>
-    <a href="{% url 'liste_or' %}" class="btn btn-outline btn-sm">Voir tout</a>
+  <a href="{% url 'liste_or_atelier' %}?statut=OUVERT" class="kpi" style="text-decoration:none;color:inherit;border-color:var(--info);">
+    <div class="kpi-val" style="color:var(--info);">{{ stats.or_ouverts }}</div>
+    <div class="kpi-lbl">OR en attentte</div>
+  </a>
+  <a href="{% url 'liste_or_atelier' %}?statut=EN_COURS" class="kpi" style="text-decoration:none;color:inherit;border-color:var(--warning);">
+    <div class="kpi-val" style="color:var(--warning);">{{ stats.or_en_cours }}</div>
+    <div class="kpi-lbl">OR en cours</div>
+  </a>
+  <div class="kpi" style="border-color:var(--danger);">
+    <div class="kpi-val" style="color:var(--danger);">{{ stats.a_valider }}</div>
+    <div class="kpi-lbl">Tâches à valider</div>
   </div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>N° OR</th><th>Véhicule</th><th>Client</th><th>Type</th><th>Statut</th><th>Date création</th><th>Actions</th></tr></thead>
-      <tbody>
-        {% for or in ordres_actifs %}
-        <tr>
-          <td><a href="{% url 'detail_or' or.id %}"><strong>{{ or.numero }}</strong></a></td>
-          <td><strong>{{ or.vehicule.immatriculation }}</strong><br><span class="text-small text-muted">{{ or.vehicule.marque }} {{ or.vehicule.modele }}</span></td>
-          <td>{{ or.vehicule.client }}</td>
-          <td>{% if or.type_or == 'RETOUR' %}<span class="badge badge-danger">🔄 Retour</span>{% else %}<span class="badge badge-info">Normal</span>{% endif %}</td>
-          <td>
-            {% if or.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
-            {% elif or.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
-            {% elif or.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>
-            {% else %}<span class="badge badge-secondary">{{ or.get_statut_display }}</span>{% endif %}
-          </td>
-          <td class="text-muted text-small">{{ or.date_creation|date:"d/m/Y H:i" }}</td>
-          <td>
-            <div style="display:flex;gap:4px;">
-              <a href="{% url 'detail_or' or.id %}" class="btn btn-info btn-sm">👁 Détail</a>
-              <a href="{% url 'ajouter_tache' or.id %}" class="btn btn-primary btn-sm">+ Tâche</a>
-            </div>
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="7" class="text-center text-muted" style="padding:30px;">Aucun OR actif</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="kpi" style="border-color:var(--success);">
+    <div class="kpi-val" style="color:var(--success);">{{ stats.termine_today }}</div>
+    <div class="kpi-lbl">Terminées aujourd'hui</div>
   </div>
 </div>
 
-{% if techniciens %}
-<div class="card mt-2">
-  <div class="card-header"><div class="card-title">👷 État des techniciens</div></div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
-    {% for tech in techniciens %}
-    <div style="background:#f8fafc;border-radius:8px;padding:14px;border:1px solid #e2e8f0;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <div class="avatar" style="width:32px;height:32px;font-size:11px;background:#e67e22;">{{ tech.prenom|first }}{{ tech.nom|first }}</div>
-        <div><div class="font-bold text-small">{{ tech.full_name }}</div></div>
+
+
+
+<div class="grid-2" style="margin-top:20px;">
+
+  <!-- Véhicules en attente de fiche de réception -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📋 Fiche de recepption à faire </div>
+      <a href="{% url 'liste_receptions_atelier' %}?statut=RAPPORT_FAIT" class="btn btn-outline btn-sm">Voir tout</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Immatriculation</th>
+            <th>Client</th>
+            <th>Durée</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entree in Vehicule_controle %}
+          <tr class="clickable-row"
+              style="cursor:pointer;"
+              onclick="window.location='{% url 'detail_reception_atelier' entree.id %}'">
+            <td>
+              <strong>{{ entree.vehicule.immatriculation }}</strong><br>
+              <span class="text-small text-muted">
+                {{ entree.vehicule.marque }} {{ entree.vehicule.modele }}
+              </span>
+            </td>
+            <td>{{ entree.vehicule.client }}</td>
+            <td class="text-muted">{{ entree.duree_sejour }}</td>
+            <td onclick="event.stopPropagation();">
+
+
+              <a href="{% url 'detail_reception_atelier' entree.id %}"
+                 class="btn btn-warning btn-sm">Consulter</a>
+         
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" style="text-align:center;padding:28px;color:var(--text-muted);">
+              Aucun véhicule en attente
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Véhicules en attente de fiche de contrôle mécanique -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🔧 En attente de fiche de contrôle mécanique</div>
+      <a href="{% url 'liste_receptions_atelier' %}?statut=FICHE_CONTROLE" class="btn btn-outline btn-sm">Voir tout</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Immatriculation</th>
+            <th>Client</th>
+            <th>Durée</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entree in Vehicule_mecanique %}
+          <tr class="clickable-row"
+              style="cursor:pointer;"
+              onclick="window.location='{% url 'detail_reception_atelier' entree.id %}'">
+            <td>
+              <strong>{{ entree.vehicule.immatriculation }}</strong><br>
+              <span class="text-small text-muted">
+                {{ entree.vehicule.marque }} {{ entree.vehicule.modele }}
+              </span>
+            </td>
+            <td>{{ entree.vehicule.client }}</td>
+            <td class="text-muted">{{ entree.duree_sejour }}</td>
+            <td onclick="event.stopPropagation();">
+            
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" style="text-align:center;padding:28px;color:var(--text-muted);">
+              Aucun véhicule en attente
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="grid-2" style="margin-top:20px;">
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🔧 OR en cours ({{ ors_actifs|length }})</div>
+      <a href="{% url 'liste_or_atelier' %}" class="btn btn-outline btn-sm">Voir tous</a>
+    </div>
+    {% for o in ors_actifs %}
+    <a href="{% url 'detail_or_atelier' o.id %}" class="or-row" style="text-decoration:none;color:inherit;">
+      <div style="flex:1;">
+        <div class="font-bold">{{ o.vehicule.immatriculation }}</div>
+        <div class="text-small text-muted">
+          {{ o.vehicule.marque }} {{ o.vehicule.modele }} ·
+        </div>
       </div>
-      <div style="display:flex;gap:8px;">
-        <div style="text-align:center;flex:1;background:#fef3c7;border-radius:6px;padding:6px;">
-          <div style="font-size:20px;font-weight:700;color:#92400e;">{{ tech.taches_a_faire }}</div>
-          <div class="text-small text-muted">À faire</div>
+    
+      {% if o.urgence == 'CRITIQUE' %}<span class="badge badge-danger">🔴</span>
+      {% elif o.urgence == 'URGENT' %}<span class="badge badge-warning">🟡</span>{% endif %}
+    </a>
+    {% empty %}
+    <div style="text-align:center;padding:24px;color:var(--text-muted);">Aucun OR en cours</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">⏳ Tâches en attente de validation</div>
+    </div>
+    {% for t in taches_a_valider %}
+    <div class="tache-attente">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div>
+          <div class="font-bold">{{ t.libelle }}</div>
+          <div class="text-small text-muted">
+            🚗 {{ t.ordre_reparation.vehicule.immatriculation }} ·
+            👷 {% for tech in t.techniciens.all %}{{ tech.full_name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+          </div>
         </div>
-        <div style="text-align:center;flex:1;background:#dbeafe;border-radius:6px;padding:6px;">
-          <div style="font-size:20px;font-weight:700;color:#1e40af;">{{ tech.taches_en_cours }}</div>
-          <div class="text-small text-muted">En cours</div>
-        </div>
+        <a href="{% url 'detail_or_atelier' t.ordre_reparation.id %}" class="btn btn-success btn-sm">Valider</a>
       </div>
     </div>
+    {% empty %}
+    <div style="text-align:center;padding:24px;color:var(--text-muted);">Aucune tâche en attente</div>
     {% endfor %}
   </div>
 </div>
-{% endif %}
 {% endblock %}

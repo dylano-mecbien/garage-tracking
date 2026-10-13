@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Techniciens{% endblock %}
+{% block page_title %}👷 Techniciens{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Atelier</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_receptions_atelier' %}" ><span class="icon">📋</span> Historique des Réceptions</a></li>
+
+  <li><a href="{% url 'liste_or_atelier' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_techniciens' %}" class="active"><span class="icon">👷</span> Techniciens</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.tech-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;transition:all .2s;}
+.tech-card:hover{border-color:var(--primary-light);box-shadow:var(--shadow);}
+.tech-avatar{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;}
+.tech-stat{text-align:center;min-width:60px;}
+.tech-stat .val{font-size:18px;font-weight:800;}
+.tech-stat .lbl{font-size:10px;color:var(--text-muted);}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div><h1>Techniciens</h1><div class="breadcrumb">{{ techniciens|length }} technicien{{ techniciens|length|pluralize }}</div></div>
+</div>
+
+<form method="get" style="margin-bottom:16px;">
+  <input type="text" name="q" value="{{ q }}" class="form-input" placeholder="Rechercher un technicien..." style="max-width:320px;">
+</form>
+
+{% for tech in techniciens %}
+<a href="{% url 'detail_technicien' tech.id %}" class="tech-card" style="text-decoration:none;color:inherit;">
+  <div class="tech-avatar">{{ tech.first_name|first }}{{ tech.last_name|first }}</div>
+  <div style="flex:1;">
+    <div class="font-bold">{{ tech.get_full_name }}</div>
+    <div class="text-small text-muted">{{ tech.email }}</div>
+  </div>
+  <div class="tech-stat"><div class="val">{{ tech.nb_total }}</div><div class="lbl">TOTAL</div></div>
+  <div class="tech-stat"><div class="val" style="color:var(--success);">{{ tech.nb_validees }}</div><div class="lbl">VALIDÉES</div></div>
+  <div class="tech-stat"><div class="val" style="color:var(--warning);">{{ tech.nb_en_cours }}</div><div class="lbl">EN COURS</div></div>
+  <div class="tech-stat"><div class="val" style="color:var(--text-muted);">{{ tech.nb_a_faire }}</div><div class="lbl">À FAIRE</div></div>
+</a>
+{% empty %}
+<div style="text-align:center;padding:40px;color:var(--text-muted);">Aucun technicien trouvé</div>
+{% endfor %}
+{% endblock %}

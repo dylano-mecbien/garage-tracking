@@ -9,6 +9,8 @@
 <li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
 <li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
 <li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_or' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+
 <li><a href="{% url 'liste_bons_sortie' %}" class="active"><span class="icon">📄</span> Bons de sortie</a></li>
 <li class="has-submenu">
 <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
@@ -324,11 +326,41 @@
     </table>
   </div>
 
-  <!-- Pagination simple -->
-  {% if bons|length >= 50 %}
-  <div style="text-align:center;padding:16px;border-top:1px solid var(--border);">
-    <span class="text-muted text-small">Affichage limité à 50 résultats — utilisez les filtres pour affiner</span>
-  </div>
+ 
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav class="pagination"
+       style="display:flex;gap:6px;justify-content:center;align-items:center;padding:16px;border-top:1px solid var(--border);flex-wrap:wrap;">
+
+    {% if page_obj.has_previous %}
+    <a class="btn btn-outline btn-sm"
+       href="?page={{ page_obj.previous_page_number }}&q={{ filters.q }}&type={{ filters.type }}&etat={{ filters.etat }}&periode={{ filters.periode }}&date_debut={{ filters.date_debut }}&date_fin={{ filters.date_fin }}&sort={{ filters.sort }}">
+      ‹ Préc.
+    </a>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+      <span class="btn btn-primary btn-sm" style="pointer-events:none;">{{ num }}</span>
+      {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+      <a class="btn btn-outline btn-sm"
+         href="?page={{ num }}&q={{ filters.q }}&type={{ filters.type }}&etat={{ filters.etat }}&periode={{ filters.periode }}&date_debut={{ filters.date_debut }}&date_fin={{ filters.date_fin }}&sort={{ filters.sort }}">
+        {{ num }}
+      </a>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <a class="btn btn-outline btn-sm"
+       href="?page={{ page_obj.next_page_number }}&q={{ filters.q }}&type={{ filters.type }}&etat={{ filters.etat }}&periode={{ filters.periode }}&date_debut={{ filters.date_debut }}&date_fin={{ filters.date_fin }}&sort={{ filters.sort }}">
+      Suiv. ›
+    </a>
+    {% endif %}
+
+    <span class="text-small text-muted" style="margin-left:8px;">
+      Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      ({{ page_obj.paginator.count }} résultat{{ page_obj.paginator.count|pluralize }})
+    </span>
+  </nav>
   {% endif %}
 </div>
 {% endblock %}

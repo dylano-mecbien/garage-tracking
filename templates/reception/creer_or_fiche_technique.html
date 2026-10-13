@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}Créer l'ordre de réparation{% endblock %}
+{% block page_title %}🔧 Ordre de réparation{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_reception' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'detail_reception' rec.id %}" class="active"><span class="icon">📋</span> {{ rec.numero }}</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.ateliers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:8px;}
+.atelier-card{border:2px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;background:var(--surface);position:relative;user-select:none;}
+.atelier-card:hover{border-color:var(--primary-light);}
+.atelier-card.selected{border-color:var(--primary);background:rgba(37,99,168,.07);}
+.ck{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;}
+.atelier-card.selected .ck{background:var(--primary);border-color:var(--primary);color:#fff;}
+.urg{flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;font-size:13px;font-weight:600;}
+.urg.on-NORMAL{border-color:var(--info);color:var(--info);}
+.urg.on-URGENT{border-color:var(--warning);color:var(--warning);}
+.urg.on-CRITIQUE{border-color:var(--danger);color:var(--danger);}
+.lecture{font-size:13px;white-space:pre-line;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:10px;}
+.lecture-l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-bottom:4px;}
+
+/* ── Durée ── */
+.duree-row{display:flex;gap:8px;align-items:center;}
+.duree-row input{width:90px;text-align:center;}
+.duree-row span{font-weight:600;color:var(--text-muted);font-size:13px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Ordre de réparation</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'detail_reception' rec.id %}">{{ rec.numero }}</a> › Créer OR
+    </div>
+  </div>
+  <a href="{% url 'detail_reception' rec.id %}" class="btn btn-outline">← Retour</a>
+</div>
+
+{% if error %}
+<div class="alert alert-error" style="margin-bottom:12px;">{{ error }}</div>
+{% endif %}
+
+<div class="grid-2">
+  <!-- Lecture fiche de contrôle -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🔬 Fiche de contrôle — lecture</div>
+    </div>
+
+    <div class="text-small text-muted" style="margin-bottom:10px;">
+      {{ rec.vehicule.immatriculation }} —
+      {{ rec.vehicule.marque }} {{ rec.vehicule.modele }}
+      {% if ft and ft.kilometrage %} · {{ ft.kilometrage }} km{% endif %}
+    </div>
+
+    {% if ft %}
+      {% if ft.commentaires %}
+      <div class="lecture-l">Commentaires</div>
+      <div class="lecture">{{ ft.commentaires }}</div>
+      {% endif %}
+      {% if ft.observations %}
+      <div class="lecture-l">Observations</div>
+      <div class="lecture">{{ ft.observations }}</div>
+      {% endif %}
+      {% if ft.diagnostic %}
+      <div class="lecture-l">Diagnostic</div>
+      <div class="lecture">{{ ft.diagnostic }}</div>
+      {% endif %}
+      {% if ft.pieces_recommandees %}
+      <div class="lecture-l">Pièces recommandées</div>
+      <div class="lecture">{{ ft.pieces_recommandees }}</div>
+      {% endif %}
+      {% if not ft.commentaires and not ft.observations and not ft.diagnostic and not ft.pieces_recommandees %}
+      <div class="text-small text-muted">Fiche trouvée, mais sans texte exploitable.</div>
+      {% endif %}
+    {% else %}
+      <div style="padding:16px;background:var(--surface2);border-radius:8px;margin-bottom:12px;">
+        <div class="text-muted" style="margin-bottom:10px;">
+          Aucune fiche de contrôle pour cette entrée.
+        </div>
+        {% if derniere_ft %}
+        <a href="?ft_id={{ derniere_ft.id }}" class="btn btn-accent btn-sm">
+          📋 Utiliser la dernière fiche de contrôle de ce véhicule
+          <span class="text-small">
+            ({{ derniere_ft.created_at|date:"d/m/Y"|default:derniere_ft.numero_fiche }})
+          </span>
+        </a>
+        {% else %}
+        <div class="text-small text-muted">
+          Aucun historique de fiche de contrôle pour ce véhicule.
+          Vous pouvez quand même créer l'OR manuellement.
+        </div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Création OR -->
+  <form method="post" id="or-form" class="card">
+    {% csrf_token %}
+    <input type="hidden" name="ateliers_ids" id="ateliers-ids">
+    <input type="hidden" name="urgence" id="urgence" value="NORMAL">
+
+    <div class="card-header"><div class="card-title">📝 Ordre de réparation</div></div>
+
+    <!-- ── Description ── -->
+    <div class="form-group">
+      <label class="form-label">
+        Description des travaux *
+        {% if description_prefill %}
+        <span class="text-small text-muted">(reprise de la fiche — modifiable)</span>
+        {% endif %}
+      </label>
+      <textarea name="description_travaux" class="form-textarea" rows="7" required
+        placeholder="Décrire les travaux à réaliser...">{{ description_prefill }}</textarea>
+    </div>
+
+    <!-- ── Durée estimée + Date ── -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Durée estimée *</label>
+        <div class="duree-row">
+          <input type="number" name="duree_heures" id="duree-heures"
+                 class="form-input" value="1" min="0" max="999" required>
+          <span>h</span>
+          <input type="number" name="duree_minutes" id="duree-minutes"
+                 class="form-input" value="0" min="0" max="59">
+          <span>min</span>
+        </div>
+        <div class="text-small text-muted" style="margin-top:4px;">
+          Temps de main d'œuvre prévu
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Date de fin prévue *</label>
+        <input type="date" name="date_fin_prevue" id="date-fin-prevue"
+               class="form-input" required>
+        <div class="text-small text-muted" style="margin-top:4px;">
+          Date à laquelle les travaux doivent être terminés
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Ateliers ── -->
+    <div class="form-group">
+      <label class="form-label">Ateliers destinataires *</label>
+      <div class="ateliers-grid">
+        {% for a in ateliers %}
+        <div class="atelier-card" id="ac-{{ a.id }}" onclick="toggleAtelier('{{ a.id }}')">
+          <div class="ck">✓</div>
+          <div style="font-size:20px;">🏭</div>
+          <div style="font-weight:800;font-size:14px;padding-right:22px;">{{ a.nom }}</div>
+          {% if a.specialite %}<div class="text-small" style="color:var(--primary);">{{ a.specialite }}</div>{% endif %}
+          {% if a.responsable %}<div class="text-small text-muted">👤 {{ a.responsable.full_name }}</div>{% endif %}
+        </div>
+        {% empty %}
+        <div class="text-small text-muted">Aucun atelier actif.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ── Urgence ── -->
+    <div class="form-group">
+      <label class="form-label">Urgence</label>
+      <div style="display:flex;gap:8px;">
+        <div class="urg on-NORMAL" id="urg-NORMAL" onclick="setUrg('NORMAL')">🟢 Normal</div>
+        <div class="urg" id="urg-URGENT" onclick="setUrg('URGENT')">🟡 Urgent</div>
+        <div class="urg" id="urg-CRITIQUE" onclick="setUrg('CRITIQUE')">🔴 Critique</div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="send-btn"
+            style="width:100%;padding:12px;font-size:15px;">
+      📤 Envoyer aux ateliers
+    </button>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const sel = new Set();
+
+function toggleAtelier(id) {
+  const el = document.getElementById('ac-' + id);
+  if (sel.has(id)) { sel.delete(id); el.classList.remove('selected'); }
+  else { sel.add(id); el.classList.add('selected'); }
+  document.getElementById('ateliers-ids').value = [...sel].join(',');
+}
+
+function setUrg(v) {
+  document.getElementById('urgence').value = v;
+  ['NORMAL', 'URGENT', 'CRITIQUE'].forEach(u => {
+    document.getElementById('urg-' + u).className = 'urg' + (u === v ? ' on-' + u : '');
+  });
+}
+
+// Pré-remplir la date de fin à J+1 par défaut
+document.addEventListener('DOMContentLoaded', () => {
+  const dateInput = document.getElementById('date-fin-prevue');
+  if (dateInput && !dateInput.value) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const iso = tomorrow.toISOString().split('T')[0];
+    dateInput.value = iso;
+  }
+});
+
+// Validation
+document.getElementById('or-form').addEventListener('submit', e => {
+  if (!sel.size) {
+    e.preventDefault();
+    alert('Sélectionnez au moins un atelier.');
+    return;
+  }
+
+  const h = parseInt(document.getElementById('duree-heures').value) || 0;
+  const m = parseInt(document.getElementById('duree-minutes').value) || 0;
+  if (h === 0 && m === 0) {
+    e.preventDefault();
+    alert('La durée estimée doit être supérieure à 0.');
+    return;
+  }
+
+  if (!document.getElementById('date-fin-prevue').value) {
+    e.preventDefault();
+    alert('La date de fin prévue est obligatoire.');
+    return;
+  }
+
+  const b = document.getElementById('send-btn');
+  b.disabled = true;
+  b.textContent = '⏳ Envoi...';
+});
+</script>
+{% endblock %}

@@ -26,7 +26,8 @@ class AtelierViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
 class ORViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = OrdreReparation.objects.select_related('vehicule', 'atelier').order_by('-date_creation')
+    queryset = OrdreReparation.objects.prefetch_related('ateliers')  .select_related('vehicule', 'reception') .order_by('-date_creation') # FK → select
+
     serializer_class = ORSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['statut', 'type_or', 'atelier']

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Inventaires — administration{% endblock %}
+{% block page_title %}📝 Inventaires{% endblock %}
+{% block sidebar_nav %}{% include "inventaire/_sb_admin.html" %}{% endblock %}
+{% block extra_css %}
+<style>.bdg{display:inline-block;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;}
+.bdg.EN_COURS{background:#fef3c7;color:#92400e;}.bdg.SOUMIS{background:#dbeafe;color:#1e40af;}.bdg.VALIDE{background:#d1fae5;color:#065f46;}.bdg.REVOQUE{background:#fee2e2;color:#991b1b;}
+tr.attente td{background:rgba(59,130,246,.07);}</style>
+{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>Inventaires</h1>
+  <div class="breadcrumb">{% if nb_a_valider %}<strong style="color:var(--primary);">{{ nb_a_valider }} inventaire{{ nb_a_valider|pluralize }} à valider</strong>{% else %}Aucun inventaire en attente{% endif %}</div></div></div>
+<form method="get" class="card" style="margin-bottom:14px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+  <div><label class="form-label">Du</label><input type="date" name="debut" value="{{ debut }}" class="form-input"></div>
+  <div><label class="form-label">Au</label><input type="date" name="fin" value="{{ fin }}" class="form-input"></div>
+  <label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" name="a_valider" value="1" {% if a_valider %}checked{% endif %}> À valider seulement</label>
+  <button class="btn btn-primary">Filtrer</button><a href="{% url 'inventaire_admin_liste' %}" class="btn btn-outline">✕</a>
+</form>
+<div class="card"><table><thead><tr><th>Date</th><th>Statut</th><th>Validé par la guérite</th><th>Entrées</th><th>Sorties</th><th>Décision</th><th></th></tr></thead><tbody>
+{% for i in inventaires %}<tr class="{% if i.statut == 'SOUMIS' %}attente{% endif %}">
+  <td>{{ i.date|date:"d/m/Y" }}</td><td><span class="bdg {{ i.statut }}">{{ i.get_statut_display }}</span></td>
+  <td>{{ i.soumis_par.get_full_name|default:"—" }}</td><td>{{ i.nb_entrees }}</td><td>{{ i.nb_sorties }}</td>
+  <td class="text-small text-muted">{% if i.decide_par %}{{ i.decide_par.get_full_name }} — {{ i.date_decision|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+  <td><a href="{% url 'inventaire_admin_detail' i.id %}" class="btn {% if i.statut == 'SOUMIS' %}btn-primary{% else %}btn-outline{% endif %} btn-sm">{% if i.statut == 'SOUMIS' %}Examiner{% else %}Détail{% endif %}</a></td></tr>
+{% empty %}<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted);">Aucun inventaire</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

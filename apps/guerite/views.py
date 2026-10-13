@@ -4,7 +4,7 @@ Vues Guérite - Entrées/Sorties véhicules
 import base64
 import json
 import os
-
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -15,9 +15,10 @@ import os
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.db.models.functions import Coalesce
-
+from apps import reception
+from apps.accounts.choices import StatutVehicule,  EtatBon, StatutVehicule, MotifEntree
 from apps.notifications.hook import notifier_sortie_vehicule
-from .models import EnregistrementEntree, BonSortie, EtatBon, StatutEntree, MotifEntree, StatutViewHinstorisue
+from .models import EnregistrementEntree, BonSortie
 from .forms import RechercheVehiculeForm, VehiculeForm, ClientForm, ConducteurForm, EntreeForm, SortieForm
 from apps.vehicules.models import Marque, Modele, Vehicule, Client, Conducteur
 from apps.accounts.decorators import guerite_required 
@@ -26,21 +27,12 @@ from apps.audit.models import ActionType
 from itertools import chain
 from ..reception.views import dashboard as reception_dashboard, save_signature_from_dataurl
 from django.http import Http404, JsonResponse
-from openpyxl import Workbook
-from reportlab.lib.pagesizes import landscape, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import cm
+
 from django.http import HttpResponse
 from django.db.models import Case, IntegerField, Q, Value
 import datetime
 from datetime import datetime
-from django.http import HttpResponse
- 
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
-from reportlab.lib.enums import TA_CENTER
+
 
  
 @guerite_required
@@ -60,7 +52,7 @@ def dashboard(request):
     # Requête avec tri prioritaire (Bon de sortie fait OU Visite) + limite à 7
     vehicules_presents = (
     EnregistrementEntree.objects
-    .exclude(statut=StatutEntree.SORTI)
+    .exclude(statut=StatutVehicule.SORTI)
     .annotate(
         priorite=Case(
             When(
@@ -114,7 +106,7 @@ def recherche_vehicule(request):
 
 # .exclude(
             # 👉 EXCLURE ceux qui sont EN_COURS
-           #  entrees__statut=StatutEntree.EN_COURS  )
+           #  entrees__statut=StatutVehicule.EN_COURS  )
 
     return render(request, 'guerite/recherche_vehicule.html', {
         'form': form,
@@ -254,21 +246,41 @@ def autocomplete_vehicules(request):
     return JsonResponse({'results': results})
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ─── AJAX: Autocomplete conducteurs ──────────────────────────────────────────
+
+
+
+def autocomplete_inventaires(request):
+    """
+    Autocomplete des chauffeurs / conducteurs.
+    Recherche sur nom, prenom, téléphone, société.
+    """
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse({'results': []})
+
+    qs = (
+        Conducteur.objects
+        .filter(
+            Q(nom__icontains=q) |
+            Q(prenom__icontains=q) |
+            Q(telephone__icontains=q)
+        )
+        .order_by('nom', 'prenom')[:15]
+    )
+
+    results = []
+    for c in qs:
+        label = f"{c.prenom} {c.nom}".strip() or str(c)
+        results.append({
+            'id':        str(c.id),
+            'nom':       c.nom or '',
+            'prenom':    c.prenom or '',
+            'label':     label,
+            'telephone': getattr(c, 'telephone', '') or '',
+        })
+
+    return JsonResponse({'results': results})
 
 @login_required
 def autocomplete_conducteurs(request):
@@ -658,7 +670,7 @@ def modifier_motif_entree(request, entree_id):
 
 def get_entree_non_sortie(entree_id):
     entree = get_object_or_404(EnregistrementEntree, id=entree_id)
-    if entree.statut == StatutEntree.SORTI:
+    if entree.statut == StatutVehicule.SORTI:
         raise Http404("Entrée déjà sortie")
     return entree
 
@@ -667,18 +679,18 @@ def get_entree_non_sortie(entree_id):
 
 
 
-
 @guerite_required
 def enregistrer_sortie(request, entree_id):
     entree = get_entree_non_sortie(entree_id)
+    reception = getattr(entree, 'reception', None)
     bon_sortie = None
 
-    # Recherche du bon de sortie uniquement pour une réparation
+    # Bon de sortie approuvé (hors visite)
     if entree.motif != MotifEntree.VISITE:
         bons = BonSortie.objects.filter(
             vehicule=entree.vehicule,
             etats=EtatBon.APPROBATION,
-            est_valide=False
+            est_valide=False,
         )
         if bons.exists():
             bon_sortie = bons.latest('created_at')
@@ -688,95 +700,82 @@ def enregistrer_sortie(request, entree_id):
     if request.method == 'POST':
         form = SortieForm(request.POST)
 
-        # Vérification du bon de sortie pour les réparations
+        # Réparation / autre : un bon approuvé est obligatoire
         if entree.motif != MotifEntree.VISITE and not bon_sortie:
             messages.error(
                 request,
-                "Aucun bon de sortie valide trouvé. Contactez la réception."
+                "Aucun bon de sortie valide trouvé. Contactez la réception.",
             )
-            return render(
-                request,
-                'guerite/sortie/enregistrer.html',
-                {
-                    'entree': entree,
-                    'form': form,
-                    'bon_sortie': bon_sortie
-                }
-            )
+            return render(request, 'guerite/sortie/enregistrer.html', {
+                'entree': entree,
+                'form': form,
+                'bon_sortie': bon_sortie,
+            })
 
-        # Récupération de la signature client
         signature_data = request.POST.get('signature_client')
 
         if not signature_data:
             messages.error(request, "Le client doit signer avant de confirmer la sortie.")
-            return render(
-                request,
-                'guerite/sortie/enregistrer.html',
-                {
-                    'entree': entree,
-                    'form': form,
-                    'bon_sortie': bon_sortie
-                }
-            )
+            return render(request, 'guerite/sortie/enregistrer.html', {
+                'entree': entree,
+                'form': form,
+                'bon_sortie': bon_sortie,
+            })
 
-        # Enregistrement de la sortie
-        entree.statut = StatutEntree.SORTI
+        # ── Sortie de l'entrée ──
+        entree.statut = StatutVehicule.SORTI
         entree.date_sortie = timezone.now()
         entree.agent_sortie = request.user
 
-        # Mise à jour du bon uniquement pour une réparation
+        # ── Bon de sortie ──
         if entree.motif != MotifEntree.VISITE and bon_sortie:
-            # Sauvegarde de la signature client sur le bon
             if not save_signature_from_dataurl(bon_sortie, signature_data, 'signature_client'):
                 messages.error(request, "Erreur lors de l'enregistrement de la signature.")
-                return render(
-                    request,
-                    'guerite/sortie/enregistrer.html',
-                    {
-                        'entree': entree,
-                        'form': form,
-                        'bon_sortie': bon_sortie
-                    }
-                )
+                return render(request, 'guerite/sortie/enregistrer.html', {
+                    'entree': entree,
+                    'form': form,
+                    'bon_sortie': bon_sortie,
+                })
 
             bon_sortie.est_valide = True
             bon_sortie.date_validation = timezone.now()
             bon_sortie.etats = EtatBon.VALIDER
             bon_sortie.save()
-            
             entree.bon_sortie = bon_sortie
+
+        # ── Réception associée ──
+        if reception is not None:
+            reception.statut = StatutVehicule.SORTI
+            update_fields = ['statut']
+            if hasattr(reception, 'date_sortie'):
+                reception.date_sortie = timezone.now()
+                update_fields.append('date_sortie')
+            reception.save(update_fields=update_fields)
 
         entree.save()
 
-        if entree.motif != MotifEntree.VISITE:
+        if entree.motif != MotifEntree.VISITE and bon_sortie:
             notifier_sortie_vehicule(bon_sortie)
-            
+
         log_action(
             request,
             ActionType.CHANGEMENT_STATUT,
             'GUERITE',
             entree,
-            {'statut': 'SORTI'}
+            {'statut': 'SORTI'},
         )
 
         messages.success(
             request,
-            f"Sortie du véhicule {entree.vehicule.immatriculation} enregistrée."
+            f"Sortie du véhicule {entree.vehicule.immatriculation} enregistrée.",
         )
-        
-
         return redirect('dashboard_guerite')
 
-    return render(
-        request,
-        'guerite/sortie/enregistrer.html',
-        {
-            'entree': entree,
-            'form': form,
-            'bon_sortie': bon_sortie
-        }
-    )
-
+    return render(request, 'guerite/sortie/enregistrer.html', {
+        'entree': entree,
+        'form': form,
+        'bon_sortie': bon_sortie,
+    })
 
 
 @guerite_required
@@ -791,38 +790,27 @@ def consulter_bon_sortie(request):
     return render(request, 'guerite/bon_sortie/consulter.html', {'bon': bon, 'numero': numero})
 
 
-@guerite_required 
-def historique_entrees(request):
-    entrees = get_filtered_entrees(request)
-    return render(request, 'guerite/historique.html', {
-        'entrees': entrees[:100],
-        'statuts': StatutViewHinstorisue.choices,
-        'motifs': MotifEntree.choices,
-    })
-
 
 
 def get_filtered_entrees(request):
-    entrees = EnregistrementEntree.objects.select_related(
-        'vehicule', 'vehicule__client', 'conducteur', 'agent_entree'
-    ).order_by('-date_entree')
     entrees = (
         EnregistrementEntree.objects
         .select_related('vehicule', 'vehicule__client', 'conducteur', 'agent_entree')
         .annotate(date_tri=Coalesce('date_sortie', 'date_entree'))
         .order_by(F('date_tri').desc())
     )
-    
-    statut = request.GET.get('statut')
-    motif = request.GET.get('motif')
-    date_debut = request.GET.get('date_debut')
-    date_fin = request.GET.get('date_fin')
-    q = request.GET.get('q', '')
+
+    statut = request.GET.get('statut', '').strip()
+    motif = request.GET.get('motif', '').strip()
+    date_debut = request.GET.get('date_debut', '').strip()
+    date_fin = request.GET.get('date_fin', '').strip()
+    q = request.GET.get('q', '').strip()
 
     if statut == 'SORTI':
         entrees = entrees.filter(statut='SORTI')
-    if statut == 'PRESENT':
+    elif statut == 'PRESENT':
         entrees = entrees.exclude(statut='SORTI')
+
     if motif:
         entrees = entrees.filter(motif=motif)
     if date_debut:
@@ -831,399 +819,91 @@ def get_filtered_entrees(request):
         entrees = entrees.filter(date_entree__date__lte=date_fin)
     if q:
         entrees = entrees.filter(
-            Q(vehicule__immatriculation__icontains=q) |
-            Q(numero__icontains=q) |
-            Q(vehicule__client__nom__icontains=q)
+            Q(vehicule__immatriculation__icontains=q)
+            | Q(numero__icontains=q)
+            | Q(vehicule__client__nom__icontains=q)
         )
-    return entrees  # retourne tout, pas de limite 100
+    return entrees
 
 
-def export_entrees_excel(request):
-    # Récupérer les mêmes filtres que dans historique_entrees
-    entrees = get_filtered_entrees(request)  # on factorise la logique
+def historique_entrees(request):
+    qs = get_filtered_entrees(request)
+    paginator = Paginator(qs, 25)  # 25 par page
+    page_obj = paginator.get_page(request.GET.get('page'))
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Historique entrées"
-
-    # En-têtes
-    headers = [
-        'N°', 'Immatriculation', 'Client', 'Téléphone client', 'Conducteur',
-        'Motif', 'Statut', 'Date entrée', 'Date sortie', 'Agent entrée',
-        'Observations',
-    ]
-    ws.append(headers)
-
-    # Mise en forme des en-têtes
-    for cell in ws[1]:
-        cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-        cell.font = Font(color="FFFFFF", bold=True)
-        cell.alignment = Alignment(horizontal='center')
-
-    for e in entrees:
-        ws.append([
-            e.numero,
-            e.vehicule.immatriculation,
-            str(e.vehicule.client),
-            e.vehicule.client.telephone if e.vehicule.client else '',
-            str(e.conducteur) if e.conducteur else '',
-            e.get_motif_display(),
-            e.get_statut_display(),
-            e.date_entree.strftime("%d/%m/%Y %H:%M") if e.date_entree else '',
-            e.date_sortie.strftime("%d/%m/%Y %H:%M") if e.date_sortie else '',
-            e.agent_entree.full_name if e.agent_entree else '',
-            e.observations or '',
-        ])
-
-    # Ajuster la largeur des colonnes
-    for col in ws.columns:
-        max_length = 0
-        col_letter = col[0].column_letter
-        for cell in col:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except Exception:
-                pass
-        adjusted_width = min(max_length + 2, 30)
-        ws.column_dimensions[col_letter].width = adjusted_width
-
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename=historique_entrees_{timezone.localdate()}.xlsx'
-    wb.save(response)
-    return response
-
-
-BRAND_COLOR = colors.HexColor('#366092')
-
-
-def _footer(canvas, doc):
-    """Pied de page : numéro de page + date de génération, sur chaque page."""
-    canvas.saveState()
-    canvas.setFont('Helvetica', 7)
-    canvas.setFillColor(colors.HexColor('#999999'))
-    canvas.drawString(
-        1 * cm, 0.7 * cm,
-        f"Généré le {timezone.localtime().strftime('%d/%m/%Y à %H:%M')}",
-    )
-    canvas.drawRightString(
-        landscape(A4)[0] - 1 * cm, 0.7 * cm,
-        f"Page {doc.page}",
-    )
-    canvas.restoreState()
-
-
-def export_entrees_pdf(request):
-    entrees = get_filtered_entrees(request)
-
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename=historique_entrees_{timezone.localdate()}.pdf'
-
-    doc = SimpleDocTemplate(
-        response, pagesize=landscape(A4),
-        rightMargin=1 * cm, leftMargin=1 * cm,
-        topMargin=1.2 * cm, bottomMargin=1.2 * cm,
-    )
-    elements = []
-    styles = getSampleStyleSheet()
-
-    # Titre
-    title_style = ParagraphStyle(
-        'Titre', parent=styles['Heading1'], alignment=TA_CENTER,
-        textColor=BRAND_COLOR, fontSize=16, spaceAfter=2,
-    )
-    elements.append(Paragraph("Historique des entrées", title_style))
-
-    # Sous-titre : nombre de résultats
-    meta_style = ParagraphStyle(
-        'Meta', parent=styles['Normal'], alignment=TA_CENTER,
-        fontSize=9, textColor=colors.HexColor('#666666'),
-    )
-    elements.append(Paragraph(
-        f"{entrees.count()} mouvement(s) trouvé(s)", meta_style,
-    ))
-    elements.append(Spacer(1, 8))
-
-    # Filtres appliqués (affichés seulement s'il y en a)
-    filters = []
-    if request.GET.get('q'):
-        filters.append(f"Recherche : {request.GET['q']}")
-    if request.GET.get('statut'):
-        filters.append(f"Statut : {dict(StatutEntree.choices).get(request.GET['statut'], '')}")
-    if request.GET.get('motif'):
-        filters.append(f"Motif : {dict(MotifEntree.choices).get(request.GET['motif'], '')}")
-    if request.GET.get('date_debut'):
-        filters.append(f"Du : {request.GET['date_debut']}")
-    if request.GET.get('date_fin'):
-        filters.append(f"Au : {request.GET['date_fin']}")
-
-    if filters:
-        filter_style = ParagraphStyle(
-            'FilterStyle', parent=styles['Normal'], alignment=TA_CENTER,
-            fontSize=8.5, textColor=colors.HexColor('#888888'), spaceAfter=4,
+    return render(request, 'guerite/historique.html', {
+        'entrees': page_obj,
+        'page_obj': page_obj,
+        'motifs': MotifEntree.choices,   # adapte
+'statuts': [
+            ('PRESENT', 'Présent'),
+            ('SORTI', 'Sorti'),
+        ],    }
         )
-        elements.append(Paragraph("Filtres : " + " · ".join(filters), filter_style))
-
-    elements.append(Spacer(1, 10))
-
-    # Données du tableau
-    data = [['Immat.', 'Client', 'Motif', 'Statut', 'Entrée', 'Sortie', 'Agent']]
-    for e in entrees:
-        data.append([
-            e.vehicule.immatriculation,
-            str(e.vehicule.client)[:30],
-            e.get_motif_display(),
-            e.get_statut_display(),
-            e.date_entree.strftime("%d/%m %H:%M") if e.date_entree else '—',
-            e.date_sortie.strftime("%d/%m %H:%M") if e.date_sortie else '—',
-            e.agent_entree.full_name.split()[0] if e.agent_entree else '—',
-        ])
-
-    if len(data) == 1:
-        elements.append(Paragraph("Aucun mouvement ne correspond à ces critères.", styles['Normal']))
-    else:
-        table = Table(
-            data, repeatRows=1,
-            colWidths=[2.2 * cm, 4.5 * cm, 2.8 * cm, 2.8 * cm, 2.6 * cm, 2.6 * cm, 2.6 * cm],
-        )
-        table.setStyle(TableStyle([
-            # En-tête
-            ('BACKGROUND', (0, 0), (-1, 0), BRAND_COLOR),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, 0), 7),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 7),
-            # Corps (lignes zébrées)
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F2F6FA')]),
-            ('TOPPADDING', (0, 1), (-1, -1), 5),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
-            # Global
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
-        ]))
-        elements.append(table)
-
-    doc.build(elements, onFirstPage=_footer, onLaterPages=_footer)
-    return response
 
 
 
 
 
-
-
-@guerite_required
 def liste_vehicules_presents(request):
-    entrees = get_entrees_presentes_filtrees(request)
-    return render(request, 'guerite/vehicules_presents.html', {'entrees': entrees,
-                                                               'motifs': MotifEntree.choices})
+    page = get_entrees_presentes_filtrees(request, per_page=30)
+    return render(request, 'guerite/vehicules_presents.html', {
+        'entrees': page,           # boucle {% for entree in entrees %}
+        'page_obj': page,          # pagination
+        'motifs' : MotifEntree.choices,
+        'paginator': page.paginator,
+        'filters': {
+            'q': request.GET.get('q', ''),
+            'motif': request.GET.get('motif', ''),
+            'date_debut': request.GET.get('date_debut', ''),
+            'date_fin': request.GET.get('date_fin', ''),
+        },
+    })
 
 
-MOTIF_LABELS = {
-    "REPARATION": "🔧 Réparation",
-    "VISITE": "👁 Visite",
-}
- 
  
 # Filtre partagé — utilisé par vehicules_presents() ET les deux exports,
 # pour garantir que "ce qu'on exporte" == "ce qu'on voit à l'écran".
 # ---------------------------------------------------------------------------
-def get_entrees_presentes_filtrees(request):
+
+def get_entrees_presentes_filtrees(request, per_page=30):
     qs = (
         EnregistrementEntree.objects
         .select_related("vehicule", "vehicule__client", "conducteur", "conducteur__client")
-       
         .filter(date_sortie__isnull=True)
         .order_by("-date_entree")
     )
- 
+
     q = request.GET.get("q")
     motif = request.GET.get("motif")
     date_debut = request.GET.get("date_debut", "").strip()
     date_fin = request.GET.get("date_fin", "").strip()
- 
+
     if q:
-        from django.db.models import Q
         qs = qs.filter(
             Q(vehicule__immatriculation__icontains=q)
             | Q(vehicule__client__nom__icontains=q)
             | Q(vehicule__client__telephone__icontains=q)
             | Q(conducteur__nom__icontains=q)
         )
- 
     if motif:
         qs = qs.filter(motif=motif)
- 
     if date_debut:
         dt = datetime.strptime(date_debut, "%Y-%m-%d")
         qs = qs.filter(date_entree__gte=timezone.make_aware(dt))
- 
     if date_fin:
         dt = datetime.strptime(date_fin, "%Y-%m-%d").replace(
             hour=23, minute=59, second=59
         )
         qs = qs.filter(date_entree__lte=timezone.make_aware(dt))
- 
-    return qs
- 
 
+    paginator = Paginator(qs, per_page)
+    page_number = request.GET.get("page", 1)
+    try:
+        page = paginator.page(page_number)
+    except PageNotAnInteger:
+        page = paginator.page(1)
+    except EmptyPage:
+        page = paginator.page(paginator.num_pages)
 
- 
-def _ligne_entree(entree):
-    """Une ligne de données commune aux deux exports."""
-    vehicule = entree.vehicule
-    client = vehicule.client
-    return [
-        vehicule.immatriculation,
-        f"{vehicule.marque} {vehicule.modele}".strip(),
-        str(client) if client else "—",
-        getattr(client, "telephone", "") or "—",
-        str(entree.conducteur) if entree.conducteur else "—",
-        MOTIF_LABELS.get(entree.motif, entree.get_motif_display()),
-        timezone.localtime(entree.date_entree).strftime("%d/%m/%Y %H:%M"),
-        str(entree.duree_sejour),
-    ]
-
-ENTETES = [
-    "Immatriculation", "Véhicule", "Propriétaire", "Téléphone",
-    "Conducteur", "Motif", "Entrée le", "Durée",
-]
-# ---------------------------------------------------------------------------
-# Export Excel
-# ---------------------------------------------------------------------------
-def export_presents_excel(request):
-    entrees = get_entrees_presentes_filtrees(request)
- 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Véhicules présents"
- 
-    # Titre
-    ws.merge_cells("A1:H1")
-    titre = ws["A1"]
-    titre.value = "Véhicules présents dans le local"
-    titre.font = Font(size=14, bold=True, color="FFFFFF")
-    titre.alignment = Alignment(horizontal="center", vertical="center")
-    titre.fill = PatternFill("solid", fgColor="1F4E78")
-    ws.row_dimensions[1].height = 26
- 
-    ws.merge_cells("A2:H2")
-    sous_titre = ws["A2"]
-    sous_titre.value = (
-        f"Généré le {timezone.localtime().strftime('%d/%m/%Y à %H:%M')} — "
-        f"{entrees.count()} véhicule(s)"
-    )
-    sous_titre.font = Font(size=9, italic=True, color="666666")
-    sous_titre.alignment = Alignment(horizontal="center")
- 
-    # En-têtes (ligne 4)
-    header_row = 4
-    header_fill = PatternFill("solid", fgColor="2E75B6")
-    header_font = Font(bold=True, color="FFFFFF")
-    thin_border = Border(*(Side(style="thin", color="CCCCCC"),) * 4)
- 
-    for col, entete in enumerate(ENTETES, start=1):
-        cell = ws.cell(row=header_row, column=col, value=entete)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.border = thin_border
- 
-    # Données
-    zebra_fill = PatternFill("solid", fgColor="F2F6FA")
-    for i, entree in enumerate(entrees, start=1):
-        row = header_row + i
-        for col, valeur in enumerate(_ligne_entree(entree), start=1):
-            cell = ws.cell(row=row, column=col, value=valeur)
-            cell.border = thin_border
-            cell.alignment = Alignment(vertical="center", wrap_text=False)
-            if i % 2 == 0:
-                cell.fill = zebra_fill
- 
-    # Largeurs de colonnes auto (approx.)
-    largeurs = [16, 22, 22, 15, 18, 16, 17, 12]
-    for col, largeur in enumerate(largeurs, start=1):
-        ws.column_dimensions[get_column_letter(col)].width = largeur
- 
-    ws.freeze_panes = f"A{header_row + 1}"
-    ws.auto_filter.ref = f"A{header_row}:H{header_row}"
- 
-    response = HttpResponse(
-        content_type=(
-            "application/vnd.openxmlformats-officedocument"
-            ".spreadsheetml.sheet"
-        )
-    )
-    filename = f"vehicules_presents_{timezone.localtime().strftime('%Y%m%d_%H%M')}.xlsx"
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    wb.save(response)
-    return response
-# ---------------------------------------------------------------------------
-# Export PDF (ReportLab, cohérent avec le reste du projet)
-# ---------------------------------------------------------------------------
-def export_presents_pdf(request):
-    entrees = get_entrees_presentes_filtrees(request)
- 
-    response = HttpResponse(content_type="application/pdf")
-    filename = f"vehicules_presents_{timezone.localtime().strftime('%Y%m%d_%H%M')}.pdf"
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
- 
-    doc = SimpleDocTemplate(
-        response,
-        pagesize=landscape(A4),
-        topMargin=1.2 * cm,
-        bottomMargin=1.2 * cm,
-        leftMargin=1 * cm,
-        rightMargin=1 * cm,
-    )
- 
-    styles = getSampleStyleSheet()
-    titre_style = ParagraphStyle(
-        "Titre", parent=styles["Title"], fontSize=16, alignment=TA_CENTER,
-        textColor=colors.HexColor("#1F4E78"),
-    )
-    sous_titre_style = ParagraphStyle(
-        "SousTitre", parent=styles["Normal"], fontSize=9, alignment=TA_CENTER,
-        textColor=colors.HexColor("#666666"),
-    )
- 
-    elements = [
-        Paragraph("Véhicules présents dans le local", titre_style),
-        Paragraph(
-            f"Généré le {timezone.localtime().strftime('%d/%m/%Y à %H:%M')} — "
-            f"{entrees.count()} véhicule(s)",
-            sous_titre_style,
-        ),
-        Spacer(1, 0.5 * cm),
-    ]
- 
-    data = [ENTETES] + [_ligne_entree(e) for e in entrees]
- 
-    if len(data) == 1:
-        elements.append(Paragraph("Aucun véhicule dans le local.", styles["Normal"]))
-    else:
-        col_widths = [3.0, 4.2, 4.2, 3.0, 3.4, 3.2, 3.4, 2.3]
-        col_widths = [w * cm for w in col_widths]
-        table = Table(data, colWidths=col_widths, repeatRows=1)
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E75B6")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1),
-             [colors.white, colors.HexColor("#F2F6FA")]),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ]))
-        elements.append(table)
- 
-    doc.build(elements)
-    return response
- 
+    return page  # objet Page (itérable + infos pagination)

@@ -3,31 +3,24 @@
 {% block page_title %}👥 Gestion des Utilisateurs{% endblock %}
 
 {% block sidebar_nav %}
-
 <ul class="sidebar-nav">
-<li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
-<li class="sidebar-section">Administration</li>
-<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
-<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
-<li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
-
-<div class="sidebar-section">Bases</div>
-<ul class="sidebar-nav">
-<li><a href="{% url 'liste_utilisateurs' %}" class="active"><span class="icon">👥</span> Utilisateurs</a></li>
-<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
-<li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
-<li><a href="{% url 'admin_vehicules' %}" ><span class="icon">🚗</span> Véhicules</a></li>
-<li><a href="{% url 'admin_ateliers' %}" ><span class="icon">🏭</span> Ateliers</a></li>
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li class="sidebar-section">Administration</li>
+  <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+  <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+  <li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
+  <li class="sidebar-section">Bases</li>
+  <li><a href="{% url 'liste_utilisateurs' %}" class="active"><span class="icon">👥</span> Utilisateurs</a></li>
+  <li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+  <li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+  <li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+  <li><a href="{% url 'admin_ateliers' %}"><span class="icon">🏭</span> Ateliers</a></li>
+  <li class="sidebar-section">Mouvements</li>
+  <li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
+  <li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
 </ul>
-
-</li>
-<li class="sidebar-section">Mouvements</li>
-<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
-<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
-<li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
-<li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
-</ul>
-
 {% endblock %}
 
 {% block content %}
@@ -43,13 +36,29 @@
 <div class="card mb-2">
   <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
     <div>
-      <label class="form-label">Filtrer par rôle</label>
-      <select name="role" class="form-select" style="width:200px;" onchange="this.form.submit()">
+      <label class="form-label">Recherche</label>
+      <input type="text" name="q" value="{{ q }}" class="form-input"
+             placeholder="Nom, email, matricule, téléphone..."
+             style="width:260px;">
+    </div>
+    <div>
+      <label class="form-label">Rôle</label>
+      <select name="role" class="form-select" style="width:200px;">
         <option value="">— Tous les rôles —</option>
-        {% for val, lbl in roles %}<option value="{{ val }}" {% if role_filter == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+        {% for val, lbl in roles %}
+        <option value="{{ val }}" {% if role_filter == val %}selected{% endif %}>{{ lbl }}</option>
+        {% endfor %}
       </select>
     </div>
-    <button type="submit" class="btn btn-outline">🔍 Filtrer</button>
+    <div>
+      <label class="form-label">Statut</label>
+      <select name="statut" class="form-select" style="width:140px;">
+        <option value="">— Tous —</option>
+        <option value="actif" {% if statut_filter == 'actif' %}selected{% endif %}>Actif</option>
+        <option value="inactif" {% if statut_filter == 'inactif' %}selected{% endif %}>Inactif</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">🔍 Filtrer</button>
     <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">✕ Effacer</a>
   </form>
 </div>
@@ -59,8 +68,13 @@
     <table>
       <thead>
         <tr>
-          <th>Nom complet</th><th>Email</th><th>Rôle</th><th>Atelier</th>
-          <th>Matricule</th><th>Statut</th><th>Actions</th>
+          <th>Nom complet</th>
+          <th>Email</th>
+          <th>Rôle</th>
+          <th>Atelier</th>
+          <th>Matricule</th>
+          <th>Statut</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -68,7 +82,9 @@
         <tr>
           <td>
             <div style="display:flex;align-items:center;gap:8px;">
-              <div class="avatar" style="width:30px;height:30px;font-size:11px;">{{ u.prenom|first|upper }}{{ u.nom|first|upper }}</div>
+              <div class="avatar" style="width:30px;height:30px;font-size:11px;">
+                {{ u.prenom|first|upper }}{{ u.nom|first|upper }}
+              </div>
               <div>
                 <div class="font-bold">{{ u.full_name }}</div>
                 <div class="text-small text-muted">{{ u.telephone|default:"—" }}</div>
@@ -88,25 +104,18 @@
           </td>
           <td>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <a href="{% url 'editer_utilisateur' u.id %}" class="btn btn-info btn-sm">✏️ Modifier</a>
-              <form method="post" action="{% url 'toggle_utilisateur' u.id %}" style="display:inline;">
-                {% csrf_token %}
-                <button class="btn btn-sm {% if u.is_active %}btn-warning{% else %}btn-success{% endif %}">
-                  {% if u.is_active %}⏸ Désactiver{% else %}▶ Activer{% endif %}
-                </button>
-              </form>
-              <form method="post" action="{% url 'reset_password_utilisateur' u.id %}" onsubmit="return confirm('Réinitialiser le mot de passe ?')" style="display:inline;">
-                {% csrf_token %}
-                <input type="hidden" name="new_password" value="garage2026">
-                <button class="btn btn-outline btn-sm">🔑 Reset MDP</button>
-              </form>
+              <a href="{% url 'detail_utilisateur' u.id %}" class="btn btn-info btn-sm">👁 Consulter</a>
+
+              
+              
             </div>
           </td>
         </tr>
         {% empty %}
         <tr>
           <td colspan="7" class="text-center text-muted" style="padding:30px;">
-            Aucun utilisateur trouvé. <a href="{% url 'creer_utilisateur' %}">Créer le premier</a>
+            Aucun utilisateur trouvé.
+            <a href="{% url 'creer_utilisateur' %}">Créer le premier</a>
           </td>
         </tr>
         {% endfor %}

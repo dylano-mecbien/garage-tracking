@@ -13,7 +13,7 @@ SECRET_KEY = config('SECRET_KEY')  # OBLIGATOIRE — pas de valeur par défaut e
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 # Exemple .env : ALLOWED_HOSTS=garage.votredomaine.com,www.garage.votredomaine.com
 
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', cast=Csv(), default='')
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', cast=Csv(), default='https://garage.laprudenceplus-cm.com')
 # Exemple .env : CSRF_TRUSTED_ORIGINS=https://garage.votredomaine.com
 
 # ─── HTTPS / SSL ────────────────────────────────────────────────────────────
@@ -29,7 +29,6 @@ SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = 'DENY'
-
 # ─── Base de données ────────────────────────────────────────────────────────
 DATABASES = {
     'default': {

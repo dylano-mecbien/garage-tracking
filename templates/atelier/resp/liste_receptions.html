@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Réceptions{% endblock %}
+{% block page_title %}📋 Liste des réceptions{% endblock %}
+{% block sidebar_nav %}
+<div class="sidebar-section">Atelier</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_receptions_atelier' %}" class="active"><span class="icon">📋</span> Historique des Réceptions</a></li>
+
+  <li><a href="{% url 'liste_or_atelier' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_techniciens' %}" ><span class="icon">👷</span> Techniciens</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Réceptions</h1></div>
+
+
+</div>
+<div class="card mb-2">
+  <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+    <div><label class="form-label">Recherche</label><input type="text" name="q" value="{{ request.GET.q }}" class="form-input" style="width:220px;" placeholder="N°, immat., client..."></div>
+    <div><label class="form-label">Statut</label>
+      <select name="statut" class="form-select" style="width:180px;">
+        <option value="">Tous les statuts</option>
+        {% for v,l in statuts %}<option value="{{ v }}" {% if statut_filter == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-primary">🔍 Filtrer</button>
+    <a href="{% url 'liste_receptions_atelier' %}" class="btn btn-outline">✕</a>
+  </form>
+</div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>Véhicule</th>
+          <th>Client</th>
+          <th>Statut</th>
+          
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in receptions %}
+        <tr>
+          <td>
+            <a href="{% url 'detail_reception_atelier' r.id %}">
+              <strong>{{ r.numero }}</strong>
+            </a>
+          </td>
+
+          <td>
+            <strong>{{ r.vehicule.immatriculation }}</strong><br>
+            <span class="text-small text-muted">
+              {{ r.vehicule.marque }} {{ r.vehicule.modele }}
+            </span>
+          </td>
+
+          <td>{{ r.vehicule.client }}</td>
+
+          <td>
+            {% if r.statut == 'RAPPORT_FAIT' %}
+              <span class="badge badge-a-faire">Réception en attente</span>
+            
+            {% elif r.statut == 'FICHE_TECHNIQUE' %}
+              <span class="badge badge-info">Fiche technique établie</span>
+            {% elif r.statut == 'REPARATION_EN_COURS' %}
+              <span class="badge badge-en-cours">Réparation en cours</span>
+            {% elif r.statut == 'TRAVAUX_TERMINES' %}
+              <span class="badge badge-success">Travaux terminés</span>
+            {% elif r.statut == 'BON_SORTIE_FAIT' %}
+              <span class="badge badge-ouvert">Bon de sortie établi</span>
+            {% elif r.statut == 'SORTI' %}
+              <span class="badge badge-cloture">Sorti</span>
+            {% else %}
+              <span class="badge badge-secondary">{{ r.get_statut_display }}</span>
+            {% endif %}
+          </td>
+
+          <td class="text-small text-muted">{{ r.created_at|date:"d/m/Y H:i" }}</td>
+
+          <td>
+            <div style="display:flex;gap:4px;">
+              <a href="{% url 'detail_reception_atelier' r.id %}"
+                 class="btn btn-info btn-sm" title="Voir">👁</a>
+
+              {% if r.statut == 'RAPPORT_FAIT' %}
+                <a href="{% url 'creer_fiche_controle_etape' r.id 1 %}"
+                   class="btn btn-primary btn-sm" title="Faire la réception">
+                  📝
+                </a>
+              {% elif r.statut == 'PRESENT_ATELIER' %}
+                <a href="{% url 'creer_fiche_technique_etape' r.id 1 %}"
+                   class="btn btn-warning btn-sm" title="Fiche technique">
+                  🔧
+                </a>
+              {% elif r.statut == 'TRAVAUX_TERMINES' %}
+                <a href="{% url 'creer_bon_sortie_rec' r.id %}"
+                   class="btn btn-success btn-sm" title="Créer le bon de sortie">
+                  📄
+                </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted" style="padding:30px;">
+            Aucune réception
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

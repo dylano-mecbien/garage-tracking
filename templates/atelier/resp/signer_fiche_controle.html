@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}{% if type_signature == 'avant' %}Valider la réception{% else %}Valider la sortie{% endif %}{% endblock %}
+{% block page_title %}{% if type_signature == 'avant' %}✅ Valider la réception{% else %}✅ Valider la sortie{% endif %}{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Atelier</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_receptions_atelier' %}" class="active"><span class="icon">📋</span> Historique des Réceptions</a></li>
+
+  <li><a href="{% url 'liste_or_atelier' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_techniciens' %}" ><span class="icon">👷</span> Techniciens</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.sig-canvas{border:1.5px dashed var(--border);border-radius:8px;background:#fff;width:100%;height:160px;touch-action:none;cursor:crosshair;}
+.resume td{padding:6px 0;font-size:13px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>
+      {% if type_signature == 'avant' %}
+        Valider la réception
+      {% else %}
+        Valider la sortie
+      {% endif %}
+    </h1>
+    <div class="breadcrumb">
+      <a href="{% url 'detail_reception_atelier' rec.id %}">{{ rec.numero }}</a> › Signature du client
+    </div>
+  </div>
+  <a href="{% url 'detail_reception_atelier' rec.id %}" class="btn btn-outline">← Retour</a>
+</div>
+
+{# ── Bandeau d'info contextuel ── #}
+{% if type_signature == 'avant' %}
+  <div class="alert alert-info" style="margin-bottom:12px;">
+    ✍️ Le client signe <strong>avant travaux</strong> pour valider l'état du véhicule
+    et l'autorisation de réparation.
+  </div>
+{% else %}
+  <div class="alert alert-success" style="margin-bottom:12px;">
+    ✍️ Le client signe <strong>après travaux</strong> pour valider la restitution du véhicule.
+  </div>
+{% endif %}
+
+{% if error %}<div class="alert alert-error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+
+<div class="grid-2" style="max-width:900px;">
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">📋 Fiche de contrôle</div></div>
+    <table class="resume" style="width:100%;">
+      <tr><td class="text-muted">Véhicule</td><td><strong>{{ rec.vehicule.immatriculation }}</strong> — {{ rec.vehicule.marque }} {{ rec.vehicule.modele }}</td></tr>
+      <tr><td class="text-muted">Kilométrage</td><td>{{ fiche.kilometrage }} km</td></tr>
+      <tr><td class="text-muted">État général</td><td>{{ fiche.get_etat_general_display }}</td></tr>
+      <tr><td class="text-muted">Défauts observés</td><td>{{ fiche.defauts_observes|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Contrôlé par</td><td>{{ fiche.nom_technicien|default:"—" }}</td></tr>
+    </table>
+
+    <div class="text-small text-muted" style="margin-top:10px;">
+      {% if type_signature == 'avant' %}
+        Le client reconnaît l'état du véhicule décrit dans cette fiche de contrôle
+        et autorise les réparations.
+      {% else %}
+        Le client reconnaît avoir récupéré son véhicule en bon état après intervention.
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        ✍️ Signature du client —
+        {% if type_signature == 'avant' %}Entrée{% else %}Sortie{% endif %}
+      </div>
+    </div>
+    <form method="post" id="sig-form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="form-label">Nom du client *</label>
+        <input type="text" name="nom_client" class="form-input"
+               value="{{ nom_defaut }}" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Signature *</label>
+        <canvas id="sig" class="sig-canvas"></canvas>
+        <input type="hidden" name="signature" id="signature">
+        <button type="button" class="btn btn-outline btn-sm"
+                style="margin-top:6px;" onclick="clearSig()">
+          🗑 Effacer
+        </button>
+      </div>
+
+      <button class="btn btn-success" style="width:100%;padding:11px;">
+        {% if type_signature == 'avant' %}
+          ✅ Valider la réception
+        {% else %}
+          ✅ Valider la sortie
+        {% endif %}
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const c     = document.getElementById('sig');
+  const input = document.getElementById('signature');
+
+  c.width  = c.offsetWidth;
+  c.height = 160;
+
+  const ctx = c.getContext('2d');
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth   = 2.2;
+  ctx.lineCap     = 'round';
+
+  let drawing = false;
+
+  const pos = e => {
+    const r  = c.getBoundingClientRect();
+    const sc = c.width / r.width;
+    if (e.touches) return {
+      x: (e.touches[0].clientX - r.left) * sc,
+      y: (e.touches[0].clientY - r.top)  * sc,
+    };
+    return {
+      x: (e.clientX - r.left) * sc,
+      y: (e.clientY - r.top)  * sc,
+    };
+  };
+
+  const save = () => { input.value = c.toDataURL('image/png'); };
+
+  c.addEventListener('mousedown', e => {
+    drawing = true;
+    const p = pos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  });
+  c.addEventListener('mousemove', e => {
+    if (!drawing) return;
+    const p = pos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  });
+  c.addEventListener('mouseup', () => { drawing = false; save(); });
+
+  c.addEventListener('touchstart', e => {
+    e.preventDefault();
+    drawing = true;
+    const p = pos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }, { passive: false });
+  c.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!drawing) return;
+    const p = pos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }, { passive: false });
+  c.addEventListener('touchend', () => { drawing = false; save(); });
+
+  window.clearSig = () => {
+    ctx.clearRect(0, 0, c.width, c.height);
+    input.value = '';
+  };
+
+  document.getElementById('sig-form').addEventListener('submit', e => {
+    if (!input.value) {
+      e.preventDefault();
+      alert('Le client doit signer avant de valider.');
+    }
+  });
+})();
+</script>
+{% endblock %}

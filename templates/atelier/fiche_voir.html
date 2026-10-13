@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}{{ titre }} — {{ rec.vehicule.immatriculation }}{% endblock %}
+{% block page_title %}{% if mode == 'controle' %}📋{% else %}🔬{% endif %} {{ titre }}{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Fiches</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+
+
+</ul> 
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.hero{background:var(--surface);border:1.5px solid var(--border);border-left:5px solid var(--primary);border-radius:var(--radius);padding:16px 20px;margin-bottom:14px;
+  display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;}
+.hero .imm{font-size:20px;font-weight:800;}
+.stat{padding:3px 12px;border-radius:14px;font-size:12px;font-weight:700;display:inline-block;margin:2px 4px 2px 0;}
+.stat.ok{background:#d1fae5;color:#065f46;} .stat.wait{background:#fef3c7;color:#92400e;} .stat.bad{background:#fee2e2;color:#991b1b;}
+
+.defauts{background:#fef2f2;border:1.5px solid #fca5a5;border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;}
+.defauts h4{margin:0 0 8px;font-size:14px;color:#991b1b;}
+.defauts ul{margin:0;padding-left:18px;columns:2;column-gap:28px;} .defauts li{font-size:13px;margin:2px 0;break-inside:avoid;}
+.rien{background:#ecfdf5;border:1.5px solid #6ee7b7;border-radius:var(--radius);padding:10px 16px;margin-bottom:14px;font-weight:600;color:#065f46;}
+
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.tabbtn{padding:9px 16px;border:1.5px solid var(--border);background:var(--surface);border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;}
+.tabbtn.on{background:var(--primary);border-color:var(--primary);color:#fff;}
+.tabpane{display:none;} .tabpane.on{display:block;}
+
+.grid-ro{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:4px 16px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));column-gap:28px;margin-bottom:14px;}
+.ro{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.ro .l{color:var(--text-muted);} .ro .v{font-weight:700;text-align:right;}
+.v.good{color:#15803d;} .v.bad{color:#b91c1c;} .v.warn{color:#c2410c;}
+.sec-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin:6px 0 8px;}
+
+.sigs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
+.sig{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:12px 14px;}
+.sig img{max-height:90px;max-width:100%;background:#fff;border:1px solid var(--border);border-radius:6px;padding:4px;margin-top:6px;}
+.sig .none{color:var(--text-muted);font-size:13px;margin-top:8px;}
+#schema{border:1.5px solid var(--border);border-radius:8px;background:#f8fafc;max-width:100%;margin:8px 0 14px;}
+
+@media print{
+  .sidebar,.topbar,.no-print,.tabs{display:none!important;}
+  .tabpane{display:block!important;margin-bottom:18px;} .hero,.grid-ro,.sig{break-inside:avoid;}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header no-print">
+  <div><h1>{{ titre }}</h1><div class="breadcrumb">{{ rec.numero }} — {{ rec.vehicule.immatriculation }}</div></div>
+  <div style="display:flex;gap:8px;">
+
+    
+    <a href="{% url 'pdf_fiche_controle' fiche.id %}?inline=1" target="_blank">Imprimer</a>
+
+    {% if request.user.is_resp_atelier %}
+
+    {% if peut_modifier %}<a href="{% url modifier_url_name rec.id 1 %}" class="btn btn-warning">✏️ Modifier</a>{% endif %}
+
+    <a href="{% url 'signer_fiche_controle' rec.id %}" class="btn btn-accent">
+        ✍️ Faire signer le client
+      </a>
+ {% endif %}
+    <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+  </div>
+</div>
+
+
+<div class="hero">
+  <div>
+    <div class="imm">🚗 {{ rec.vehicule.immatriculation }}</div>
+    <div>{{ rec.vehicule.marque }} {{ rec.vehicule.modele }}{% if rec.vehicule.annee %} {{ rec.vehicule.annee }}{% endif %}</div>
+    <div class="text-small text-muted">{{ rec.vehicule.client }} — {{ rec.vehicule.client.telephone }}</div>
+  </div>
+  <div style="text-align:right;">
+    <div>
+      {% if terminee %}<span class="stat ok">✅ Fiche terminée</span>{% else %}<span class="stat wait">⏳ Fiche en cours de saisie</span>{% endif %}
+      {% if mode == 'controle' %}
+        {% if signee_client %}<span class="stat ok">✍️ Signée par le client</span>{% elif terminee %}<span class="stat wait">✍️ En attente de la signature du client</span>{% endif %}
+      {% endif %}
+    </div>
+    <div class="text-small text-muted" style="margin-top:4px;">
+      {% if numero_fiche %}N° {{ numero_fiche }} · {% endif %}Remplie par <b>{{ auteur.get_full_name|default:auteur.email|default:"—" }}</b> le {{ date|date:"d/m/Y à H:i" }}
+    </div>
+    {% if mode == 'technique' and total_estime %}<div style="margin-top:4px;font-weight:800;">💰 Estimation : {{ total_estime|floatformat:0 }} FCFA</div>{% endif %}
+  </div>
+</div>
+
+
+
+<div class="tabs">
+  {% for s in sections %}<button type="button" class="tabbtn {% if forloop.first %}on{% endif %}" onclick="tab({{ forloop.counter0 }})">{{ forloop.counter }}. {{ s.title }}</button>{% endfor %}
+</div>
+
+{% for s in sections %}
+<div class="tabpane {% if forloop.first %}on{% endif %}" data-i="{{ forloop.counter0 }}">
+  <div class="sec-h">{{ forloop.counter }}. {{ s.title }}</div>
+  <div class="grid-ro">
+    {% for it in s.items %}
+      {% if it.kind == 'damage' %}</div>
+        <div style="margin-bottom:6px;"><b class="{{ it.css }}">{{ it.value }}</b>
+          <span class="text-small text-muted">&nbsp;✕ piqûre · ✦ rayure · ● bosse · # cassé</span></div>
+        <canvas id="schema" width="600" height="280"></canvas>
+      <div class="grid-ro">
+      {% else %}
+      <div class="ro"><span class="l">{{ it.label }}</span><span class="v {{ it.css }}">{{ it.value }}</span></div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  {% if forloop.last %}
+  <div class="sec-h" style="margin-top:18px;">Signatures</div>
+  <div class="sigs">
+    {% for sg in signatures %}
+    <div class="sig"><b>{{ sg.role }}</b>{% if sg.nom %}<div class="text-small">{{ sg.nom }}</div>{% endif %}
+      {% if sg.img %}<img src="{{ sg.img }}" alt="signature">{% else %}<div class="none">Pas encore signé</div>{% endif %}</div>
+    {% endfor %}
+    {% if receptionniste %}<div class="sig"><b>Réceptionniste</b><div class="text-small">{{ receptionniste }}</div></div>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+{% if defauts %}
+<div class="defauts">
+  <h4>⚠️ {{ defauts|length }} défaut{{ defauts|length|pluralize }} relevé{{ defauts|length|pluralize }}</h4>
+  <ul>{% for d in defauts %}<li><b>{{ d.label }}</b> — <span class="{{ d.css }}">{{ d.value }}</span></li>{% endfor %}</ul>
+</div>
+{% elif terminee %}
+<div class="rien">✅ Aucun défaut relevé dans cette fiche.</div>
+{% endif %}
+
+{{ degats_json|json_script:"degats-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function tab(i){
+  document.querySelectorAll('.tabbtn').forEach((b,k)=>b.classList.toggle('on',k===i));
+  document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',+p.dataset.i===i));
+}
+// Schéma carrosserie (lecture seule)
+(function(){
+  const c=document.getElementById('schema'); if(!c) return;
+  const pts=JSON.parse(document.getElementById('degats-data').textContent)||[];
+  const ctx=c.getContext('2d');
+  ctx.strokeStyle='#94a3b8';ctx.lineWidth=1.5;ctx.fillStyle='#eef2f6';
+  ctx.beginPath();ctx.roundRect(60,25,480,225,20);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#e2e8f0';ctx.beginPath();ctx.roundRect(140,70,320,130,12);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#475569';[[55,45,20,50],[55,185,20,50],[505,45,20,50],[505,185,20,50]].forEach(([x,y,w,h])=>{ctx.beginPath();ctx.roundRect(x,y,w,h,5);ctx.fill();});
+  ctx.fillStyle='#64748b';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('AVANT ▲',300,16);ctx.fillText('ARRIÈRE ▼',300,272);
+  const COL={PIQURE:'#6366f1',RAYURE:'#f59e0b',BOSSE:'#3b82f6',CASSE:'#ef4444'}, SYM={PIQURE:'✕',RAYURE:'✦',BOSSE:'●',CASSE:'#'};
+  pts.forEach(p=>{ctx.fillStyle=COL[p.type]||'#000';ctx.font='bold 16px sans-serif';ctx.textBaseline='middle';ctx.fillText(SYM[p.type]||'?',p.x,p.y);});
+})();
+</script>
+{% endblock %}

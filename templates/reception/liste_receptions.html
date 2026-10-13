@@ -8,6 +8,8 @@
 <li><a href="{% url 'liste_receptions' %}" class="active"><span class="icon">📋</span> Historique des Réceptions</a></li>
 <li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
 <li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_or' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+
 <li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
 <li class="has-submenu">
 <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
@@ -21,8 +23,14 @@
 {% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1>Réceptions</h1></div>
+  <div><h1>Liste des Réceptions</h1></div>
 
+  <div style="display:flex;gap:10px;align-items:center;">
+
+    <a href="{% url 'creer_reception' %}" class="btn btn-accent">➕ Nouvelle réception</a>
+
+
+  </div>
 
 </div>
 <div class="card mb-2">
@@ -41,33 +49,49 @@
 <div class="card">
   <div class="table-wrap">
     <table>
-      <thead><tr><th>N°</th><th>Véhicule</th><th>Client</th><th>Statut</th><th>Atelier</th><th>Réceptionniste</th><th>Date</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Immatriculation</th><th>Véhicule</th><th>Client</th><th>Statut</th><th>Atelier</th><th>Réceptionniste</th><th>Date</th><th>Actions</th></tr></thead>
       <tbody>
         {% for r in receptions %}
         <tr>
-          <td><a href="{% url 'detail_reception' r.id %}"><strong>{{ r.numero }}</strong></a></td>
-          <td><strong>{{ r.vehicule.immatriculation }}</strong><br><span class="text-small text-muted">{{ r.vehicule.marque }} {{ r.vehicule.modele }}</span></td>
+          <td><a href="{% url 'detail_reception' r.id %}"><strong>{{ r.vehicule.immatriculation }}</strong></a></td>
+          <td><strong>{{ r.vehicule.marque }}</strong><br><span class="text-small text-muted">{{ r.vehicule.modele }}</span></td>
           <td>{{ r.vehicule.client }}</td>
-          <td>
-            {% if r.statut == 'EN_ATTENTE' %}<span class="badge badge-a-faire">En attente</span>
-            {% elif r.statut == 'DEVIS_ETABLI' %}<span class="badge badge-info">Devis établi</span>
-            {% elif r.statut == 'TRANSFERE_ATELIER' %}<span class="badge badge-en-cours">En atelier</span>
-            {% elif r.statut == 'TRAVAUX_TERMINES' %}<span class="badge badge-success">Travaux OK</span>
-            {% elif r.statut == 'FACTURE' %}<span class="badge badge-ouvert">Facturé</span>
-            {% elif r.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
-            {% else %}<span class="badge badge-secondary">{{ r.get_statut_display }}</span>{% endif %}
-          </td>
-          <td class="text-small">{{ r.atelier.nom|default:"—" }}</td>
+      <td>
+  {% if r.statut == 'RAPPORT_FAIT' %}
+    <span class="badge badge-a-faire">Réception en attente</span>
+
+  {% elif r.statut == 'PRESENT_ATELIER' %}
+    <span class="badge badge-info">Présent atelier</span>
+
+  {% elif r.statut == 'FICHE_TECHNIQUE' %}
+    <span class="badge badge-info">Fiche technique établie</span>
+
+  {% elif r.statut == 'REPARATION_EN_COURS' %}
+    <span class="badge badge-en-cours">Réparation en cours</span>
+
+  {% elif r.statut == 'TRAVAUX_TERMINES' %}
+    <span class="badge badge-success">Travaux terminés</span>
+
+  {% elif r.statut == 'BON_SORTIE_FAIT' %}
+    <span class="badge badge-ouvert">Bon de sortie établi</span>
+
+  {% else %}
+    <span class="badge badge-secondary">{{ r.get_statut_display }}</span>
+  {% endif %}
+</td>
+ <td>
+  {% for at in r.ordre_reparation.ateliers.all %}
+    <span class="badge badge-info" style="font-size:11px;">{{ at.nom }}</span>
+  {% empty %}
+    <span class="text-muted text-small">—</span>
+  {% endfor %}
+</td>
           <td class="text-small">{{ r.receptionniste.full_name|default:"—" }}</td>
           <td class="text-small text-muted">{{ r.created_at|date:"d/m/Y H:i" }}</td>
           <td>
             <div style="display:flex;gap:4px;">
               <a href="{% url 'detail_reception' r.id %}" class="btn btn-info btn-sm">👁</a>
-              {% if r.statut == 'EN_ATTENTE' or r.statut == 'DEVIS_ETABLI' %}
-              <a href="{% url 'creer_devis' r.id %}" class="btn btn-primary btn-sm">📝</a>
-              {% elif r.statut == 'TRAVAUX_TERMINES' %}
-              <a href="{% url 'creer_bon_sortie' r.id %}" class="btn btn-success btn-sm">📄</a>
-              {% endif %}
+            
             </div>
           </td>
         </tr>
@@ -77,5 +101,41 @@
       </tbody>
     </table>
   </div>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav class="pagination"
+       style="display:flex;gap:6px;justify-content:center;align-items:center;padding:16px;border-top:1px solid var(--border);flex-wrap:wrap;">
+
+    {% if page_obj.has_previous %}
+    <a class="btn btn-outline btn-sm"
+       href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&statut={{ request.GET.statut }}">
+      ‹ Préc.
+    </a>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+      <span class="btn btn-primary btn-sm" style="pointer-events:none;">{{ num }}</span>
+      {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+      <a class="btn btn-outline btn-sm"
+         href="?page={{ num }}&q={{ request.GET.q }}&statut={{ request.GET.statut }}">
+        {{ num }}
+      </a>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <a class="btn btn-outline btn-sm"
+       href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&statut={{ request.GET.statut }}">
+      Suiv. ›
+    </a>
+    {% endif %}
+
+    <span class="text-small text-muted" style="margin-left:8px;">
+      Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      ({{ page_obj.paginator.count }} résultat{{ page_obj.paginator.count|pluralize }})
+    </span>
+  </nav>
+  {% endif %}
 </div>
 {% endblock %}

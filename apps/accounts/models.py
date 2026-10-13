@@ -87,7 +87,15 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def full_name(self):
-        return f"{self.prenom} {self.nom}"
+        return f"{self.prenom} {self.nom}".strip()
+
+    def get_full_name(self):
+        """Compatibilité avec l'API Django standard."""
+        return self.full_name
+
+    def get_short_name(self):
+        """Utilisé par l'admin Django pour les affichages courts."""
+        return self.prenom or self.nom
 
     def is_admin(self):
         return self.role == Role.ADMIN
@@ -114,7 +122,7 @@ class User(AbstractBaseUser, PermissionsMixin):
             Role.RECEPTIONNISTE: '/reception/dashboard/',
             Role.SUPER_RECEPTIONNISTE: '/reception/dashboard/',
             Role.RESP_ATELIER: '/atelier/dashboard/',
-            Role.TECHNICIEN: '/atelier/technicien/dashboard/',
+            Role.TECHNICIEN: '/atelier/technicien/',
         }
         return urls.get(self.role, '/dashboard/')
 

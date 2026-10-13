@@ -3,49 +3,47 @@
 {% block page_title %}📄 Bons de sortie{% endblock %}
 
 {% block sidebar_nav %}
-
-
 <ul class="sidebar-nav">
-<li><a href="{% url 'index' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
-<li class="sidebar-section">Administration</li>
-<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
-<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
-<li><a href="{% url 'admin_nettoyage' %}" ><span class="icon">🧹</span> Nettoyage</a></li>
-
-<li class="has-submenu">
-<a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
-<ul class="submenu">
-<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
-<li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
-<li><a href="{% url 'admin_conducteurs' %}" ><span class="icon">🪪</span> Conducteurs</a></li>
-<li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
-<li><a href="{% url 'admin_ateliers' %}" ><span class="icon">🏭</span> Ateliers</a></li>
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li class="sidebar-section">Administration</li>
+  <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+  <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+  <li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
+  <li><a href="{% url 'inventaire_admin_liste' %}"><span class="icon">📋</span> Inventaire</a></li>
+  <li><a href="{% url 'liste_or_admin' %} " ><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li class="has-submenu">
+    <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+    <ul class="submenu">
+      <li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+      <li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
+      <li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+      <li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+      <li><a href="{% url 'admin_ateliers' %}"><span class="icon">🏭</span> Ateliers</a></li>
+    </ul>
+  </li>
+  <li class="sidebar-section">Mouvements</li>
+  <li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
+  <li><a href="{% url 'liste_bons_admin' %}" class="active"><span class="icon">📄</span> Bons de sortie</a></li>
 </ul>
-
-</li>
-<li class="sidebar-section">Mouvements</li>
-<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
-<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
-<li><a href="{% url 'liste_receptions_admin' %}" ><span class="icon">📥</span> Historique des réceptions</a></li>
-<li><a href="{% url 'liste_bons_admin' %}" class="active"><span class="icon">📄</span> Bons de sortie</a></li>
-</ul>
-
-<!-- SECTION ACTIONS -->
 <div class="sidebar-section">Actions</div>
 <ul class="sidebar-nav">
-    <li>
- <a href="{% url 'creer_bon_direct_admin' %}">
-            <span class="icon">🚚</span> Bon de sortie véhicule </a> </li>
-    <li>
-        <a href="{% url 'creer_bon_divers_admin' %}">
-            <span class="icon">📦</span> Bon de sortie divers
-        </a></li>
+  <li>
+    <a href="{% url 'creer_bon_direct_admin' %}">
+      <span class="icon">🚚</span> Bon de sortie véhicule
+    </a>
+  </li>
+  <li>
+    <a href="{% url 'creer_bon_divers_admin' %}">
+      <span class="icon">📦</span> Bon de sortie divers
+    </a>
+  </li>
 </ul>
 {% endblock %}
- 
+
 {% block extra_css %}
 <style>
-/* ── Filtres ── */
 .filter-bar {
   background: var(--surface);
   border-radius: var(--radius);
@@ -62,7 +60,6 @@
 @media(max-width:900px){ .filter-grid { grid-template-columns: 1fr 1fr; } }
 @media(max-width:600px){ .filter-grid { grid-template-columns: 1fr; } }
 
-/* ── Stats chips ── */
 .stats-row {
   display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;
 }
@@ -72,18 +69,15 @@
   border: 1px solid var(--border); display: flex; align-items: center; gap: 6px;
 }
 
-/* ── Table actions ── */
 .tbl-toolbar {
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; gap: 10px; margin-bottom: 12px;
 }
 
-/* ── Etat badge ── */
-.etat-creer      { background:#f1f5f9; color:#475569; }
-.etat-approbation{ background:#fef3c7; color:#92400e; }
-.etat-valider    { background:#d1fae5; color:#065f46; }
+.etat-creer       { background:#f1f5f9; color:#475569; }
+.etat-approbation { background:#fef3c7; color:#92400e; }
+.etat-valider     { background:#d1fae5; color:#065f46; }
 
-/* ── Export dropdown ── */
 .export-wrap { position: relative; }
 .export-menu {
   display: none; position: absolute; top:calc(100% + 4px); right:0;
@@ -102,34 +96,26 @@
 {% endblock %}
 
 {% block content %}
-
-<!-- ── En-tête ───────────────────────────────────────────── -->
 <div class="page-header">
   <div>
     <h1>Bons de sortie</h1>
     <div class="breadcrumb">Historique complet des bons de sortie</div>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
-    <!-- Export -->
     <div class="export-wrap">
-      <button onclick="toggleExport()" class="btn btn-outline">
-        📤 Exporter ▾
-      </button>
+      <button type="button" onclick="toggleExport()" class="btn btn-outline">📤 Exporter ▾</button>
       <div class="export-menu" id="export-menu">
         <div class="export-item" onclick="exportCSV()">📊 CSV</div>
         <div class="export-item" onclick="exportExcel()">📗 Excel</div>
         <div class="export-item" onclick="window.location.href='{% url 'export_bons_liste_pdf' %}?' + window.location.search.slice(1)">
-  🖨️ Imprimer
-</div>
+          🖨️ PDF
+        </div>
       </div>
     </div>
-    <a href="{% url 'creer_bon_divers_admin' %}" class="btn btn-primary">
-      ➕ Nouveau bon de sortie
-    </a>
+    <a href="{% url 'creer_bon_divers_admin' %}" class="btn btn-primary">➕ Nouveau bon de sortie</a>
   </div>
 </div>
 
-<!-- ── Statistiques rapides ──────────────────────────────── -->
 <div class="stats-row">
   <div class="stat-chip">📄 <span>{{ stats.total }}</span> total</div>
   <div class="stat-chip" style="border-color:#d1fae5;color:#065f46;">✅ <span>{{ stats.valides }}</span> validés</div>
@@ -138,60 +124,52 @@
   <div class="stat-chip" style="border-color:#e0e7ff;color:#3730a3;">📦 <span>{{ stats.divers }}</span> divers</div>
 </div>
 
-<!-- ── Filtres ───────────────────────────────────────────── -->
 <div class="filter-bar">
   <form method="get" id="filter-form">
     <div class="filter-grid">
-      <!-- Recherche texte -->
       <div>
         <label class="form-label">🔍 Recherche</label>
         <input type="text" name="q" value="{{ filters.q }}" class="form-input"
                placeholder="N° bon, immatriculation, demandeur..."
                oninput="debounceSubmit()">
       </div>
-      <!-- Type -->
       <div>
         <label class="form-label">Type</label>
         <select name="type" class="form-select" onchange="this.form.submit()">
           <option value="">Tous les types</option>
           <option value="VEHICULE" {% if filters.type == 'VEHICULE' %}selected{% endif %}>🚗 Véhicule</option>
-          <option value="DIVERS"   {% if filters.type == 'DIVERS' %}selected{% endif %}>📦 Divers</option>
+          <option value="DIVERS" {% if filters.type == 'DIVERS' %}selected{% endif %}>📦 Divers</option>
         </select>
       </div>
-      <!-- État -->
       <div>
         <label class="form-label">État</label>
         <select name="etat" class="form-select" onchange="this.form.submit()">
           <option value="">Tous les états</option>
-          <option value="CREER"       {% if filters.etat == 'CREER' %}selected{% endif %}>📝 Créé</option>
+          <option value="CREER" {% if filters.etat == 'CREER' %}selected{% endif %}>📝 Créé</option>
           <option value="APPROBATION" {% if filters.etat == 'APPROBATION' %}selected{% endif %}>⏳ Approbation</option>
-          <option value="VALIDER"     {% if filters.etat == 'VALIDER' %}selected{% endif %}>✅ Validé</option>
+          <option value="VALIDER" {% if filters.etat == 'VALIDER' %}selected{% endif %}>✅ Validé</option>
         </select>
       </div>
-      <!-- Période -->
       <div>
         <label class="form-label">Période</label>
         <select name="periode" class="form-select" onchange="this.form.submit()">
           <option value="">Toutes dates</option>
-          <option value="today"  {% if filters.periode == 'today' %}selected{% endif %}>Aujourd'hui</option>
-          <option value="week"   {% if filters.periode == 'week' %}selected{% endif %}>Cette semaine</option>
-          <option value="month"  {% if filters.periode == 'month' %}selected{% endif %}>Ce mois</option>
+          <option value="today" {% if filters.periode == 'today' %}selected{% endif %}>Aujourd'hui</option>
+          <option value="week" {% if filters.periode == 'week' %}selected{% endif %}>Cette semaine</option>
+          <option value="month" {% if filters.periode == 'month' %}selected{% endif %}>Ce mois</option>
           <option value="custom" {% if filters.periode == 'custom' %}selected{% endif %}>Personnalisé</option>
         </select>
       </div>
-      <!-- Bouton Filtrer -->
       <div>
         <label class="form-label" style="opacity:0">.</label>
         <button type="submit" class="btn btn-primary w-full">Filtrer</button>
       </div>
-      <!-- Reset -->
       <div>
         <label class="form-label" style="opacity:0">.</label>
         <a href="{% url 'liste_bons_admin' %}" class="btn btn-outline w-full">✕ Reset</a>
       </div>
     </div>
 
-    <!-- Dates custom -->
     {% if filters.periode == 'custom' %}
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
       <div>
@@ -209,19 +187,21 @@
   </form>
 </div>
 
-<!-- ── Tableau ───────────────────────────────────────────── -->
 <div class="card">
   <div class="tbl-toolbar">
     <div style="font-size:13px;color:var(--text-muted);">
-      <strong>{{ bons|length }}</strong> bon{{ bons|length|pluralize }} trouvé{{ bons|length|pluralize }}
+      <strong>{{ page_obj.paginator.count }}</strong>
+      bon{{ page_obj.paginator.count|pluralize }} trouvé{{ page_obj.paginator.count|pluralize }}
       {% if filters.q or filters.type or filters.etat or filters.periode %}
       <span style="color:var(--accent);">(filtré)</span>
       {% endif %}
     </div>
     <div style="display:flex;gap:6px;align-items:center;">
       <span class="text-small text-muted">Trier par :</span>
-      <a href="?{{ request.GET.urlencode }}&sort=date"   class="btn btn-outline btn-sm {% if filters.sort == 'date' %}btn-primary{% endif %}">Date ↓</a>
-      <a href="?{{ request.GET.urlencode }}&sort=numero" class="btn btn-outline btn-sm {% if filters.sort == 'numero' %}btn-primary{% endif %}">N°</a>
+      <a href="?{{ request.GET.urlencode }}&sort=date"
+         class="btn btn-outline btn-sm {% if filters.sort == 'date' %}btn-primary{% endif %}">Date ↓</a>
+      <a href="?{{ request.GET.urlencode }}&sort=numero"
+         class="btn btn-outline btn-sm {% if filters.sort == 'numero' %}btn-primary{% endif %}">N°</a>
     </div>
   </div>
 
@@ -234,7 +214,6 @@
           <th>État</th>
           <th>Véhicule / Objet</th>
           <th>Demandeur</th>
-          
           <th>Date création</th>
           <th>Validé le</th>
           <th>Créé par</th>
@@ -244,15 +223,10 @@
       <tbody>
         {% for bon in bons %}
         <tr>
-          <!-- N° -->
           <td>
             <a href="{% url 'detail_bon_sortie_guerite' bon.id %}"
-               style="font-weight:700;color:var(--primary);">
-              {{ bon.numero }}
-            </a>
+               style="font-weight:700;color:var(--primary);">{{ bon.numero }}</a>
           </td>
-
-          <!-- Type -->
           <td>
             {% if bon.types == 'VEHICULE' %}
             <span class="badge badge-info">🚗 Véhicule</span>
@@ -260,8 +234,6 @@
             <span class="badge badge-secondary">📦 Divers</span>
             {% endif %}
           </td>
-
-          <!-- État -->
           <td>
             {% if bon.etats == 'VALIDER' %}
             <span class="badge etat-valider">✅ Validé</span>
@@ -271,8 +243,6 @@
             <span class="badge etat-creer">📝 Créé</span>
             {% endif %}
           </td>
-
-          <!-- Véhicule / Objet -->
           <td>
             {% if bon.vehicule %}
             <strong>{{ bon.vehicule.immatriculation }}</strong><br>
@@ -283,41 +253,22 @@
             <span class="text-muted">—</span>
             {% endif %}
           </td>
-
-          <!-- Demandeur -->
           <td>{{ bon.nom_demandeur|default:"—" }}</td>
-
-          <!-- Origine -->
-           
-          <!-- Date création -->
           <td class="text-small text-muted">
             {{ bon.created_at|date:"d/m/Y" }}<br>
             <span style="font-size:11px;">{{ bon.created_at|date:"H:i" }}</span>
           </td>
-
-          <!-- Validé le -->
           <td class="text-small text-muted">
-            {% if bon.date_validation %}
-            {{ bon.date_validation|date:"d/m/Y H:i" }}
-            {% else %}—{% endif %}
+            {% if bon.date_validation %}{{ bon.date_validation|date:"d/m/Y H:i" }}{% else %}—{% endif %}
           </td>
-
-          <!-- Créé par -->
           <td class="text-small text-muted">{{ bon.cree_par.full_name|default:"—" }}</td>
-
-          <!-- Actions -->
           <td>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;">
-              <a href="{% url 'detail_bon_sortie_guerite' bon.id %}"
-                 class="btn btn-info btn-sm" title="Voir">👁</a>
-              
-             
-            </div>
+            <a href="{% url 'detail_bon_sortie_guerite' bon.id %}" class="btn btn-info btn-sm" title="Voir">👁</a>
           </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="10" style="text-align:center;padding:50px;color:var(--text-muted);">
+          <td colspan="9" style="text-align:center;padding:50px;color:var(--text-muted);">
             <div style="font-size:40px;margin-bottom:10px;">📄</div>
             <div style="font-weight:600;">Aucun bon de sortie trouvé</div>
             {% if filters.q or filters.type or filters.etat %}
@@ -335,107 +286,125 @@
     </table>
   </div>
 
-  <!-- Pagination simple -->
-  {% if bons|length >= 50 %}
-  <div style="text-align:center;padding:16px;border-top:1px solid var(--border);">
-    <span class="text-muted text-small">Affichage limité à 50 résultats — utilisez les filtres pour affiner</span>
-  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav class="pagination"
+       style="display:flex;gap:6px;justify-content:center;align-items:center;padding:16px;border-top:1px solid var(--border);flex-wrap:wrap;">
+
+    {% if page_obj.has_previous %}
+    <a class="btn btn-outline btn-sm"
+       href="?page={{ page_obj.previous_page_number }}&q={{ filters.q }}&type={{ filters.type }}&etat={{ filters.etat }}&periode={{ filters.periode }}&date_debut={{ filters.date_debut }}&date_fin={{ filters.date_fin }}&sort={{ filters.sort }}">
+      ‹ Préc.
+    </a>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+      <span class="btn btn-primary btn-sm" style="pointer-events:none;">{{ num }}</span>
+      {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+      <a class="btn btn-outline btn-sm"
+         href="?page={{ num }}&q={{ filters.q }}&type={{ filters.type }}&etat={{ filters.etat }}&periode={{ filters.periode }}&date_debut={{ filters.date_debut }}&date_fin={{ filters.date_fin }}&sort={{ filters.sort }}">
+        {{ num }}
+      </a>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <a class="btn btn-outline btn-sm"
+       href="?page={{ page_obj.next_page_number }}&q={{ filters.q }}&type={{ filters.type }}&etat={{ filters.etat }}&periode={{ filters.periode }}&date_debut={{ filters.date_debut }}&date_fin={{ filters.date_fin }}&sort={{ filters.sort }}">
+      Suiv. ›
+    </a>
+    {% endif %}
+
+    <span class="text-small text-muted" style="margin-left:8px;">
+      Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      ({{ page_obj.paginator.count }} résultat{{ page_obj.paginator.count|pluralize }})
+    </span>
+  </nav>
   {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// ── Debounce pour la recherche texte ──────────────────────
 let dbt;
 function debounceSubmit(){
   clearTimeout(dbt);
-  dbt = setTimeout(()=>document.getElementById('filter-form').submit(), 500);
+  dbt = setTimeout(() => document.getElementById('filter-form').submit(), 500);
 }
 
-// ── Toggle export menu ────────────────────────────────────
 function toggleExport(){
   document.getElementById('export-menu').classList.toggle('open');
 }
-document.addEventListener('click', e=>{
-  if(!e.target.closest('.export-wrap'))
+document.addEventListener('click', e => {
+  if (!e.target.closest('.export-wrap'))
     document.getElementById('export-menu').classList.remove('open');
 });
 
-// ── Export CSV ────────────────────────────────────────────
 function exportCSV(){
-  const rows = [['N° Bon','Type','État','Véhicule','Demandeur','Origine','Date création','Validé le','Créé par']];
-  document.querySelectorAll('#bons-table tbody tr').forEach(tr=>{
+  const rows = [['N° Bon','Type','État','Véhicule','Demandeur','Date création','Validé le','Créé par']];
+  document.querySelectorAll('#bons-table tbody tr').forEach(tr => {
     const cells = tr.querySelectorAll('td');
-    if(cells.length < 9) return;
+    if (cells.length < 8) return;
     rows.push([
       cells[0].innerText.trim(),
       cells[1].innerText.trim(),
       cells[2].innerText.trim(),
       cells[3].innerText.trim().replace(/\n/g,' '),
       cells[4].innerText.trim(),
-      cells[5].innerText.trim(),
-      cells[6].innerText.trim().replace(/\n/g,' '),
+      cells[5].innerText.trim().replace(/\n/g,' '),
+      cells[6].innerText.trim(),
       cells[7].innerText.trim(),
-      cells[8].innerText.trim(),
     ]);
   });
-  const csv = rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'}));
   a.download = `bons-sortie-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   document.getElementById('export-menu').classList.remove('open');
 }
 
-// ── Export Excel (XLSX via CSV) ───────────────────────────
 function exportExcel(){
-  // Même logique que CSV mais avec extension .xls (ouvre dans Excel)
-  const rows = [['N° Bon','Type','État','Véhicule','Demandeur','Origine','Date création','Validé le','Créé par']];
-  document.querySelectorAll('#bons-table tbody tr').forEach(tr=>{
+  const rows = [['N° Bon','Type','État','Véhicule','Demandeur','Date création','Validé le','Créé par']];
+  document.querySelectorAll('#bons-table tbody tr').forEach(tr => {
     const cells = tr.querySelectorAll('td');
-    if(cells.length < 9) return;
+    if (cells.length < 8) return;
     rows.push([
       cells[0].innerText.trim(),
       cells[1].innerText.trim(),
       cells[2].innerText.trim(),
       cells[3].innerText.trim().replace(/\n/g,' '),
       cells[4].innerText.trim(),
-      cells[5].innerText.trim(),
-      cells[6].innerText.trim().replace(/\n/g,' '),
+      cells[5].innerText.trim().replace(/\n/g,' '),
+      cells[6].innerText.trim(),
       cells[7].innerText.trim(),
-      cells[8].innerText.trim(),
     ]);
   });
-  // Format HTML table pour Excel
   let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
   html += '<head><meta charset="UTF-8"></head><body><table>';
-  rows.forEach((r,i)=>{
+  rows.forEach((r, i) => {
     html += '<tr>';
-    r.forEach(c=>{
-      html += i===0?`<th style="background:#1a3a5c;color:white;font-weight:bold;">${c}</th>`:`<td>${c}</td>`;
+    r.forEach(c => {
+      html += i === 0
+        ? `<th style="background:#1a3a5c;color:white;font-weight:bold;">${c}</th>`
+        : `<td>${c}</td>`;
     });
     html += '</tr>';
   });
   html += '</table></body></html>';
-  const blob = new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8;'});
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = URL.createObjectURL(new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8;'}));
   a.download = `bons-sortie-${new Date().toISOString().slice(0,10)}.xls`;
   a.click();
   document.getElementById('export-menu').classList.remove('open');
 }
 </script>
-
-<!-- Style print -->
 <style>
 @media print {
   .sidebar, .topbar, .filter-bar, .tbl-toolbar .btn,
   td:last-child, th:last-child { display:none!important; }
   .card { box-shadow:none; border:1px solid #ccc; }
   table { font-size:11px; }
-  thead th { background:#1a3a5c!important; color:white!important; -webkit-print-color-adjust:exact; }
 }
 </style>
 {% endblock %}

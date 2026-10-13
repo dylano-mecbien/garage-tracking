@@ -8,6 +8,7 @@
   <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
   <li><a href="{% url 'vehicules_presents' %}" class="active"><span class="icon">🚗</span> Véhicules présents</a></li>
   <li><a href="{% url 'historique_entrees' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+    <li><a href="{% url 'inventaire_accueil' %}"><span class="icon">📋</span> Inventaires</a></li>
 </ul>
 {% endblock %}
 
@@ -91,7 +92,7 @@
           </td>
           <td class="text-muted text-small">{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
           <td><strong>{{ entree.duree_sejour }}</strong></td>
-          <td> 
+          <td>
             <a href="{% url 'enregistrer_sortie' entree.id %}"
                class="btn {% if entree.bon_sortie.etats == 'APPROBATION' or entree.motif == 'VISITE' %}btn-success{% else %}btn-warning{% endif %} btn-sm">
               📤 Sortie
@@ -106,8 +107,40 @@
       </tbody>
     </table>
   </div>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav class="pagination" style="display:flex;gap:6px;justify-content:center;align-items:center;padding:16px;border-top:1px solid var(--border);flex-wrap:wrap;">
+    {% if page_obj.has_previous %}
+    <a class="btn btn-outline btn-sm"
+       href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&motif={{ request.GET.motif }}&date_debut={{ request.GET.date_debut }}&date_fin={{ request.GET.date_fin }}">
+      ‹ Préc.
+    </a>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+      <span class="btn btn-primary btn-sm" style="pointer-events:none;">{{ num }}</span>
+      {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+      <a class="btn btn-outline btn-sm"
+         href="?page={{ num }}&q={{ request.GET.q }}&motif={{ request.GET.motif }}&date_debut={{ request.GET.date_debut }}&date_fin={{ request.GET.date_fin }}">
+        {{ num }}
+      </a>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <a class="btn btn-outline btn-sm"
+       href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&motif={{ request.GET.motif }}&date_debut={{ request.GET.date_debut }}&date_fin={{ request.GET.date_fin }}">
+      Suiv. ›
+    </a>
+    {% endif %}
+
+    <span class="text-small text-muted" style="margin-left:8px;">
+      Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      ({{ page_obj.paginator.count }} résultat{{ page_obj.paginator.count|pluralize }})
+    </span>
+  </nav>
+  {% endif %}
 </div>
 
 {% endblock %}
-
-

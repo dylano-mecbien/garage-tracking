@@ -89,7 +89,7 @@
             {% else %}
               <span class="badge badge-secondary">{{ entree.get_motif_display }}</span>
             {% endif %}
-            {% if entree.statut != 'SORTI' %}
+            {% if entree.statut != 'SORTI' and entree.motif == 'VISITE'%}
             <button class="btn btn-outline btn-sm"
                     onclick="document.getElementById('motifModal').style.display='flex'">
               ✏️ Modifier

@@ -73,19 +73,26 @@ class BonSortieForm(forms.ModelForm):
         # Véhicule optionnel (pour le cas DIVERS)
         self.fields['vehicule'].required = False
 
+        
 class ORReceptionForm(forms.ModelForm):
     """Créer un OR depuis la réception"""
+
     class Meta:
-        model = OrdreReparation
-        fields = ['atelier', 'diagnostic', 'date_fin_prevue', 'observations']
+        model  = OrdreReparation
+        fields = ['ateliers', 'description_travaux', 'date_fin_prevue']
         widgets = {
-            'atelier':         forms.Select(attrs=WSE),
-            'diagnostic':      forms.Textarea(attrs={**WTA, 'rows': 4}),
-            'date_fin_prevue': forms.DateTimeInput(attrs={**W, 'type': 'datetime-local'}),
-            'observations':    forms.Textarea(attrs={**WTA, 'rows': 2}),
+            'ateliers': forms.CheckboxSelectMultiple(),   # ← M2M = sélection multiple
+            'description_travaux': forms.Textarea(attrs={**WTA, 'rows': 4}),
+            'date_fin_prevue': forms.DateInput(attrs={**W, 'type': 'datetime-local'}),
+        }
+        labels = {
+            'ateliers': 'Atelier(s) concerné(s)',
+            'description_travaux': 'Diagnostic / Travaux à effectuer',
+            'date_fin_prevue': 'Fin prévue',
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['atelier'].queryset = Atelier.objects.filter(is_active=True)
+        # Restreindre aux ateliers actifs
+        self.fields['ateliers'].queryset = Atelier.objects.filter(is_active=True)
         self.fields['date_fin_prevue'].required = False

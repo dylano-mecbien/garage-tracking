@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block title %}{{ rec.vehicule.immatriculation }}{% endblock %}
+{% block page_title %}📋 Réception {{ rec.vehicule.immatriculation }}{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">{{ atelier.nom }}</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_receptions_atelier' %}" class="active"><span class="icon">📋</span> Historique des Réceptions</a></li>
+
+  <li><a href="{% url 'liste_or_atelier' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_techniciens' %}"><span class="icon">👷</span> Techniciens</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.timeline{display:flex;flex-direction:column;gap:0;}
+.tl-item{display:flex;gap:12px;padding-bottom:16px;position:relative;}
+.tl-item:not(:last-child)::before{content:'';position:absolute;left:15px;top:32px;bottom:0;width:2px;background:var(--border);}
+.tl-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:2px solid var(--border);}
+.tl-dot.done{background:var(--success);border-color:var(--success);color:#fff;}
+.tl-dot.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 4px rgba(230,126,34,.2);}
+.tl-dot.wait{background:var(--surface2);color:var(--text-muted);}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ rec.numero }}</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'liste_receptions_atelier' %}">Réception</a> › {{ rec.vehicule.immatriculation }}
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+
+    {# ══════════════════════════════════════════════════════════ #}
+    {#  ACTIONS selon le statut réel de la réception              #}
+    {#  Valeurs réelles :                                         #}
+    {#    RAPPORT_FAIT          → faire la réception              #}
+    {#    PRESENT_ATELIER       → faire signer le client          #}
+    {#    FICHE_TECHNIQUE       → contrôle mécanique              #}
+    {#    REPARATION_EN_COURS   → suivre les travaux              #}
+    {#    TRAVAUX_TERMINES      → signature finale                #}
+    {#    BON_SORTIE_FAIT       → prêt à sortir                   #}
+    {# ══════════════════════════════════════════════════════════ #}
+
+   {% if not fiche_controle %}
+  <a href="{% url 'creer_fiche_controle_etape' rec.id 1 %}" class="btn btn-primary">
+    📝 Faire la réception
+  </a>
+
+{% elif not client_a_signe %}
+  <a href="{% url 'voir_fiche_controle' rec.id %}" class="btn btn-accent">
+    ✍️ Faire signer le client (entrée)
+  </a>
+
+{% elif rec.statut == 'PRESENT_ATELIER' %}
+  <a href="{% url 'creer_fiche_technique_etape' rec.id 1 %}" class="btn btn-accent">
+    🔧 Faire le contrôle mécanique
+  </a> 
+
+
+
+{% elif rec.statut == 'TRAVAUX_TERMINES'  and not signature_apres_faite %}
+  <a href="{% url 'voir_fiche_controle' rec.id %}" class="btn btn-accent">
+    ✍️ Faire signer le client (sortie)
+  </a>
+
+{% elif rec.statut == 'BON_SORTIE_FAIT' %}
+  <span class="badge badge-success" style="padding:10px 16px;">✅ Prêt à sortir</span>
+{% endif %}
+  </div>
+</div>
+
+<!-- Barre progression -->
+<div class="card mb-2">
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+    <strong>{{ rec.get_statut_display }}</strong>
+    <span class="font-bold" style="color:var(--primary);">{{ rec.progression_pct }}%</span>
+  </div>
+  <div class="progress-bar" style="height:14px;border-radius:7px;">
+    <div class="progress-fill"
+         style="width:{{ rec.progression_pct }}%;border-radius:7px;{% if rec.progression_pct == 100 %}background:var(--success);{% endif %}"></div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- Infos véhicule -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">🚗 Véhicule &amp; Client</div></div>
+    <table>
+      <tr><td class="text-muted">Immat.</td><td><strong style="font-size:15px;">{{ rec.vehicule.immatriculation }}</strong></td></tr>
+      <tr><td class="text-muted">Véhicule</td><td>{{ rec.vehicule.marque }} {{ rec.vehicule.modele }} ({{ rec.vehicule.annee }})</td></tr>
+      <tr><td class="text-muted">Couleur</td><td>{{ rec.vehicule.couleur|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Carburant</td><td>{{ rec.vehicule.get_type_carburant_display }}</td></tr>
+      <tr><td colspan="2"><hr></td></tr>
+      <tr><td class="text-muted">Client</td><td><strong>{{ rec.vehicule.client }}</strong></td></tr>
+      <tr><td class="text-muted">Tél.</td><td>{{ rec.vehicule.client.telephone }}</td></tr>
+      <tr><td class="text-muted">Email</td><td>{{ rec.vehicule.client.email|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Entrée guérite</td><td>{{ rec.entree.date_entree|date:"d/m/Y H:i" }}</td></tr>
+
+    </table>
+  </div>
+
+  <!-- Timeline -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">📅 Chronologie</div></div>
+    <div class="timeline">
+
+      {# 1. Réception #}
+      <div class="tl-item">
+        <div class="tl-dot done">✓</div>
+        <div>
+          <div class="font-bold text-small">Réception</div>
+          <div class="text-small text-muted">{{ rec.created_at|date:"d/m/Y H:i" }}</div>
+        </div>
+      </div>
+
+      {# 2. Fiche d'entrée (rapport réception) #}
+      <div class="tl-item">
+        <div class="tl-dot {% if client_a_signe %}done{% else %}active{% endif %}">
+          {% if client_a_signe %}✓{% else %}✍{% endif %}
+        </div>
+        <div>
+          <div class="font-bold text-small">Fiche de réception</div>
+          {% if client_a_signe %}
+            <div class="text-small text-muted">
+              {{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}
+            </div>
+          {% else %}
+            <div class="text-small" style="color:var(--accent);">À compléter</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# 3. Fiche de contrôle #}
+ 
+       <div class="tl-item">
+        <div class="tl-dot {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' %}done{% elif a_fiche_controle %}active{% else %}wait{% endif %}">
+          {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI'%}✓{% else %}📋{% endif %}
+        </div>
+        <div>
+          <div class="font-bold text-small">Fiche de contrôle</div>
+          {% if fiche_technique %}
+            <div class="text-small text-muted">{{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}</div>
+          {% elif a_fiche_controle %}
+              {% if rec.statut != 'REPARATION_EN_COURS' %}
+
+            <div class="text-small" style="color:var(--accent);">En attente</div>
+
+            {% endif %}
+          {% else %}
+            <div class="text-small text-muted">—</div>
+          {% endif %}
+        </div>
+      </div>
+
+
+      {# 4. Travaux — tests explicites #}
+      <div class="tl-item">
+        {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' %}
+          <div class="tl-dot done">✓</div>
+        {% elif rec.statut == 'REPARATION_EN_COURS' %}
+          <div class="tl-dot active">🔧</div>
+        {% else %}
+          <div class="tl-dot wait">🔧</div>
+        {% endif %}
+        <div>
+          <div class="font-bold text-small">Travaux</div>
+          <div class="text-small text-muted">
+            {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' %}Terminés ✅
+            {% elif  rec.statut == 'REPARATION_EN_COURS' %}En cours...
+            {% else %}En attente{% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# 5. Bon de sortie #}
+      <div class="tl-item">
+        {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' %}
+          <div class="tl-dot done">✓</div>
+        {% elif rec.statut == 'TRAVAUX_TERMINES' %}
+          <div class="tl-dot active">📄</div>
+        {% else %}
+          <div class="tl-dot wait">📄</div>
+        {% endif %}
+        <div>
+          <div class="font-bold text-small">Bon de sortie</div>
+          <div class="text-small text-muted">
+            {% if bon_sortie %}{{ bon_sortie.numero }}
+            {% elif rec.statut == 'TRAVAUX_TERMINES' %}<span style="color:var(--accent);">À créer</span>
+            {% else %}—{% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# 6. Sortie #}
+      <div class="tl-item">
+        {% if rec.statut == 'SORTI' %}
+          <div class="tl-dot done">✓</div>
+        {% elif rec.statut == 'BON_SORTIE_FAIT' %}
+          <div class="tl-dot active">🚪</div>
+        {% else %}
+          <div class="tl-dot wait">🚪</div>
+        {% endif %}
+        <div>
+          <div class="font-bold text-small">Sortie</div>
+          <div class="text-small text-muted">
+            {% if rec.statut == 'SORTI' %}Sorti ✅
+            {% elif rec.statut == 'BON_SORTIE_FAIT' %}<span style="color:var(--accent);">En attente guérite</span>
+            {% else %}—{% endif %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- Fiche contrôle mécanique -->
+{% if a_fiche_controle %}
+<div class="card mt-2" style="border-left:4px solid var(--success);">
+  <div class="card-header">
+    <div class="card-title">📋 Fiche de réception </div>
+
+
+
+      
+    {% if client_a_signe %}
+      <span class="badge badge-success">✅ Signée par le client</span>
+    {% else %}
+      <span class="badge badge-warning">⏳ En attente de signature</span>
+    {% endif %}
+
+<a href="{% url 'voir_fiche_controle' rec.id %}" class="btn btn-success">
+        Consulter la fiche
+      </a>
+  </div>
+  <div class="grid-2">
+    <table>
+      <tr><td class="text-muted">État général</td><td>{{ fiche_controle.get_etat_general_display }}</td></tr>
+      <tr><td class="text-muted">Kilométrage</td><td>{{ fiche_controle.kilometrage }} km</td></tr>
+      <tr><td class="text-muted">Carburant</td><td>{{ fiche_controle.niveau_carburant }}%</td></tr>
+      <tr><td class="text-muted">Inspecteur</td><td>{{ fiche_controle.inspecte_par|default:"—" }}</td></tr>
+      <tr><td class="text-muted">Date inspection</td><td>{{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}</td></tr>
+    </table>
+    <div>
+      {% if fiche_controle.defauts_observes %}
+        <div class="form-label">Défauts observés</div>
+        <div style="background:var(--surface2);padding:8px;border-radius:6px;font-size:13px;">
+          {{ fiche_controle.defauts_observes }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- OR -->
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">🔧 Ordres de réparation ({{ or_list|length }})</div>
+  </div>
+  {% if or_list %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>N° OR</th>
+          <th>Ateliers</th>
+          <th>Statut</th>
+          <th>Tâches</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in or_list %}
+        <tr>
+          <td><a href="{% url 'detail_or_atelier' o.id %}"><strong>{{ o.numero }}</strong></a></td>
+          <td>
+            {% for at in o.ateliers.all %}
+              <span class="badge badge-info">{{ at.nom }}</span>
+            {% empty %}
+              <span class="text-muted">—</span>
+            {% endfor %}
+          </td>
+          <td>
+            {% if o.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
+            {% elif o.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+            {% elif o.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
+            {% elif o.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>{% endif %}
+          </td>
+          <td class="text-center">{{ o.taches.count }}</td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <a href="{% url 'detail_or_atelier' o.id %}" class="btn btn-info btn-sm">👁</a>
+            
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div style="padding:20px;text-align:center;color:var(--text-muted);">
+      Aucun ordre de réparation pour cette réception.
+    </div>
+  {% endif %}
+</div>
+
+<form id="form-reouverture" method="post" style="display:none;">
+  {% csrf_token %}
+  <input type="text" name="raison" id="raison-input">
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function reouvrirOR(orId) {
+  const raison = prompt('Raison de la réouverture :');
+  if (!raison) return;
+  const form = document.getElementById('form-reouverture');
+  form.action = '/reception/or/' + orId + '/reouverture/';
+  document.getElementById('raison-input').value = raison;
+  form.submit();
+}
+</script>
+{% endblock %}

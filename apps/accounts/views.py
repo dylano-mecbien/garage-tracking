@@ -2,6 +2,7 @@
 Vues Comptes - Connexion, déconnexion, gestion utilisateurs
 """
 from datetime import date, timedelta
+from django.core.paginator import Paginator
 import os
 from django.core.files.storage import default_storage
 from django.http import JsonResponse, request
@@ -13,20 +14,24 @@ from django.utils import timezone
 from django.db.models import Count, Q
 from django.core.files.base import ContentFile
 import json
+from apps.accounts.choices import StatutReception, StatutTache
+from apps.accounts.views_user_stats import format_duree
+from apps.atelier.views import _entree_from_or
+from apps.atelier.views import enrich_taches_duree
 from apps.guerite.forms import ClientForm, VehiculeForm
 from apps.guerite.views import PHOTO_FIELDS
 from apps.notifications.hook import notifier_bon_sortie_cree
 from apps.reception.forms import BonSortieForm
-from apps.reception.models import Reception, StatutVehicule
-from apps.reception.views import _gen_qr, get_entrees_presentes_filtrees, get_filtered_entrees
+from apps.reception.models import Reception
+from apps.reception.views import _gen_qr, get_entrees_presentes_filtrees, get_filtered_entrees, paginate_queryset
 from .forms import ConnexionForm, UserCreateForm, UserEditForm, ChangePasswordForm
 from .models import User, Role, LoginAttempt
-from .decorators import admin_required
+from .decorators import admin_required, receptionniste_required
 from apps.audit.service import log_action
 from apps.audit.models import ActionType
 from apps.vehicules.models import Marque, Vehicule, Client
 from apps.atelier.models import OrdreReparation, Atelier
-from apps.guerite.models import BonSortie, EnregistrementEntree, MotifEntree, StatutEntree, StatutViewHinstorisue, TypeBon
+from apps.guerite.models import BonSortie, EnregistrementEntree, MotifEntree, StatutVehicule, TypeBon
 from django.core.serializers.json import DjangoJSONEncoder
 
 def index(request):
@@ -145,7 +150,7 @@ def admin_dashboard(request):
     stats['nb_sorties_today'] = sorties_today.count()
     stats['total_vehicules'] = Vehicule.objects.count()
     stats['total_clients'] = Client.objects.count()
-    stats['vehicules_en_cours'] = EnregistrementEntree.objects.filter(statut=StatutEntree.EN_COURS).count()
+    stats['vehicules_en_cours'] = EnregistrementEntree.objects.filter(statut=StatutVehicule.EN_COURS).count()
     stats['or_en_cours'] = OrdreReparation.objects.filter(statut__in=['OUVERT', 'EN_COURS', 'REOUVERT']).count()
     stats['ateliers'] = Atelier.objects.filter(is_active=True).annotate(
         nb_or=Count('ordres_reparation', filter=Q(ordres_reparation__statut__in=['OUVERT', 'EN_COURS', 'REOUVERT']))
@@ -155,14 +160,35 @@ def admin_dashboard(request):
 
 @admin_required
 def liste_utilisateurs(request):
-    role_filter = request.GET.get('role', '')
-    users = User.objects.all().order_by('role', 'nom')
+    role_filter = request.GET.get('role', '').strip()
+    statut_filter = request.GET.get('statut', '').strip()
+    q = request.GET.get('q', '').strip()
+
+    users = User.objects.select_related('atelier').order_by('role', 'nom')
+
     if role_filter:
         users = users.filter(role=role_filter)
+
+    if statut_filter == 'actif':
+        users = users.filter(is_active=True)
+    elif statut_filter == 'inactif':
+        users = users.filter(is_active=False)
+
+    if q:
+        users = users.filter(
+            Q(nom__icontains=q)
+            | Q(prenom__icontains=q)
+            | Q(email__icontains=q)
+            | Q(matricule__icontains=q)
+            | Q(telephone__icontains=q)
+        )
+
     return render(request, 'admin_custom/utilisateurs/liste.html', {
         'users': users,
         'roles': Role.choices,
         'role_filter': role_filter,
+        'statut_filter': statut_filter,
+        'q': q,
     })
 
 
@@ -219,11 +245,12 @@ def reset_password_utilisateur(request, user_id):
 @admin_required
 def toggle_utilisateur(request, user_id):
     user = get_object_or_404(User, id=user_id)
+    id_user=  user_id
     user.is_active = not user.is_active
     user.save(update_fields=['is_active'])
     etat = "activé" if user.is_active else "désactivé"
     messages.success(request, f"Compte {user.full_name} {etat}.")
-    return redirect('liste_utilisateurs')
+    return redirect('detail_utilisateur', user_id=id_user)
 
 
 @admin_required
@@ -325,16 +352,92 @@ def liste_bons_sortie(request):
         'periode': periode, 'date_debut': date_debut,
         'date_fin': date_fin, 'sort': sort,
     }
- 
+    page_obj = paginate_queryset(request, qs, per_page=25)
+
     return render(request, 'admin_custom/bons/bons_sortie_liste_admin.html', {
-        'bons':    qs[:50],
+        'bons':    page_obj,
+        'page_obj': page_obj,
         'stats':   stats,
         'filters': filters,
     })
 
 
 
- 
+
+@admin_required
+def liste_or(request):
+    statut = request.GET.get('statut', '')
+    q = request.GET.get('q', '').strip()
+    qs = (
+        OrdreReparation.objects
+  
+        .select_related('vehicule', 'vehicule__client')
+        .prefetch_related('taches')
+    )
+    if statut:
+        qs = qs.filter(statut=statut)
+    if q:
+        qs = qs.filter(
+            Q(numero__icontains=q)
+            | Q(vehicule__immatriculation__icontains=q)
+            | Q(vehicule__client__nom__icontains=q)
+        )
+    ors = list(qs.order_by('statut', '-urgence', 'date_creation'))
+    return render(request, 'admin_custom/mouvements/liste_or.html', {
+         'ors': ors, 'statut': statut, 'q': q,
+    })
+
+
+
+@admin_required
+def detail_or_admin(request, or_id):
+    or_obj = get_object_or_404(
+        OrdreReparation.objects
+        .select_related(
+            'vehicule',
+            'vehicule__client',
+            'reception',
+            'created_by',
+        )
+        .prefetch_related(
+            'ateliers',
+            'taches__atelier',
+            'taches__techniciens',
+            'taches__valide_par',
+            'taches__created_by',
+            'taches__comptes_rendus',
+            'taches__comptes_rendus__technicien',
+        ),
+        id=or_id,
+    )
+
+    entree = _entree_from_or(or_obj)
+    fiche_controle  = getattr(entree, 'fiche_controle',  None) if entree else None
+    fiche_technique = getattr(entree, 'fiche_technique', None) if entree else None
+
+    # ── Toutes les tâches (tous ateliers) ──
+    taches = list(
+        or_obj.taches
+        .select_related('atelier', 'valide_par', 'created_by')
+        .prefetch_related('techniciens', 'comptes_rendus', 'comptes_rendus__technicien')
+        .order_by('atelier__nom', 'created_at')
+    )
+
+    # ── Enrichissement des durées (évite les N+1) ──
+    enrich_taches_duree(taches)
+
+    nb_validees = sum(1 for t in taches if t.statut == StatutTache.VALIDEE)
+
+    return render(request, 'admin_custom/mouvements/detail_or.html', {
+        'or':              or_obj,
+        'entree':          entree,
+        'fiche_controle':  fiche_controle,
+        'fiche_technique': fiche_technique,
+        'taches':          taches,
+        'nb_validees':     nb_validees,
+    })
+
+
 @admin_required
 def creer_bon_sortie_direct(request):
     """
@@ -343,7 +446,7 @@ def creer_bon_sortie_direct(request):
     """
     # Récupérer tous les véhicules présents (non sortis) pour l'autocomplétion
     vehicules_presents = EnregistrementEntree.objects.exclude(
-        statut=StatutEntree.SORTI
+        statut=StatutVehicule.SORTI
     ).select_related('vehicule', 'conducteur', 'vehicule__client')
 
     vehicles_data = []
@@ -389,7 +492,7 @@ def creer_bon_sortie_direct(request):
         rec = EnregistrementEntree.objects.filter(
             vehicule=vehicule
         ).exclude(
-            statut=StatutEntree.SORTI
+            statut=StatutVehicule.SORTI
         ).order_by('-id').first()
 
         
@@ -444,7 +547,7 @@ def creer_bon_sortie(request, rec_id):
     # Véhicules présents pour l'autocomplétion
     vehicules_presents = (
         EnregistrementEntree.objects
-        .exclude(statut=StatutEntree.SORTI)
+        .exclude(statut=StatutVehicule.SORTI)
         .select_related('vehicule', 'vehicule__client', 'conducteur')
     )
 
@@ -533,21 +636,35 @@ def creer_bon_sortie_divers(request):
 
 @admin_required 
 def historique_entrees(request):
-    entrees = get_filtered_entrees(request)
+    qs = get_filtered_entrees(request)
+    page_obj = paginate_queryset(request, qs, per_page=25)
     return render(request, 'admin_custom/mouvements/historique_admin.html', {
-        'entrees': entrees[:100],
-        'statuts': StatutViewHinstorisue.choices,
+        'entrees': page_obj,
+        'page_obj': page_obj,
+        'statuts': StatutVehicule.choices,
         'motifs': MotifEntree.choices,
     })
 
 
+
+
 @admin_required
 def liste_receptions(request):
-    qs = Reception.objects.select_related(
-        'vehicule', 'vehicule__client', 'receptionniste'
-    ).order_by('-created_at')
+    qs = (
+        Reception.objects
+        .select_related(
+            'vehicule', 'vehicule__client', 'receptionniste',
+        )
+        # Pour OR : OneToOne (select_related)
+        .select_related('ordre_reparation')
+        # Pour ateliers : M2M (prefetch_related, via OR)
+        .prefetch_related('ordre_reparation__ateliers')
+        .order_by('-created_at')
+    )
+
     statut = request.GET.get('statut', '')
     q      = request.GET.get('q', '')
+
     if statut:
         qs = qs.filter(statut=statut)
     if q:
@@ -556,17 +673,65 @@ def liste_receptions(request):
             Q(numero__icontains=q) |
             Q(vehicule__client__nom__icontains=q)
         )
+
+    page_obj = paginate_queryset(request, qs, per_page=25)
+
     return render(request, 'admin_custom/mouvements/liste_receptions_admin.html', {
-        'receptions': qs[:100],
-        'statuts':    StatutVehicule.choices,
+        'receptions':    page_obj,
+        'page_obj':      page_obj,
+        'statuts':       StatutReception.choices,
         'statut_filter': statut,
     })
 
 
+
 @admin_required
+def detail_reception(request, rec_id):
+    rec = get_object_or_404(
+        Reception.objects.select_related(
+            'vehicule', 'vehicule__client', 'entree', 'receptionniste'
+        ).prefetch_related('transferts__atelier'),
+        id=rec_id
+    )
+
+    or_list = (
+    OrdreReparation.objects
+    .filter(reception=rec)
+    .prefetch_related('ateliers', 'taches')   # M2M en prefetch
+    .order_by('-date_creation')
+)
+    entree = getattr(rec, 'entree', None)
+    fiche_controle = getattr(entree, 'fiche_controle', None) if entree else None
+
+    technicien_a_signe = bool(
+            fiche_controle
+            and fiche_controle.signature_technicien
+            and str(fiche_controle.signature_technicien).strip()
+        )
+    client_a_signe = bool(
+            fiche_controle and fiche_controle.signature_client_avant
+        )
+    bon_sortie   = BonSortie.objects.filter(vehicule=rec.vehicule, reception=rec).first()
+    
+    return render(request, 'admin_custom/mouvements/detail_rec_admin.html', {
+        'rec': rec, 
+        'or_list': or_list,
+          'bon_sortie': bon_sortie,
+        'fiche_technique': getattr(entree, 'fiche_technique', None) if entree else None,
+        'a_fiche_controle': technicien_a_signe, 
+        'client_a_signe': client_a_signe,
+        'fiche_controle': fiche_controle, 
+    })
+
 def liste_vehicules_presents(request):
-    entrees = get_entrees_presentes_filtrees(request)
-    return render(request, 'admin_custom/mouvements/vehicules_presents_admin.html', {'entrees': entrees, 'motifs': MotifEntree.choices})
+    qs = get_entrees_presentes_filtrees(request)
+    page_obj = paginate_queryset(request, qs, per_page=25)
+
+    return render(request, 'admin_custom/mouvements/vehicules_presents_admin.html', {
+        'entrees': page_obj,
+        'page_obj': page_obj,
+        'motifs': MotifEntree.choices,  # adapte
+    })
 
 
 @admin_required
@@ -923,7 +1088,7 @@ def admin_creer_client(request):
         
     return render(request, 'admin_custom/clients/creer_client.html', {'form': form})
 
-
+ 
 @admin_required
 def admin_clients(request):
     from apps.vehicules.models import Client

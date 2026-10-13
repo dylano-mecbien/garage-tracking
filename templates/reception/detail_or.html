@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+{% block title %}{{ or.vehicule.immatriculation }}{% endblock %}
+{% block page_title %}🔧 {{ or.vehicule.immatriculation }}{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Réception</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_receptions' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
+  <li><a href="{% url 'vehicules_presents_rec' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_or' %}" class="active"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+  <li class="has-submenu">
+    <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
+    <ul class="submenu">
+      <li><a href="{% url 'rec_clients' %}"><span class="icon">👥</span> Clients</a></li>
+      <li><a href="{% url 'rec_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+      <li><a href="{% url 'rec_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+    </ul>
+  </li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ══ Hero ══ */
+.hero{
+  background:linear-gradient(135deg,var(--primary-dark),var(--primary));
+  color:#fff;border-radius:var(--radius);padding:18px 22px;margin-bottom:18px;
+}
+.hero-meta{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:12px;opacity:.85;}
+.hero-meta span{display:inline-flex;align-items:center;gap:4px;}
+
+/* ══ Carte tâche ══ */
+.tc{
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  border-left:4px solid var(--border);
+  border-radius:var(--radius);
+  padding:12px 16px;
+  margin-bottom:10px;
+  cursor:pointer;
+  transition:background .15s;
+}
+.tc:hover{background:rgba(0,0,0,.03);}
+.tc.A_FAIRE {border-left-color:var(--border);}
+.tc.EN_COURS{border-left-color:var(--warning);}
+.tc.TERMINEE{border-left-color:var(--info);background:rgba(59,130,246,.05);}
+.tc.VALIDEE {border-left-color:var(--success);}
+
+/* ══ Chips ══ */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.chip{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:2px 10px;font-size:12px;font-weight:600;}
+
+/* ══ Statuts ══ */
+.st{display:inline-block;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap;}
+.st.A_FAIRE {background:#e5e7eb;color:#374151;}
+.st.EN_COURS{background:#fef3c7;color:#92400e;}
+.st.TERMINEE{background:#dbeafe;color:#1e40af;}
+.st.VALIDEE {background:#d1fae5;color:#065f46;}
+
+/* ══ Grille durées ══ */
+.duree-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+  gap:10px;
+  margin-top:10px;
+  padding:10px;
+  background:var(--surface2);
+  border-radius:8px;
+}
+.duree-box{text-align:center;}
+.duree-box .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);}
+.duree-box .val{font-size:15px;font-weight:800;color:var(--primary);margin-top:2px;}
+.duree-box .val.danger {color:var(--danger);}
+.duree-box .val.success{color:var(--success);}
+.duree-box .sub{font-size:10px;color:var(--text-muted);margin-top:1px;}
+
+/* ══ Dates ══ */
+.dates-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  font-size:11px;
+  color:var(--text-muted);
+  margin-top:8px;
+}
+.dates-row .d{display:inline-flex;align-items:center;gap:4px;}
+.dates-row .d b{color:var(--text);font-weight:600;}
+
+/* ══ Compte rendu ══ */
+.cr{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:10px 0 0;font-size:13px;}
+.cr .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin:8px 0 2px;}
+.cr-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;}
+.cr-duree{background:var(--primary);color:#fff;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;}
+
+.late{color:#b91c1c;font-weight:700;}
+
+/* ══ Modales ══ */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:16px;}
+.modal-ov.open{display:flex;}
+.modal-box{background:var(--surface);border-radius:var(--radius);padding:22px;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;}
+.modal-head strong{font-size:16px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ or.numero }}</h1>
+    <div class="breadcrumb">
+      <a href="{% url 'index' %}">Tableau de bord</a> › {{ or.numero }}
+    </div>
+  </div>
+  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     HERO
+     ══════════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+    <div style="flex:1;">
+      <div style="font-size:18px;font-weight:800;">
+        {{ or.vehicule.immatriculation }} — {{ or.vehicule.marque }} {{ or.vehicule.modele }}
+      </div>
+      <div class="hero-meta">
+        <span>👤 {{ or.vehicule.client }}</span>
+        <span>📅 Créé le {{ or.date_creation|date:"d/m/Y H:i" }}</span>
+        {% if or.date_fin_prevue %}
+        <span>🎯 Fin prévue : <b>{{ or.date_fin_prevue|date:"d/m/Y" }}</b>
+          {% if or.en_retard %}<span class="badge badge-danger">En retard</span>{% endif %}
+        </span>
+        {% endif %}
+        {% if or.date_cloture %}
+        <span>✅ Clôturé le {{ or.date_cloture|date:"d/m/Y H:i" }}</span>
+        {% endif %}
+        {% if or.urgence != 'NORMAL' %}
+        <span>⚠️ {{ or.get_urgence_display }}</span>
+        {% endif %}
+      </div>
+      <div style="font-size:12px;opacity:.75;margin-top:6px;">
+        🏭 Ateliers :
+        {% for a in or.ateliers.all %}{{ a.nom }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+      </div>
+    </div>
+
+    {% if or.statut != 'CLOTURE' %}
+    <form method="post" action="{% url 'cloture_or_rec' or.id %}"
+          onsubmit="return confirm('Clôturer cet OR ?');" style="flex-shrink:0;">
+      {% csrf_token %}
+      <button class="btn btn-success btn-sm">✅ Clôturer</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     DURÉES GLOBALES DE L'OR
+     ══════════════════════════════════════════════════════════════ -->
+<div class="card mb-2">
+  <div class="card-header"><div class="card-title">⏱️ Durées de l'OR</div></div>
+  <div class="duree-grid">
+    <div class="duree-box">
+      <div class="lbl">Prévue</div>
+      <div class="val">{{ or.duree_prevue_label }}</div>
+      <div class="sub">main d'œuvre</div>
+    </div>
+    <div class="duree-box">
+      <div class="lbl">Réelle</div>
+      <div class="val {% if or.en_retard_duree %}danger{% else %}success{% endif %}">
+        {{ or.duree_reelle_label }}
+      </div>
+      <div class="sub">cumul tâches</div>
+    </div>
+    <div class="duree-box">
+      <div class="lbl">Écart</div>
+      <div class="val {% if or.ecart_duree_minutes and or.ecart_duree_minutes > 0 %}danger{% elif or.ecart_duree_minutes and or.ecart_duree_minutes < 0 %}success{% endif %}">
+        {{ or.ecart_duree_label }}
+      </div>
+      <div class="sub">vs prévu</div>
+    </div>
+    <div class="duree-box">
+      <div class="lbl">Tâches</div>
+      <div class="val">{{ nb_validees }}/{{ taches|length }}</div>
+      <div class="sub">validées</div>
+    </div>
+  </div>
+
+  {% if or.duree_fin_prevu %}
+    {% widthratio or.duree_reelle_totale or.duree_fin_prevu 100 as pct %}
+    <div class="prog-bar" style="height:8px;margin-top:10px;">
+      <div class="prog-fill {% if pct >= 100 %}danger{% endif %}"
+           style="width:{% if pct > 100 %}100{% else %}{{ pct }}{% endif %}%;"></div>
+    </div>
+    <div class="text-small text-muted" style="margin-top:4px;">
+      {{ pct }}% du temps prévu consommé
+    </div>
+  {% endif %}
+</div>
+
+<div class="grid-2">
+  <!-- ═══ Travaux demandés ═══ -->
+  <div>
+    <div class="card mb-2">
+      <div class="card-header"><div class="card-title">📝 Travaux demandés</div></div>
+      <div style="font-size:13px;white-space:pre-line;">{{ or.description_travaux }}</div>
+    </div>
+  </div>
+
+  <!-- ═══ Tâches tous ateliers ═══ -->
+  <div>
+    <div class="card mb-2">
+      <div class="card-header">
+        <div class="card-title">
+          ⚙️ Tâches (tous ateliers)
+          — {{ nb_validees }}/{{ taches|length }} validée{{ nb_validees|pluralize }}
+        </div>
+      </div>
+
+      {% for t in taches %}
+      <div class="tc {{ t.statut }}" onclick="openModal('det-{{ t.id }}')">
+
+        {# Titre + statut + atelier #}
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+          <div style="flex:1;">
+            <strong>{{ t.libelle }}</strong>
+            {% if t.atelier %}
+              <span class="chip" style="margin-left:6px;">🏭 {{ t.atelier.nom }}</span>
+            {% endif %}
+            {% if t.priorite != 'NORMALE' %}
+              <span class="chip" style="margin-left:4px;">{{ t.get_priorite_display }}</span>
+            {% endif %}
+          </div>
+          <span class="st {{ t.statut }}">{{ t.get_statut_display }}</span>
+        </div>
+
+        {# Grille durées compacte #}
+        <div class="duree-grid" style="grid-template-columns:repeat(3,1fr);margin-top:8px;padding:8px;">
+          <div class="duree-box">
+            <div class="lbl">Prévue</div>
+            <div class="val" style="font-size:13px;">{{ t.duree_estimee_label }}</div>
+          </div>
+          <div class="duree-box">
+            <div class="lbl">Technicien</div>
+            <div class="val {% if t.en_retard %}danger{% endif %}" style="font-size:13px;">
+              {{ t.duree_technicien_label }}
+            </div>
+          </div>
+          <div class="duree-box">
+            <div class="lbl">Écart</div>
+            <div class="val {% if t.ecart_minutes and t.ecart_minutes > 0 %}danger{% elif t.ecart_minutes and t.ecart_minutes < 0 %}success{% endif %}" style="font-size:13px;">
+              {{ t.ecart_label }}
+            </div>
+          </div>
+        </div>
+
+        {# Dates #}
+        <div class="dates-row">
+          {% if t.date_debut %}<span class="d">▶️ <b>{{ t.date_debut|date:"d/m H:i" }}</b></span>{% endif %}
+          {% if t.date_fin %}<span class="d">⏹ <b>{{ t.date_fin|date:"d/m H:i" }}</b></span>{% endif %}
+          {% if t.date_validation %}<span class="d">✅ <b>{{ t.date_validation|date:"d/m H:i" }}</b></span>{% endif %}
+        </div>
+
+        {# Techniciens #}
+        <div class="chips">
+          {% for u in t.techniciens.all %}
+          <span class="chip">👷 {{ u.full_name|default:u.email }}</span>
+          {% empty %}
+          <span class="text-small text-muted">Sans technicien</span>
+          {% endfor %}
+        </div>
+
+      </div>
+      {% empty %}
+      <div style="text-align:center;padding:20px;color:var(--text-muted);">
+        Aucune tâche sur cet OR.
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     POP-UPS : détail tâche
+     ══════════════════════════════════════════════════════════════ -->
+{% for t in taches %}
+<div class="modal-ov" id="det-{{ t.id }}">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <strong>{{ t.libelle }}</strong>
+      <button type="button" class="btn btn-outline btn-sm"
+              onclick="closeModal('det-{{ t.id }}')">✕</button>
+    </div>
+
+    {# ── Badges ── #}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+      <span class="st {{ t.statut }}">{{ t.get_statut_display }}</span>
+      {% if t.atelier %}<span class="chip">🏭 {{ t.atelier.nom }}</span>{% endif %}
+      {% if t.priorite != 'NORMALE' %}<span class="chip">{{ t.get_priorite_display }}</span>{% endif %}
+    </div>
+
+    {# ── Grille durées ── #}
+    <div class="duree-grid" style="grid-template-columns:repeat(3,1fr);">
+      <div class="duree-box">
+        <div class="lbl">Prévue</div>
+        <div class="val">{{ t.duree_estimee_label }}</div>
+      </div>
+      <div class="duree-box">
+        <div class="lbl">Technicien</div>
+        <div class="val {% if t.en_retard %}danger{% endif %}">{{ t.duree_technicien_label }}</div>
+      </div>
+      <div class="duree-box">
+        <div class="lbl">Écart</div>
+        <div class="val {% if t.ecart_minutes and t.ecart_minutes > 0 %}danger{% elif t.ecart_minutes and t.ecart_minutes < 0 %}success{% endif %}">
+          {{ t.ecart_label }}
+        </div>
+      </div>
+    </div>
+
+    {# ── Dates ── #}
+    <div class="dates-row" style="margin-bottom:14px;">
+      {% if t.date_assignation %}<span class="d">📤 Assignée <b>{{ t.date_assignation|date:"d/m/Y H:i" }}</b></span>{% endif %}
+      {% if t.date_debut %}<span class="d">▶️ Démarrée <b>{{ t.date_debut|date:"d/m/Y H:i" }}</b></span>{% endif %}
+      {% if t.date_fin %}<span class="d">⏹ Terminée <b>{{ t.date_fin|date:"d/m/Y H:i" }}</b></span>{% endif %}
+      {% if t.date_validation %}<span class="d">✅ Validée <b>{{ t.date_validation|date:"d/m/Y H:i" }}</b></span>{% endif %}
+    </div>
+
+    {# ── Description ── #}
+    {% if t.description %}
+    <div style="font-size:13px;margin-bottom:12px;white-space:pre-line;">{{ t.description }}</div>
+    {% endif %}
+
+    {# ── Techniciens ── #}
+    <div class="chips" style="margin-bottom:12px;">
+      {% for u in t.techniciens.all %}
+      <span class="chip">👷 {{ u.full_name|default:u.email }}</span>
+      {% empty %}
+      <span class="text-small text-muted">Aucun technicien</span>
+      {% endfor %}
+    </div>
+
+    {# ── Validation ── #}
+    {% if t.statut == 'VALIDEE' and t.valide_par %}
+    <div class="alert" style="background:#ecfdf5;border:1px solid #6ee7b7;margin-bottom:12px;font-size:13px;">
+      ✅ Validée par <b>{{ t.valide_par.full_name|default:t.valide_par.email }}</b>
+      le {{ t.date_validation|date:"d/m/Y H:i" }}
+      {% if t.commentaire_validation %}
+      <div class="text-muted" style="margin-top:4px;">« {{ t.commentaire_validation }} »</div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# ── Comptes rendus ── #}
+    <div style="font-weight:700;font-size:13px;margin-bottom:8px;">
+      📄 Comptes rendus ({{ t.comptes_rendus.all|length }})
+    </div>
+
+    {% for cr in t.comptes_rendus.all %}
+    <div class="cr">
+      <div class="cr-head">
+        <div>
+          <b>👷 {{ cr.technicien.full_name|default:cr.technicien.email|default:"—" }}</b>
+          <span class="text-muted" style="margin-left:6px;">
+            {{ cr.date_saisie|date:"d/m/Y H:i" }}
+          </span>
+          {% if cr.saisie_par_chef %}
+          <span class="st A_FAIRE" style="margin-left:6px;">saisi par le chef</span>
+          {% endif %}
+        </div>
+        <span class="cr-duree">{{ cr.duree_label }}</span>
+      </div>
+
+      {% if cr.description %}
+      <div class="l">Travaux effectués</div>
+      <div style="white-space:pre-line;">{{ cr.description }}</div>
+      {% endif %}
+
+      {% if cr.pieces_utilisees %}
+      <div class="l">Pièces utilisées</div>
+      <div style="white-space:pre-line;">{{ cr.pieces_utilisees }}</div>
+      {% endif %}
+
+      {% if cr.observations %}
+      <div class="l">Observations</div>
+      <div style="white-space:pre-line;">{{ cr.observations }}</div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="text-small text-muted">Aucun compte rendu.</div>
+    {% endfor %}
+
+    <div style="margin-top:16px;">
+      <button type="button" class="btn btn-outline" style="width:100%;"
+              onclick="closeModal('det-{{ t.id }}')">Fermer</button>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openModal(id) {
+  document.getElementById(id)?.classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id)?.classList.remove('open');
+}
+document.querySelectorAll('.modal-ov').forEach(m => {
+  m.addEventListener('mousedown', e => {
+    if (e.target === m) closeModal(m.id);
+  });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-ov.open').forEach(m => closeModal(m.id));
+  }
+});
+</script>
+{% endblock %}

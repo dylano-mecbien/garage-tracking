@@ -1,260 +1,430 @@
-"""
-Modèles Atelier
-"""
+
+
 import uuid
 from django.db import models
 from django.utils import timezone
 
-from apps.guerite.models import EnregistrementEntree
+from apps.accounts.choices import PrioriteTache, StatutOR, StatutTache, UrgenceOR
+
+BON_DEFAUT = [('BON', 'Bon'), ('DEFAUT', 'Défaut')]
+OUI_NON = [('OUI', 'Oui'), ('NON', 'Non')]
+NIVEAU_HUILE = [('MINI', 'Mini'), ('CORRECT', 'Correct'), ('MAXI', 'Maxi')]
+JAUGE = [('E', 'Vide (E)'), ('QUART', '1/4'), ('DEMI', '1/2'), ('TROIS_QUARTS', '3/4'), ('F', 'Plein (F)')]
 
 
+def bd():   # champ Bon / Défaut
+    return models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+
+
+def on():   # champ Oui / Non
+    return models.CharField(max_length=3, choices=OUI_NON, blank=True)
+
+
+def mm():   # mesure en mm
+    return models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="mm")
+
+
+def _format_minutes(minutes):
+    """Formate une durée en minutes : '3h45', '3h' ou '45 min'."""
+    if not minutes:
+        return '—'
+    try:
+        minutes = int(minutes)
+    except (TypeError, ValueError):
+        return '—'
+    h, m = divmod(minutes, 60)
+    if h and m:
+        return f"{h}h{m:02d}"
+    if h:
+        return f"{h}h"
+    return f"{m} min"
+
+# ══════════════════════════════════════════════════════════════════
+#  ATELIER
+# ══════════════════════════════════════════════════════════════════
 class Atelier(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nom = models.CharField(max_length=100)
     code = models.CharField(max_length=20, unique=True, verbose_name="Code")
-    nom = models.CharField(max_length=100, verbose_name="Nom de l'atelier")
-    description = models.TextField(blank=True, verbose_name="Description")
-    localisation = models.CharField(max_length=200, blank=True, verbose_name="Localisation")
-    responsable = models.ForeignKey(
-        'accounts.User', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='atelier_dirige',
-        verbose_name="Responsable"
-    )
-    is_active = models.BooleanField(default=True, verbose_name="Actif")
+    localisation = models.CharField(max_length=150, blank=True)
+    telephone = models.CharField(max_length=20, blank=True)
+    specialite = models.CharField(max_length=100, blank=True)
+    description = models.TextField(blank=True)
+    responsable = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+                             related_name='ateliers_diriges')
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='ateliers_crees')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'ateliers'
         verbose_name = "Atelier"
-        verbose_name_plural = "Ateliers"
         ordering = ['nom']
 
     def __str__(self):
-        return f"{self.code} - {self.nom}"
-
-    def vehicules_en_cours(self):
-        return self.ordres_reparation.filter(
-            statut__in=['OUVERT', 'EN_COURS', 'REOUVERT']
-        ).count()
+        return self.nom
 
 
-class TypeOperation(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    code = models.CharField(max_length=20, unique=True)
-    libelle = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    duree_estimee_minutes = models.IntegerField(default=60)
-    tarif_unitaire = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    is_active = models.BooleanField(default=True)
+# ══════════════════════════════════════════════════════════════════
+#  ORDRE DE RÉPARATION (un seul, partagé entre plusieurs ateliers)
+# ══════════════════════════════════════════════════════════════════
 
-    class Meta:
-        db_table = 'types_operations'
-        verbose_name = "Type d'opération"
-
-    def __str__(self):
-        return f"{self.code} - {self.libelle}"
-
-
-class StatutOR(models.TextChoices):
-    OUVERT = 'OUVERT', 'Ouvert'
-    EN_COURS = 'EN_COURS', 'En cours'
-    CLOTURE = 'CLOTURE', 'Clôturé'
-    ANNULE = 'ANNULE', 'Annulé'
-    REOUVERT = 'REOUVERT', 'Réouvert'
-
-
-class TypeOR(models.TextChoices):
-    NORMAL = 'NORMAL', 'Normal'
-    RETOUR = 'RETOUR', 'Retour / Malfaçon'
-
+# ══════════════════════════════════════════════════════════════════
+#  ORDRE DE RÉPARATION
+# ══════════════════════════════════════════════════════════════════
 
 class OrdreReparation(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    numero = models.CharField(max_length=20, unique=True, verbose_name="N° OR")
-    type_or = models.CharField(max_length=10, choices=TypeOR.choices, default=TypeOR.NORMAL)
-    statut = models.CharField(max_length=15, choices=StatutOR.choices, default=StatutOR.OUVERT)
+    id      = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    numero  = models.CharField(max_length=25, unique=True, blank=True)
+
+    reception = models.OneToOneField(
+        'reception.Reception',
+        on_delete=models.PROTECT,
+        related_name='ordre_reparation',
+    )
     vehicule = models.ForeignKey(
-        'vehicules.Vehicule', on_delete=models.PROTECT,
-        related_name='ordres_reparation', verbose_name="Véhicule"
-    ) 
-    atelier = models.ForeignKey(
-        Atelier, on_delete=models.PROTECT,
-        related_name='ordres_reparation', verbose_name="Atelier"
+        'vehicules.Vehicule',
+        on_delete=models.PROTECT,
+        related_name='ordres_reparation',
     )
-    responsable_atelier = models.ForeignKey(
-        'accounts.User', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='or_responsable',
-        verbose_name="Responsable atelier"
+    ateliers = models.ManyToManyField(
+        Atelier,
+        related_name='ordres_reparation',
     )
-    reception = models.ForeignKey(
-        'reception.Reception', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='ordres_reparation',
-        verbose_name="Réception"
-    )
-    # OR retour
-    or_origine = models.ForeignKey(
-        'self', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='or_retours',
-        verbose_name="OR d'origine (retour)"
-    )
-    motif_retour = models.TextField(blank=True, verbose_name="Motif retour")
 
-    date_creation = models.DateTimeField(auto_now_add=True)
-    date_debut = models.DateTimeField(null=True, blank=True)
-    date_fin_prevue = models.DateTimeField(null=True, blank=True)
-    date_cloture = models.DateTimeField(null=True, blank=True)
-    date_reouverture = models.DateTimeField(null=True, blank=True)
-    raison_reouverture = models.TextField(blank=True)
+    statut              = models.CharField(max_length=15, choices=StatutOR.choices, default=StatutOR.OUVERT)
+    urgence             = models.CharField(max_length=10, choices=UrgenceOR.choices, default=UrgenceOR.NORMAL)
+    description_travaux = models.TextField(blank=True)
 
-    diagnostic = models.TextField(blank=True, verbose_name="Diagnostic")
-    observations = models.TextField(blank=True, verbose_name="Observations")
-    duree_totale_minutes = models.IntegerField(default=0, verbose_name="Durée totale (min)")
+    # Durées & dates
+    date_fin_prevue     = models.DateField(null=True, blank=True, verbose_name="Fin prévue")
+    duree_fin_prevu     = models.IntegerField(null=True, blank=True, verbose_name="Durée prévue (minutes)")
+    duree_fin_reel      = models.IntegerField(null=True, blank=True, verbose_name="Durée réelle (minutes)")
+
+    date_creation       = models.DateTimeField(auto_now_add=True)
+    date_cloture        = models.DateTimeField(null=True, blank=True)
 
     created_by = models.ForeignKey(
-        'accounts.User', on_delete=models.SET_NULL,
-        null=True, related_name='or_crees', verbose_name="Créé par"
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='ordres_reparation_crees',
     )
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'ordres_reparation'
         verbose_name = "Ordre de réparation"
-        verbose_name_plural = "Ordres de réparation"
         ordering = ['-date_creation']
-
-    def __str__(self):
-        return f"OR-{self.numero} ({self.get_statut_display()})"
 
     def save(self, *args, **kwargs):
         if not self.numero:
-            from django.utils import timezone
             now = timezone.now()
-            count = OrdreReparation.objects.filter(
-                date_creation__year=now.year,
-                date_creation__month=now.month
-            ).count() + 1
-            prefix = 'ORT' if self.type_or == TypeOR.RETOUR else 'OR'
-            self.numero = f"{prefix}-{now.strftime('%Y%m')}-{count:04d}"
+            self.numero = f"OR-{now.strftime('%Y%m')}-{OrdreReparation.objects.count() + 1:04d}"
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"{self.numero} — {self.vehicule.immatriculation}"
+
+    # ── Propriétés : durées ──────────────────────────────────────
+
     @property
-    def duree_heures(self):
-        h = self.duree_totale_minutes // 60
-        m = self.duree_totale_minutes % 60
-        return f"{h}h{m:02d}"
+    def duree_prevue_label(self):
+        return _format_minutes(self.duree_fin_prevu)
+
+    @property
+    def duree_reelle_totale(self):
+        from django.db.models import Sum
+        total = (
+            CompteRendu.objects
+        .filter(tache__ordre_reparation=self)
+        .aggregate(total=Sum('duree_minutes'))['total']
+        )
+        return total or 0
+
+    @property
+    def duree_reelle_label(self):
+        return _format_minutes(self.duree_reelle_totale)
+
+    @property
+    def ecart_duree_minutes(self):
+        """Différence durée réelle - durée prévue."""
+        if not self.duree_fin_prevu:
+            return None
+        return (self.duree_reelle_totale or 0) - self.duree_fin_prevu
+
+    @property
+    def ecart_duree_label(self):
+        ecart = self.ecart_duree_minutes
+        if ecart is None:
+            return '—'
+        signe = '+' if ecart > 0 else ''
+        return f"{signe}{_format_minutes(abs(ecart))}"
+
+    @property
+    def en_retard_duree(self):
+        if not self.duree_fin_prevu:
+            return False
+        return (self.duree_reelle_totale or 0) > self.duree_fin_prevu
+
+    def recalculer_duree_reelle(self, save=True):
+        """Recalcule duree_fin_reel à partir des tâches."""
+        total = self.duree_reelle_totale
+        if self.duree_fin_reel != total:
+            self.duree_fin_reel = total
+            if save:
+                self.save(update_fields=['duree_fin_reel'])
+        return total
+
+    def recalculer_toutes_durees(self, save=True):
+        """Recalcule en cascade : chaque tâche, puis l'OR."""
+        from django.db import transaction
+        with transaction.atomic():
+            for t in self.taches.all():
+                t.recalculer_duree_reelle(save=True)
+            return self.recalculer_duree_reelle(save=save)
+
+    # ── Propriétés : dates ───────────────────────────────────────
+
+    def recalculer_date_fin_reelle(self):
+        """Dernière date de validation, sinon dernière date de fin, sinon date_cloture."""
+        from django.db.models import Max
+        if self.date_cloture:
+            return self.date_cloture
+
+        derniere = (
+            self.taches
+            .exclude(date_validation__isnull=True)
+            .aggregate(d=Max('date_validation'))['d']
+        )
+        if derniere:
+            return derniere
+
+        return (
+            self.taches
+            .exclude(date_fin__isnull=True)
+            .aggregate(d=Max('date_fin'))['d']
+        )
+
+    @property
+    def date_fin_reelle(self):
+        return self.recalculer_date_fin_reelle()
+
+    @property
+    def en_retard(self):
+        return bool(
+            self.date_fin_prevue
+            and self.statut != StatutOR.CLOTURE
+            and timezone.localdate() > self.date_fin_prevue
+        )
+
+    # ── Stats ────────────────────────────────────────────────────
+
+    @property
+    def est_termine(self):
+        return self.stats_globales()['cloturable']
+
+    def stats_globales(self):
+        """Toutes tâches de TOUS les ateliers — pour savoir si l'OR est clôturable."""
+        taches = list(self.taches.all())
+        total = len(taches)
+        validees = sum(1 for t in taches if t.statut == StatutTache.VALIDEE)
+        return {
+            'total':      total,
+            'validees':   validees,
+            'pct_valide': int(validees / total * 100) if total else 0,
+            'cloturable': total > 0 and validees == total,
+        }
+
+    def stats_pour_atelier(self, atelier):
+        taches = list(self.taches.filter(atelier=atelier))
+        total = len(taches)
+        c = lambda s: sum(1 for t in taches if t.statut == s)
+        validees = c(StatutTache.VALIDEE)
+        return {
+            'total':      total,
+            'validees':   validees,
+            'terminees':  c(StatutTache.TERMINEE),
+            'en_cours':   c(StatutTache.EN_COURS),
+            'a_faire':    c(StatutTache.A_FAIRE),
+            'pct_valide': int(validees / total * 100) if total else 0,
+        }
 
 
-class StatutTache(models.TextChoices):
-    A_FAIRE = 'A_FAIRE', 'À faire'
-    EN_COURS = 'EN_COURS', 'En cours'
-    TERMINEE = 'TERMINEE', 'Terminée'
-
-
-class PrioriteTache(models.TextChoices):
-    BASSE = 'BASSE', 'Basse'
-    NORMALE = 'NORMALE', 'Normale'
-    HAUTE = 'HAUTE', 'Haute'
-    URGENTE = 'URGENTE', 'Urgente'
-
+# ══════════════════════════════════════════════════════════════════
+#  TÂCHE
+# ══════════════════════════════════════════════════════════════════
 
 class Tache(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     ordre_reparation = models.ForeignKey(
-        OrdreReparation, on_delete=models.CASCADE,
-        related_name='taches', verbose_name="Ordre de réparation"
+        OrdreReparation, on_delete=models.CASCADE, related_name='taches',
     )
-    type_operation = models.ForeignKey(
-        TypeOperation, on_delete=models.SET_NULL,
-        null=True, blank=True, verbose_name="Type d'opération"
+    atelier = models.ForeignKey(
+        Atelier, on_delete=models.PROTECT, related_name='taches',
     )
-    libelle = models.CharField(max_length=200, verbose_name="Libellé")
+
+    libelle     = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    statut = models.CharField(max_length=15, choices=StatutTache.choices, default=StatutTache.A_FAIRE)
-    priorite = models.CharField(max_length=10, choices=PrioriteTache.choices, default=PrioriteTache.NORMALE)
-    technicien = models.ForeignKey(
-        'accounts.User', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='taches_assignees',
-        verbose_name="Technicien assigné"
+    priorite    = models.CharField(max_length=10, choices=PrioriteTache.choices, default=PrioriteTache.NORMALE)
+    statut      = models.CharField(max_length=10, choices=StatutTache.choices, default=StatutTache.A_FAIRE)
+
+    techniciens = models.ManyToManyField(
+        'accounts.User',
+        related_name='taches_assignees',
+        blank=True,
     )
-    duree_estimee_minutes = models.IntegerField(default=60, verbose_name="Durée estimée (min)")
-    duree_reelle_minutes = models.IntegerField(default=0, verbose_name="Durée réelle (min)")
-    date_debut = models.DateTimeField(null=True, blank=True)
-    date_fin = models.DateTimeField(null=True, blank=True)
-    # Pour OR retour - copiée depuis OR précédent
-    est_copiee = models.BooleanField(default=False)
-    tache_origine = models.ForeignKey(
-        'self', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='copies'
+
+    # Durées
+    duree_estimee_minutes = models.IntegerField(null=True, blank=True, verbose_name="Durée prévue (min)")
+    duree_reelle_minutes  = models.IntegerField(null=True, blank=True, verbose_name="Durée réelle (min)")
+
+    # Dates
+    date_assignation = models.DateTimeField(null=True, blank=True)
+    date_debut       = models.DateTimeField(null=True, blank=True)
+    date_fin         = models.DateTimeField(null=True, blank=True)
+    date_validation  = models.DateTimeField(null=True, blank=True)
+
+    # Validation
+    valide_par               = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='taches_validees',
+    )
+    commentaire_validation   = models.TextField(blank=True)
+    signature_chef           = models.TextField(blank=True, help_text="base64")
+    cloturee_manuellement    = models.BooleanField(default=False)
+
+    # Meta
+    created_by = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True,
+        related_name='taches_creees',
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'taches'
+        db_table = 'taches_atelier'
         verbose_name = "Tâche"
-        ordering = ['priorite', 'created_at']
+        ordering = ['created_at']
 
     def __str__(self):
-        return f"{self.libelle} - {self.get_statut_display()}"
+        return f"{self.libelle} ({self.atelier.nom})"
+
+    # ── Durées ───────────────────────────────────────────────────
+
+    @property
+    def duree_estimee_label(self):
+        return _format_minutes(self.duree_estimee_minutes)
+
+    @property
+    def duree_technicien_minutes(self):
+        """Somme des durées des comptes rendus."""
+        from django.db.models import Sum
+        total = self.comptes_rendus.aggregate(total=Sum('duree_minutes'))['total']
+        return total or 0
+
+    @property
+    def duree_technicien_label(self):
+        return _format_minutes(self.duree_technicien_minutes)
+
+    @property
+    def duree_reelle_label(self):
+        return _format_minutes(self.duree_reelle_minutes)
+
+    @property
+    def ecart_minutes(self):
+        if self.duree_estimee_minutes is None:
+            return None
+        return (self.duree_reelle_minutes or 0) - self.duree_estimee_minutes
+
+    @property
+    def ecart_label(self):
+        ecart = self.ecart_minutes
+        if ecart is None:
+            return '—'
+        signe = '+' if ecart > 0 else ''
+        return f"{signe}{_format_minutes(abs(ecart))}"
+
+    def recalculer_duree_reelle(self, save=True):
+        """Met à jour duree_reelle_minutes = somme des comptes rendus."""
+        total = self.duree_technicien_minutes
+        if self.duree_reelle_minutes != total:
+            self.duree_reelle_minutes = total
+            if save:
+                self.save(update_fields=['duree_reelle_minutes'])
+        return total
+
+    # ── Retard & délais ──────────────────────────────────────────
+
+    @property
+    def delai_avant_demarrage_minutes(self):
+        if self.date_assignation and self.date_debut:
+            return int((self.date_debut - self.date_assignation).total_seconds() / 60)
+        return None
+
+    @property
+    def en_retard(self):
+        if self.duree_reelle_minutes is not None and self.duree_estimee_minutes:
+            return self.duree_reelle_minutes > self.duree_estimee_minutes
+
+        if self.statut == StatutTache.EN_COURS and self.date_debut and self.duree_estimee_minutes:
+            elapsed = (timezone.now() - self.date_debut).total_seconds() / 60
+            return elapsed > self.duree_estimee_minutes
+
+        return False
 
 
-class CompteRenduIntervention(models.Model):
+# ══════════════════════════════════════════════════════════════════
+#  COMPTE RENDU
+# ══════════════════════════════════════════════════════════════════
+
+class CompteRendu(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     tache = models.ForeignKey(
-        Tache, on_delete=models.CASCADE,
-        related_name='comptes_rendus', verbose_name="Tâche"
+        Tache, on_delete=models.CASCADE, related_name='comptes_rendus',
     )
     technicien = models.ForeignKey(
-        'accounts.User', on_delete=models.SET_NULL,
-        null=True, related_name='comptes_rendus',
-        verbose_name="Technicien"
+        'accounts.User', on_delete=models.SET_NULL, null=True,
+        related_name='comptes_rendus',
     )
-    description = models.TextField(verbose_name="Description de l'intervention")
-    duree_minutes = models.IntegerField(verbose_name="Durée (minutes)")
-    pieces_utilisees = models.TextField(blank=True, verbose_name="Pièces utilisées")
-    observations = models.TextField(blank=True, verbose_name="Observations")
-    date_saisie = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+
+    description      = models.TextField()
+    pieces_utilisees = models.TextField(blank=True)
+    observations     = models.TextField(blank=True)
+    duree_minutes    = models.IntegerField(default=0)
+
+    saisie_par_chef = models.BooleanField(default=False)
+    date_saisie     = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'comptes_rendus_intervention'
-        verbose_name = "Compte rendu d'intervention"
+        db_table = 'comptes_rendus_taches'
         ordering = ['-date_saisie']
 
     def __str__(self):
-        return f"CR - {self.tache.libelle} par {self.technicien}"
+        return f"CR {self.tache.libelle} — {self.duree_minutes} min"
 
-
-class PhotoIntervention(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    compte_rendu = models.ForeignKey(
-        CompteRenduIntervention, on_delete=models.CASCADE,
-        related_name='photos'
-    )
-    photo = models.ImageField(upload_to='interventions/photos/')
-    legende = models.CharField(max_length=200, blank=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'photos_intervention'
+    @property
+    def duree_label(self):
+        return _format_minutes(self.duree_minutes)
 
 
 
 
-
-BON_DEFAUT = [('BON', 'Bon'), ('DEFAUT', 'Défaut')]
-OUI_NON = [('OUI', 'Oui'), ('NON', 'Non')]
-
-
+# ══════════════════════════════════════════════════════════════════
+#  FICHE TECHNIQUE  — TON MODÈLE, INCHANGÉ
+# ══════════════════════════════════════════════════════════════════
 class FicheTechnique(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     numero_fiche = models.CharField(max_length=20, blank=True, verbose_name="N° fiche")
-    entre_id = models.OneToOneField(
-        'guerite.EnregistrementEntree', on_delete=models.PROTECT, related_name='fiche_technique'
+    entree = models.OneToOneField(
+        'guerite.EnregistrementEntree',
+        on_delete=models.PROTECT,
+        related_name='fiche_technique',
+        db_column='entree_id',          # ← colonne réelle en base
     )
 
-    # ------------------------------------------------------------------
-    # En-tête
-    # ------------------------------------------------------------------
+    # --- En-tête ---
     entree_le = models.DateField(null=True, blank=True)
     sortie_le = models.DateField(null=True, blank=True)
     nom_client = models.CharField(max_length=100, blank=True)
@@ -262,207 +432,156 @@ class FicheTechnique(models.Model):
     vehicule = models.CharField(max_length=100, blank=True, verbose_name="Véhicule")
     kilometrage = models.IntegerField(default=0)
     preconisation_courroie_distribution = models.DateField(null=True, blank=True)
-    rendre_pieces = models.CharField(max_length=3, choices=OUI_NON, blank=True)
-    ecrou_antivol = models.CharField(max_length=3, choices=OUI_NON, blank=True)
-    alarme = models.CharField(max_length=3, choices=OUI_NON, blank=True)
+    rendre_pieces = on()
+    ecrou_antivol = on()
+    alarme = on()
 
-    # ==================================================================
-    # VEHICULE AU SOL
-    # ==================================================================
+    # === VEHICULE AU SOL ===
+    eclairage_av_veilleuses = bd()
+    eclairage_av_croisement = bd()
+    eclairage_av_route = bd()
+    eclairage_av_antibrouillard = bd()
+    eclairage_av_clignotants = bd()
 
-    # --- Éclairage AV ---
-    eclairage_av_veilleuses = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    eclairage_av_croisement = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    eclairage_av_route = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    eclairage_av_antibrouillard = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    eclairage_av_clignotants = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    eclairage_ar_feux_position = bd()
+    eclairage_ar_stop = bd()
+    eclairage_ar_clignotants = bd()
+    eclairage_ar_recul = bd()
+    eclairage_ar_antibrouillard = bd()
+    eclairage_ar_feu_plaque = bd()
+    eclairage_ar_3eme_feu_stop = bd()
 
-    # --- Éclairage AR ---
-    eclairage_ar_feux_position = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    eclairage_ar_stop = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    eclairage_ar_clignotants = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    eclairage_ar_recul = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    eclairage_ar_antibrouillard = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    eclairage_ar_feu_plaque = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    eclairage_ar_3eme_feu_stop = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    controle_hauteur_phare = bd()
 
-    controle_hauteur_phare = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    voyant_tableau_bord = bd()
+    code_defaut = bd()
 
-    # --- Électronique ---
-    voyant_tableau_bord = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    code_defaut = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    bougies_faisceau = bd()
+    sonde_lamda = bd()
 
-    # --- Allumage ---
-    bougies_faisceau = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    sonde_lamda = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    # --- Freinage (au sol) ---
-    course_pedale_frein = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    course_frein_main = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    course_pedale_frein = bd()
+    course_frein_main = bd()
     liquide_frein_temperature = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, help_text="°C")
-    liquide_frein_etat = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    maitre_cylindre_fuite = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    liquide_frein_etat = bd()
+    maitre_cylindre_fuite = bd()
 
-    # --- Climatisation ---
     climatisation_temperature_soufflage = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, help_text="°C")
-    climatisation_filtre_habitacle = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    climatisation_filtre_habitacle = bd()
 
-    # --- Niveau d'huile à la prise en charge ---
-    niveau_huile_prise_en_charge = models.CharField(
-        max_length=10, choices=[('MINI', 'Mini'), ('CORRECT', 'Correct'), ('MAXI', 'Maxi')], blank=True
-    )
+    niveau_huile_prise_en_charge = models.CharField(max_length=10, choices=NIVEAU_HUILE, blank=True)
 
-    # --- Pare-brise ---
-    balais_essuie_glace_av = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    balais_essuie_glace_ar = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    pare_brise_impact = models.CharField(max_length=3, choices=OUI_NON, blank=True)
-    pare_brise_fissure = models.CharField(max_length=3, choices=OUI_NON, blank=True)
+    balais_essuie_glace_av = bd()
+    balais_essuie_glace_ar = bd()
+    pare_brise_impact = on()
+    pare_brise_fissure = on()
     pare_brise_fissure_appeler_le = models.CharField(max_length=20, blank=True)
 
-    # --- Jauge carburant ---
-    jauge_carburant = models.CharField(
-        max_length=15,
-        choices=[('E', 'Vide (E)'), ('QUART', '1/4'), ('DEMI', '1/2'), ('TROIS_QUARTS', '3/4'), ('F', 'Plein (F)')],
-        blank=True
-    )
+    jauge_carburant = models.CharField(max_length=15, choices=JAUGE, blank=True)
 
-    # --- Plaques d'immatriculation ---
-    plaques_immatriculation_av = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    plaques_immatriculation_ar = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    plaques_immatriculation_av = bd()
+    plaques_immatriculation_ar = bd()
 
-    # --- Charge / Démarrage ---
-    batterie = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    alternateur_demarreur = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    liquide_refroidissement = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    batterie = bd()
+    alternateur_demarreur = bd()
+    liquide_refroidissement = bd()
 
-    # ==================================================================
-    # VEHICULE MI HAUTEUR
-    # ==================================================================
+    # === VEHICULE MI HAUTEUR ===
+    pneu_av_g_profondeur = mm()
+    pneu_av_d_profondeur = mm()
+    pneu_ar_g_profondeur = mm()
+    pneu_ar_d_profondeur = mm()
+    pneu_roue_secours_profondeur = mm()
 
-    # --- Pneumatiques (profondeur en mm, usure Bon/Défaut) ---
-    pneu_av_g_profondeur = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="mm")
-    pneu_av_d_profondeur = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="mm")
-    pneu_ar_g_profondeur = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="mm")
-    pneu_ar_d_profondeur = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="mm")
-    pneu_roue_secours_profondeur = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="mm")
+    pneu_av_g_usure = bd()
+    pneu_av_d_usure = bd()
+    pneu_ar_g_usure = bd()
+    pneu_ar_d_usure = bd()
 
-    pneu_av_g_usure = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    pneu_av_d_usure = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    pneu_ar_g_usure = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    pneu_ar_d_usure = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    geometrie_necessaire = on()
 
-    geometrie_necessaire = models.CharField(max_length=3, choices=OUI_NON, blank=True)
+    susp_amortisseurs_av_g = bd()
+    susp_amortisseurs_av_d = bd()
+    susp_amortisseurs_ar_g = bd()
+    susp_amortisseurs_ar_d = bd()
+    susp_coupelles_av_g = bd()
+    susp_coupelles_av_d = bd()
+    susp_coupelles_ar_g = bd()
+    susp_coupelles_ar_d = bd()
+    susp_ressorts_av_g = bd()
+    susp_ressorts_av_d = bd()
+    susp_ressorts_ar_g = bd()
+    susp_ressorts_ar_d = bd()
+    susp_kit_protection_av_g = bd()
+    susp_kit_protection_av_d = bd()
+    susp_kit_protection_ar_g = bd()
+    susp_kit_protection_ar_d = bd()
+    susp_butees_av_g = bd()
+    susp_butees_av_d = bd()
+    susp_butees_ar_g = bd()
+    susp_butees_ar_d = bd()
+    susp_biellettes_av_g = bd()
+    susp_biellettes_av_d = bd()
+    susp_biellettes_ar_g = bd()
+    susp_biellettes_ar_d = bd()
 
-    # --- Suspension (AV/AR, G/D) ---
-    susp_amortisseurs_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_amortisseurs_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_amortisseurs_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_amortisseurs_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    susp_coupelles_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_coupelles_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_coupelles_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_coupelles_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    susp_ressorts_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_ressorts_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_ressorts_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_ressorts_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    susp_kit_protection_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_kit_protection_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_kit_protection_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_kit_protection_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    susp_butees_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_butees_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_butees_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_butees_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    susp_biellettes_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_biellettes_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_biellettes_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    susp_biellettes_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    # --- Freinage (mi-hauteur, AV/AR, G/D) ---
-    frein_flexibles_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_flexibles_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_flexibles_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_flexibles_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    frein_disques_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_disques_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_disques_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_disques_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    frein_flexibles_av_g = bd()
+    frein_flexibles_av_d = bd()
+    frein_flexibles_ar_g = bd()
+    frein_flexibles_ar_d = bd()
+    frein_disques_av_g = bd()
+    frein_disques_av_d = bd()
+    frein_disques_ar_g = bd()
+    frein_disques_ar_d = bd()
     frein_disques_epaisseur_mm = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
-
-    frein_plaquettes_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_plaquettes_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_plaquettes_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_plaquettes_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    frein_kit_frein_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_kit_frein_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    frein_tambours_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_tambours_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    frein_plaquettes_av_g = bd()
+    frein_plaquettes_av_d = bd()
+    frein_plaquettes_ar_g = bd()
+    frein_plaquettes_ar_d = bd()
+    frein_kit_frein_ar_g = bd()
+    frein_kit_frein_ar_d = bd()
+    frein_tambours_ar_g = bd()
+    frein_tambours_ar_d = bd()
     frein_tambours_diametre_mm = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
 
-    # --- Train roulant (AV/AR, G/D) ---
-    train_flexibles_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_flexibles_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_flexibles_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_flexibles_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    train_flexibles_av_g = bd()
+    train_flexibles_av_d = bd()
+    train_flexibles_ar_g = bd()
+    train_flexibles_ar_d = bd()
+    train_disques_av_g = bd()
+    train_disques_av_d = bd()
+    train_disques_ar_g = bd()
+    train_disques_ar_d = bd()
+    train_plaquettes_av_g = bd()
+    train_plaquettes_av_d = bd()
+    train_plaquettes_ar_g = bd()
+    train_plaquettes_ar_d = bd()
+    train_kit_frein_av_g = bd()
+    train_kit_frein_av_d = bd()
+    train_tambours_av_g = bd()
+    train_tambours_av_d = bd()
+    train_tambours_ar_g = bd()
+    train_tambours_ar_d = bd()
 
-    train_disques_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_disques_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_disques_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_disques_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    train_plaquettes_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_plaquettes_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_plaquettes_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_plaquettes_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    train_kit_frein_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_kit_frein_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    train_tambours_av_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_tambours_av_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_tambours_ar_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    train_tambours_ar_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-
-    # ==================================================================
-    # VEHICULE LEVE
-    # ==================================================================
-
-    # --- Échappement ---
+    # === VEHICULE LEVE ===
     echap_catalyseur_filtre_particules = models.CharField(max_length=10, blank=True, help_text="'/' si non applicable")
-    echap_partie_avant = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    echap_partie_intermediaire = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    echap_partie_arriere = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    echap_fixations = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    echap_partie_avant = bd()
+    echap_partie_intermediaire = bd()
+    echap_partie_arriere = bd()
+    echap_fixations = bd()
 
-    # --- Transmission ---
-    transmission_soufflets_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    transmission_soufflets_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    transmission_cardans_g = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    transmission_cardans_d = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    transmission_soufflets_g = bd()
+    transmission_soufflets_d = bd()
+    transmission_cardans_g = bd()
+    transmission_cardans_d = bd()
 
-    # --- Freinage (véhicule levé) ---
-    frein_canalisation = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_cable_frein_main = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
-    frein_repartiteur_fuite = models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+    frein_canalisation = bd()
+    frein_cable_frein_main = bd()
+    frein_repartiteur_fuite = bd()
 
-    # --- Moteur ---
-    fuite_moteur = models.CharField(max_length=3, choices=OUI_NON, blank=True)
+    fuite_moteur = on()
 
-    # ==================================================================
-    # POST-CONTRÔLES ET MISES A NIVEAU
-    # ==================================================================
-    niveau_huile_apres_intervention = models.CharField(
-        max_length=10, choices=[('MINI', 'Mini'), ('CORRECT', 'Correct'), ('MAXI', 'Maxi')], blank=True
-    )
+    # === POST-CONTRÔLES ET MISES A NIVEAU ===
+    niveau_huile_apres_intervention = models.CharField(max_length=10, choices=NIVEAU_HUILE, blank=True)
     ok_lave_glace = models.BooleanField(default=False, verbose_name="Lave-glace *Ok")
     ok_liquide_refroidissement = models.BooleanField(default=False, verbose_name="Liquide de refroidissement *Ok")
     ok_kit_securite = models.BooleanField(default=False, verbose_name="Kit sécurité (cales, extincteur, triangles) *Ok")
@@ -471,9 +590,7 @@ class FicheTechnique(models.Model):
     ok_etiquette_monte_pneumatique = models.BooleanField(default=False, verbose_name="Mise en place étiquette monte pneumatique *Ok")
     ok_remise_a_zero_maintenance = models.BooleanField(default=False, verbose_name="Remise à zéro indicateur de maintenance *Ok")
 
-    # ==================================================================
-    # Diagnostic, chiffrage & synthèse
-    # ==================================================================
+    # === Diagnostic, chiffrage & synthèse ===
     diagnostic = models.TextField(verbose_name="Diagnostic technique")
     pieces_recommandees = models.TextField(blank=True, verbose_name="Pièces recommandées")
     main_oeuvre_estimee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -488,10 +605,8 @@ class FicheTechnique(models.Model):
     nom_client_signataire = models.CharField(max_length=100, blank=True)
     signature_client = models.TextField(blank=True, help_text="base64")
 
-    cree_par = models.ForeignKey(
-        'accounts.User', on_delete=models.SET_NULL,
-        null=True, related_name='fiches_techniques'
-    )
+    cree_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True,
+                                 related_name='fiches_techniques')
     date_creation = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -499,6 +614,12 @@ class FicheTechnique(models.Model):
         verbose_name = "Fiche technique"
         verbose_name_plural = "Fiches techniques"
 
+
+    @property
+    def terminee(self):
+        """Terminée = page 3 validée avec la signature du technicien."""
+        return bool(self.signature_controleur)
+    
     @property
     def total_estime(self):
         return self.main_oeuvre_estimee + self.pieces_estimees
@@ -507,34 +628,30 @@ class FicheTechnique(models.Model):
         return f"Fiche diagnostic {self.numero_fiche or self.id} - {self.immatriculation}"
 
 
-
-
-
-
+# ══════════════════════════════════════════════════════════════════
+#  FICHE DE CONTRÔLE — TON MODÈLE, seule la liaison change (entree au lieu de ordre_reparation)
+# ══════════════════════════════════════════════════════════════════
 class FicheControle(models.Model):
     STATUT_CHOICES = [('BON', 'Bon'), ('DEFAUT', 'Défaut')]
-    ETAT_VITRE_CHOICES = [
-        ('INTACT', 'Intact'), ('FISSURE', 'Fissuré'), ('CASSE', 'Cassé'),
-    ]
+    ETAT_VITRE_CHOICES = [('INTACT', 'Intact'), ('FISSURE', 'Fissuré'), ('CASSE', 'Cassé')]
     TYPE_VEHICULE_CHOICES = [
         ('VOITURE', 'Voiture'), ('PICKUP', 'Pick-up'),
         ('CAMION_CITERNE', 'Camion-citerne'), ('BENNE', 'Camion benne'),
         ('FOURGON', 'Fourgon / Van'),
     ]
-    JAUGE_CHOICES = [
-        ('E', 'Vide (E)'), ('QUART', '1/4'), ('DEMI', '1/2'),
-        ('TROIS_QUARTS', '3/4'), ('F', 'Plein (F)'),
-    ]
+    JAUGE_CHOICES = JAUGE
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    ordre_reparation = models.OneToOneField(
-        'OrdreReparation', on_delete=models.CASCADE,
-        related_name='fiche_controle', verbose_name="Ordre de réparation"
+    # ⬇️ SEULE MODIFICATION : liée à l'entrée guérite (une nouvelle fiche à chaque nouvelle entrée)
+
+    entree = models.OneToOneField(
+        'guerite.EnregistrementEntree',
+        on_delete=models.PROTECT,
+        related_name='fiche_controle',
+        db_column='entree_id', 
     )
 
-    # ------------------------------------------------------------------
-    # En-tête
-    # ------------------------------------------------------------------
+    # --- En-tête ---
     travail_a_effectuer = models.TextField(blank=True, verbose_name="Travail à effectuer")
     entree_le = models.DateField(null=True, blank=True, verbose_name="Entrée le")
     sortir_le = models.DateField(null=True, blank=True, verbose_name="Sortie le")
@@ -544,9 +661,7 @@ class FicheControle(models.Model):
     kilometrage = models.IntegerField(default=0, verbose_name="Kilométrage")
     telephone = models.CharField(max_length=20, blank=True)
 
-    # ------------------------------------------------------------------
-    # Colonne 1 — Sécurité / accessoires / carrosserie extérieure
-    # ------------------------------------------------------------------
+    # --- Colonne 1 ---
     alarme_fonctionne = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
     verrouillage_portes = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
     telecommande_ouverture = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
@@ -562,7 +677,6 @@ class FicheControle(models.Model):
 
     triangles_securite_presents = models.BooleanField(null=True, blank=True)
     triangles_securite_nombre = models.PositiveSmallIntegerField(null=True, blank=True)
-
     cales_metalliques_presentes = models.BooleanField(null=True, blank=True)
     cales_metalliques_nombre = models.PositiveSmallIntegerField(null=True, blank=True)
 
@@ -583,9 +697,7 @@ class FicheControle(models.Model):
     garde_boues_presents_bien_montes = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
     agrafes_presentes = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
 
-    # ------------------------------------------------------------------
-    # Colonne 2 — Éléments mécaniques / visibilité / éclairage
-    # ------------------------------------------------------------------
+    # --- Colonne 2 ---
     bavettes_et_goujons_roues_presents = models.BooleanField(null=True, blank=True)
     pare_brise_etat = models.CharField(max_length=10, choices=ETAT_VITRE_CHOICES, blank=True)
     pression_pneus_bonne = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
@@ -603,9 +715,7 @@ class FicheControle(models.Model):
     systeme_demarrage_fonctionne = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
     voyant_ceintures_securite_s_allume = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
 
-    # ------------------------------------------------------------------
-    # Colonne 3 — Intérieur / jauge / carrosserie
-    # ------------------------------------------------------------------
+    # --- Colonne 3 ---
     sieges_propres_bon_etat = models.BooleanField(null=True, blank=True)
     tapis_sol_5_presents = models.BooleanField(null=True, blank=True)
     vitres_avant_se_baissent = models.BooleanField(null=True, blank=True)
@@ -616,47 +726,31 @@ class FicheControle(models.Model):
 
     jauge_carburant = models.CharField(max_length=15, choices=JAUGE_CHOICES, blank=True)
 
-    # ------------------------------------------------------------------
-    # Schéma carrosserie (dégâts) — X Piqûre, & Rayures, O Bosses, /// Casses
-    # ------------------------------------------------------------------
+    # --- Schéma carrosserie ---
     type_vehicule = models.CharField(max_length=20, choices=TYPE_VEHICULE_CHOICES, blank=True)
     points_degats_carrosserie = models.JSONField(
         default=list, blank=True,
-        help_text="Liste de points sur le schéma: [{'x':.., 'y':.., 'type':'PIQURE|RAYURE|BOSSE|CASSE'}, ...]"
-    )
+        help_text="Liste de points sur le schéma: [{'x':.., 'y':.., 'type':'PIQURE|RAYURE|BOSSE|CASSE'}, ...]")
 
-    # ------------------------------------------------------------------
-    # Commentaires & synthèse
-    # ------------------------------------------------------------------
-    etat_general = models.CharField(max_length=20, choices=[
-        ('BON', 'Bon'), ('MOYEN', 'Moyen'), ('MAUVAIS', 'Mauvais')
-    ], default='BON')
+    # --- Synthèse ---
+    etat_general = models.CharField(max_length=20, choices=[('BON', 'Bon'), ('MOYEN', 'Moyen'), ('MAUVAIS', 'Mauvais')], default='BON')
     commentaires = models.TextField(blank=True)
     defauts_observes = models.TextField(blank=True)
 
-    # ------------------------------------------------------------------
-    # Signatures (5 blocs présents sur la fiche)
-    # ------------------------------------------------------------------
+    # --- Signatures (5 blocs) ---
     nom_receptionniste = models.CharField(max_length=100, blank=True)
     signature_receptionniste = models.TextField(blank=True, help_text="base64")
-
     nom_client_avant = models.CharField(max_length=100, blank=True)
     signature_client_avant = models.TextField(blank=True, help_text="base64")
-
     nom_client_apres = models.CharField(max_length=100, blank=True)
     signature_client_apres = models.TextField(blank=True, help_text="base64")
-
     nom_technicien = models.CharField(max_length=100, blank=True)
     signature_technicien = models.TextField(blank=True, help_text="base64")
-
     nom_controleur = models.CharField(max_length=100, blank=True)
     signature_controleur = models.TextField(blank=True, help_text="base64")
 
-    # ------------------------------------------------------------------
-    inspecte_par = models.ForeignKey(
-        'accounts.User', on_delete=models.SET_NULL,
-        null=True, related_name='fiches_controle'
-    )
+    inspecte_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True,
+                                     related_name='fiches_controle')
     date_inspection = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -664,5 +758,31 @@ class FicheControle(models.Model):
         verbose_name = "Fiche de contrôle"
         verbose_name_plural = "Fiches de contrôle"
 
+    @property
+    def terminee(self):
+        """Terminée = page 3 validée avec la signature du technicien."""
+        return bool(self.signature_technicien)
+
+    @property
+    def signee_client(self):
+        """Le client a signé (bouton « Valider la réception » côté réception)."""
+        return bool(self.signature_client_avant)
+
+    
     def __str__(self):
-        return f"Fiche contrôle - {self.immatriculation or self.ordre_reparation_id}"
+        return f"Fiche contrôle - {self.immatriculation or self.entree_id}"
+
+PRIORITE_RANK = {'URGENTE': 3, 'HAUTE': 2, 'NORMALE': 1, 'BASSE': 0}
+
+class ReouvertureOR(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ordre_reparation = models.ForeignKey(OrdreReparation, on_delete=models.CASCADE, related_name='reouvertures')
+    tache = models.ForeignKey(Tache, on_delete=models.SET_NULL, null=True, blank=True, related_name='reouvertures')
+    raison = models.TextField()
+    reouvert_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True,
+                                     related_name='reouvertures_effectuees')
+    date_reouverture = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'reouvertures_or'
+        ordering = ['-date_reouverture']

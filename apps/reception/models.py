@@ -11,20 +11,10 @@ import uuid
 from django.db import models
 from django.utils import timezone
 
+from apps.accounts.choices import StatutVehicule
 
-class StatutVehicule(models.TextChoices):
-    # Étape 1 : en réception
-    EN_COURS            = 'EN_COURS',           'Réception — En cours'
-    RAPPORT_FAIT        = 'RAPPORT_FAIT',        'Réception — Reception etablie'
-    # Étape 2 : atelier
-    EN_ATELIER          = 'EN_ATELIER',          'Atelier — En transit'
-    PRESENT_ATELIER     = 'PRESENT_ATELIER',     'Atelier — Présent (fiche contrôle OK)'
-    FICHE_TECHNIQUE     = 'FICHE_TECHNIQUE',     'Atelier — Fiche technique établie'
-    REPARATION_EN_COURS = 'REPARATION_EN_COURS', 'Atelier — Réparation en cours'
-    TRAVAUX_TERMINES    = 'TRAVAUX_TERMINES',    'Atelier — Travaux terminés'
-    # Étape 3 : sortie
-    BON_SORTIE_FAIT     = 'BON_SORTIE_FAIT',     'Bon de sortie établi'
-    SORTI               = 'SORTI',               'Véhicule sorti'
+
+
 
 
 # Statuts qui bloquent la fiche contrôle (doit être la 1ère action en atelier)
@@ -56,6 +46,7 @@ class Reception(models.Model):
     )
     observations   = models.TextField(blank=True)
     created_at     = models.DateTimeField(auto_now_add=True)
+    close_at       = models.DateTimeField(null=True, blank=True, verbose_name="Date/heure sortie")
     updated_at     = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -83,6 +74,24 @@ class Reception(models.Model):
             return 'atelier'
         return 'sortie'
 
+
+    @property
+    def duree_sejour(self):
+        fin = self.close_at or timezone.now()
+        total_secondes = (fin - self.created_at).total_seconds()
+
+        if total_secondes < 24 * 3600:
+          return f"{int(total_secondes // 3600)}h"
+
+        if total_secondes < 30 * 24 * 3600:
+            jours = int(total_secondes // (24 * 3600))
+            heures = int((total_secondes % (24 * 3600)) // 3600)
+            return f"{jours}j {heures}h"
+
+        mois = int(total_secondes // (30 * 24 * 3600))
+        jours = int((total_secondes % (30 * 24 * 3600)) // (24 * 3600))
+        return f"{mois} mois {jours}j"
+    
     @property
     def etapes(self):
         """Retourne la liste des étapes avec leur état (done/active/pending)"""
@@ -93,34 +102,82 @@ class Reception(models.Model):
         if not vers_atelier:
             # FLUX 1 - Sortie directe
             return [
-                {'label': 'Entrée',         'icon': '🚗', 'state': 'done'},
-                {'label': 'Réception',      'icon': '📥', 'state': 'done'},
-                {'label': 'Rapport',        'icon': '📝', 'state': 'done' if s != 'EN_COURS' else 'active'},
-                {'label': 'Bon de sortie',  'icon': '📄', 'state': 'done' if s in ('BON_SORTIE_FAIT','SORTI') else ('active' if s == 'RAPPORT_FAIT' else 'pending')},
-                {'label': 'Sorti',          'icon': '✅', 'state': 'done' if s == 'SORTI' else 'pending'},
-            ]
+            {'label': 'Entrée',        'icon': '🚗', 'state': 'done'},
+            {'label': 'Réception',     'icon': '📥', 'state': 'done'},
+            {'label': 'Rapport',
+             'icon': '📝',
+             'state': 'done' if s not in ('EN_COURS',) else 'active'},
+            {'label': 'Bon de sortie',
+             'icon': '📄',
+             'state': 'done' if s in ('BON_SORTIE_FAIT', 'SORTI')
+                      else ('active' if s == 'RAPPORT_FAIT' else 'pending')},
+            {'label': 'Sorti',
+             'icon': '✅',
+             'state': 'done' if s == 'SORTI' else 'pending'},
+        ]
         else:
             # FLUX 2/3 - Avec atelier
             return [
-                {'label': 'Entrée',         'icon': '🚗', 'state': 'done'},
-                {'label': 'Réception',      'icon': '📥', 'state': 'done'},
-                {'label': 'Rapport',        'icon': '📝', 'state': 'done' if s not in ('EN_COURS',) else 'active'},
-                {'label': 'Transfert',      'icon': '🏭', 'state': 'done' if s not in ('EN_COURS','RAPPORT_FAIT') else ('active' if s == 'RAPPORT_FAIT' else 'pending')},
-                {'label': 'Fiche contrôle', 'icon': '📋', 'state': 'done' if s not in ('EN_COURS','RAPPORT_FAIT','EN_ATELIER') else ('active' if s == 'EN_ATELIER' else 'pending')},
-                {'label': 'Fiche technique','icon': '🔬', 'state': 'done' if s in ('FICHE_TECHNIQUE','REPARATION_EN_COURS','TRAVAUX_TERMINES','BON_SORTIE_FAIT','SORTI') else ('active' if s == 'PRESENT_ATELIER' else 'pending')},
-                {'label': 'Réparation',     'icon': '🔧', 'state': 'done' if s in ('TRAVAUX_TERMINES','BON_SORTIE_FAIT','SORTI') else ('active' if s in ('REPARATION_EN_COURS','FICHE_TECHNIQUE') else 'pending')},
-                {'label': 'Bon de sortie',  'icon': '📄', 'state': 'done' if s in ('BON_SORTIE_FAIT','SORTI') else ('active' if s == 'TRAVAUX_TERMINES' else 'pending')},
-                {'label': 'Sorti',          'icon': '✅', 'state': 'done' if s == 'SORTI' else 'pending'},
-            ]
+        {'label': 'Entrée',
+         'icon': '🚗', 'state': 'done'},
+
+        {'label': 'Réception',
+         'icon': '📥', 'state': 'done'},
+
+        {'label': 'Rapport',
+         'icon': '📝',
+         'state': 'done' if s != 'EN_COURS' else 'active'},
+
+        {'label': 'Transfert',
+         'icon': '🏭',
+         'state': 'done' if s not in ('EN_COURS', 'RAPPORT_FAIT')
+                  else ('active' if s == 'RAPPORT_FAIT' else 'pending')},
+
+        {'label': 'Fiche contrôle',
+         'icon': '📋',
+         'state': 'done' if s in ('FICHE_TECHNIQUE', 'REPARATION_EN_COURS',
+                                   'TRAVAUX_TERMINES', 'BON_SORTIE_FAIT', 'SORTI')
+                  else ('active' if s == 'PRESENT_ATELIER' else 'pending')},
+
+        {'label': 'Fiche technique',
+         'icon': '🔬',
+         'state': 'done' if s in ('REPARATION_EN_COURS', 'TRAVAUX_TERMINES',
+                                   'BON_SORTIE_FAIT', 'SORTI')
+                  else ('active' if s == 'FICHE_TECHNIQUE' else 'pending')},
+
+        {'label': 'Réparation',
+         'icon': '🔧',
+         'state': 'done' if s in ('TRAVAUX_TERMINES', 'BON_SORTIE_FAIT', 'SORTI')
+                  else ('active' if s == 'REPARATION_EN_COURS' else 'pending')},
+
+        {'label': 'Travaux terminés',
+         'icon': '✅',
+         'state': 'done' if s in ('BON_SORTIE_FAIT', 'SORTI')
+                  else ('active' if s == 'TRAVAUX_TERMINES' else 'pending')},
+
+        {'label': 'Bon de sortie',
+         'icon': '📄',
+         'state': 'done' if s in ('BON_SORTIE_FAIT', 'SORTI')
+                  else ('active' if s == 'TRAVAUX_TERMINES' else 'pending')},
+
+        {'label': 'Sorti',
+         'icon': '🚪',
+         'state': 'done' if s == 'SORTI' else 'pending'},
+    ]
+
 
     @property
     def progression_pct(self):
         pct = {
-            'EN_COURS': 5, 'RAPPORT_FAIT': 18, 'EN_ATELIER': 30,
-            'PRESENT_ATELIER': 45, 'FICHE_TECHNIQUE': 58,
-            'REPARATION_EN_COURS': 70, 'TRAVAUX_TERMINES': 83,
-            'BON_SORTIE_FAIT': 92, 'SORTI': 100,
-        }
+        'EN_COURS':            5,
+        'RAPPORT_FAIT':        15,
+        'PRESENT_ATELIER':     30,
+        'FICHE_TECHNIQUE':     45,
+        'REPARATION_EN_COURS': 60,
+        'TRAVAUX_TERMINES':    78,
+        'BON_SORTIE_FAIT':     92,
+        'SORTI':               100,
+    }
         return pct.get(self.statut, 0)
 
     @property

@@ -1,84 +1,363 @@
 {% extends "base.html" %}
-{% block title %}Tâche {{ tache.libelle }}{% endblock %}
-{% block page_title %}📌 Détail tâche{% endblock %}
+{% block title %}{{ tache.libelle }}{% endblock %}
+{% block page_title %}⚙️ Ma tâche{% endblock %}
+
 {% block sidebar_nav %}
-<ul class="sidebar-nav" style="padding-top:12px;">
+<div class="sidebar-section">Technicien</div>
+<ul class="sidebar-nav">
   <li><a href="{% url 'dashboard_technicien' %}"><span class="icon">📊</span> Tableau de bord</a></li>
-  <li><a href="{% url 'mes_taches' %}" class="active"><span class="icon">📌</span> Mes tâches</a></li>
+  <li><a href="{% url 'mes_taches' %}" class="active"><span class="icon">⚙️</span> Mes tâches</a></li>
 </ul>
 {% endblock %}
+
+{% block extra_css %}
+<style>
+/* ══ Hero ══ */
+.hero{
+  border-radius:var(--radius);
+  padding:20px 24px;
+  margin-bottom:20px;
+  color:#fff;
+  background:linear-gradient(135deg,
+    {% if tache.statut == 'VALIDEE' %}#15803d,#22c55e
+    {% elif tache.statut == 'TERMINEE' %}#0369a1,#3b82f6
+    {% elif tache.statut == 'EN_COURS' %}#b45309,#f59e0b
+    {% else %}var(--primary-dark),var(--primary){% endif %});
+}
+.hero-meta{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:12px;opacity:.85;}
+
+/* ══ Chrono ══ */
+.chrono{
+  font-size:38px;
+  font-weight:800;
+  font-family:monospace;
+  color:var(--warning);
+  text-align:center;
+  margin:14px 0;
+}
+
+/* ══ Blocs info ══ */
+.info-bloc{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:12px 16px;
+  margin-bottom:12px;
+}
+.info-lbl{
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.4px;
+  color:var(--text-muted);
+  margin-bottom:6px;
+}
+
+/* ══ Compte rendu ══ */
+.cr-item{
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  border-radius:8px;
+  padding:10px 12px;
+  margin-bottom:8px;
+  font-size:13px;
+}
+.cr-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;}
+.cr-duree{background:var(--primary);color:#fff;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;}
+.cr .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin:8px 0 2px;}
+
+/* ══ Grille durées ══ */
+.duree-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  margin-top:10px;
+  padding:10px;
+  background:var(--surface2);
+  border-radius:8px;
+}
+.duree-box{text-align:center;}
+.duree-box .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);}
+.duree-box .val{font-size:15px;font-weight:800;color:var(--primary);margin-top:2px;}
+.duree-box .val.danger {color:var(--danger);}
+.duree-box .val.success{color:var(--success);}
+
+/* ══ Dates ══ */
+.dates-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  font-size:11px;
+  color:var(--text-muted);
+  margin-top:8px;
+}
+.dates-row .d{display:inline-flex;align-items:center;gap:4px;}
+.dates-row .d b{color:var(--text);font-weight:600;}
+
+/* ══ Priorité ══ */
+.chip{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:2px 10px;font-size:12px;font-weight:600;}
+
+/* ══ Durée form ══ */
+.duree-row{display:flex;gap:8px;align-items:center;}
+.duree-row input{width:80px;text-align:center;}
+.duree-row span{font-weight:600;color:var(--text-muted);}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <div>
     <h1>{{ tache.libelle }}</h1>
-    <div class="breadcrumb"><a href="{% url 'mes_taches' %}">Mes tâches</a> › {{ tache.ordre_reparation.numero }}</div>
+    <div class="breadcrumb">
+      <a href="{% url 'dashboard_technicien' %}">Tableau de bord</a> › Ma tâche
+    </div>
   </div>
-  <div style="display:flex;gap:8px;">
-    <a href="{% url 'mes_taches' %}" class="btn btn-outline">← Retour</a>
-    {% if tache.statut == 'A_FAIRE' %}
-    <form method="post" action="{% url 'demarrer_tache' tache.id %}">{% csrf_token %}<button class="btn btn-primary">▶ Démarrer</button></form>
-    {% elif tache.statut == 'EN_COURS' %}
-    <a href="{% url 'saisir_compte_rendu' tache.id %}" class="btn btn-accent">✍️ Saisir compte rendu</a>
-    <form method="post" action="{% url 'terminer_tache' tache.id %}" onsubmit="return confirm('Marquer cette tâche comme terminée ?')">{% csrf_token %}<button class="btn btn-success">✅ Marquer terminée</button></form>
+  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     HERO
+     ══════════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div style="font-size:20px;font-weight:800;">{{ tache.libelle }}</div>
+  <div class="hero-meta">
+    <span>🔧 {{ tache.ordre_reparation.numero }}</span>
+    {% if tache.atelier %}<span>🏭 {{ tache.atelier.nom }}</span>{% endif %}
+    <span>🚗 {{ tache.ordre_reparation.vehicule.immatriculation }}</span>
+    {% if tache.priorite != 'NORMALE' %}
+    <span>⚠️ {{ tache.get_priorite_display }}</span>
     {% endif %}
   </div>
 </div>
 
+
+
 <div class="grid-2">
-  <div class="card">
-    <div class="card-header">
-      <div class="card-title">📋 Informations tâche</div>
-      {% if tache.statut == 'A_FAIRE' %}<span class="badge badge-a-faire">À faire</span>
-      {% elif tache.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
-      {% elif tache.statut == 'TERMINEE' %}<span class="badge badge-terminee">✓ Terminée</span>{% endif %}
+  <!-- ═══ COLONNE GAUCHE — infos + actions ═══ -->
+  <div>
+
+    <!-- ── Bloc détails ── -->
+    <div class="info-bloc">
+      <div class="info-lbl">Détails</div>
+
+      {# Grille durées : prévue / technicien / écart #}
+      <div class="duree-grid">
+        <div class="duree-box">
+          <div class="lbl">Prévue</div>
+          <div class="val">{{ tache.duree_estimee_label }}</div>
+        </div>
+        <div class="duree-box">
+          <div class="lbl">Technicien</div>
+          <div class="val {% if tache.en_retard %}danger{% endif %}">
+            {{ tache.duree_technicien_label }}
+          </div>
+        </div>
+        <div class="duree-box">
+          <div class="lbl">Écart</div>
+          <div class="val {% if tache.ecart_minutes and tache.ecart_minutes > 0 %}danger{% elif tache.ecart_minutes and tache.ecart_minutes < 0 %}success{% endif %}">
+            {{ tache.ecart_label }}
+          </div>
+        </div>
+      </div>
+
+      {# Dates #}
+      <div class="dates-row">
+        {% if tache.date_assignation %}
+        <span class="d">📤 Assignée <b>{{ tache.date_assignation|date:"d/m/Y H:i" }}</b></span>
+        {% endif %}
+        {% if tache.date_debut %}
+        <span class="d">▶️ Démarrée <b>{{ tache.date_debut|date:"d/m/Y H:i" }}</b></span>
+        {% endif %}
+        {% if tache.date_fin %}
+        <span class="d">⏹ Terminée <b>{{ tache.date_fin|date:"d/m/Y H:i" }}</b></span>
+        {% endif %}
+        {% if tache.date_validation %}
+        <span class="d">✅ Validée <b>{{ tache.date_validation|date:"d/m/Y H:i" }}</b></span>
+        {% endif %}
+      </div>
     </div>
-    <table>
-      <tr><td class="text-muted">Libellé</td><td><strong>{{ tache.libelle }}</strong></td></tr>
-      <tr><td class="text-muted">OR</td><td>{{ tache.ordre_reparation.numero }}</td></tr>
-      <tr><td class="text-muted">Véhicule</td><td><strong>{{ tache.ordre_reparation.vehicule.immatriculation }}</strong> — {{ tache.ordre_reparation.vehicule.marque }} {{ tache.ordre_reparation.vehicule.modele }}</td></tr>
-      <tr><td class="text-muted">Priorité</td><td>
-        {% if tache.priorite == 'URGENTE' %}<span class="badge badge-danger">🔴 Urgente</span>
-        {% elif tache.priorite == 'HAUTE' %}<span class="badge badge-warning">🟠 Haute</span>
-        {% else %}<span class="badge badge-info">{{ tache.get_priorite_display }}</span>{% endif %}
-      </td></tr>
-      <tr><td class="text-muted">Durée estimée</td><td>{{ tache.duree_estimee_minutes }} min</td></tr>
-      <tr><td class="text-muted">Durée réelle</td><td><strong>{{ tache.duree_reelle_minutes }} min</strong></td></tr>
-      {% if tache.date_debut %}<tr><td class="text-muted">Démarré le</td><td>{{ tache.date_debut|date:"d/m/Y H:i" }}</td></tr>{% endif %}
-      {% if tache.date_fin %}<tr><td class="text-muted">Terminé le</td><td>{{ tache.date_fin|date:"d/m/Y H:i" }}</td></tr>{% endif %}
-      {% if tache.description %}<tr><td class="text-muted">Description</td><td>{{ tache.description }}</td></tr>{% endif %}
-      {% if tache.est_copiee %}<tr><td colspan="2"><span class="badge badge-warning">🔄 Tâche issue d'un retour</span></td></tr>{% endif %}
-    </table>
+
+    <!-- ── Instructions ── -->
+    {% if tache.description %}
+    <div class="info-bloc">
+      <div class="info-lbl">Instructions</div>
+      <div style="font-size:13px;white-space:pre-line;">{{ tache.description }}</div>
+    </div>
+    {% endif %}
+
+    <!-- ── Action : Démarrer ── -->
+    {% if tache.statut == 'A_FAIRE' %}
+    <div class="card" style="text-align:center;">
+      <div style="font-size:30px;margin-bottom:6px;">▶️</div>
+      <p class="text-small text-muted" style="margin-bottom:12px;">
+        Prêt à commencer ? Cliquez pour démarrer la tâche.
+      </p>
+      <form method="post" action="{% url 'demarrer_tache' tache.id %}">
+        {% csrf_token %}
+        <button class="btn btn-success" style="width:100%;padding:11px;">
+          ▶️ Démarrer la tâche
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- ── État : Validée ── -->
+    {% if tache.statut == 'VALIDEE' %}
+    <div style="background:rgba(34,197,94,.08);border:1.5px solid var(--success);border-radius:var(--radius);padding:18px;text-align:center;">
+      <div style="font-size:36px;">✅</div>
+      <div class="font-bold" style="color:var(--success);">Tâche validée</div>
+      {% if tache.valide_par %}
+      <div class="text-small text-muted" style="margin-top:4px;">
+        par {{ tache.valide_par.full_name|default:tache.valide_par.email }}
+      </div>
+      {% endif %}
+      {% if tache.commentaire_validation %}
+      <div class="text-small text-muted" style="margin-top:6px;font-style:italic;">
+        « {{ tache.commentaire_validation }} »
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ── État : Terminée ── -->
+    {% if tache.statut == 'TERMINEE' %}
+    <div style="background:#dbeafe;border:1.5px solid var(--info);border-radius:var(--radius);padding:14px;text-align:center;">
+      <div style="font-size:28px;">⏳</div>
+      <div class="font-bold" style="color:var(--info);">En attente de validation</div>
+      <div class="text-small text-muted" style="margin-top:4px;">
+        Le responsable d'atelier va valider votre travail.
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 
-  <!-- Comptes rendus -->
-  <div class="card">
-    <div class="card-header">
-      <div class="card-title">✍️ Comptes rendus ({{ comptes_rendus.count }})</div>
-      {% if tache.statut == 'EN_COURS' %}
-      <a href="{% url 'saisir_compte_rendu' tache.id %}" class="btn btn-primary btn-sm">+ Ajouter</a>
-      {% endif %}
-    </div>
-    {% for cr in comptes_rendus %}
-    <div style="background:#f8fafc;border-radius:8px;padding:12px;margin-bottom:8px;border-left:3px solid var(--primary-light);">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-        <strong class="text-small">{{ cr.date_saisie|date:"d/m/Y H:i" }}</strong>
-        <span class="badge badge-info">{{ cr.duree_minutes }} min</span>
+  <!-- ═══ COLONNE DROITE — historique + nouveau CR ═══ -->
+  <div>
+
+    <!-- ── Historique des comptes rendus ── -->
+    {% if comptes_rendus %}
+    <div class="card mb-2">
+      <div class="card-header">
+        <div class="card-title">
+          📚 Historique ({{ comptes_rendus|length }})
+        </div>
       </div>
-      <div class="text-small" style="margin-bottom:4px;">{{ cr.description }}</div>
-      {% if cr.pieces_utilisees %}<div class="text-small text-muted">🔩 {{ cr.pieces_utilisees }}</div>{% endif %}
-      {% if cr.photos.exists %}
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-        {% for photo in cr.photos.all %}
-        <a href="{{ photo.photo.url }}" target="_blank">
-          <img src="{{ photo.photo.url }}" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;">
-        </a>
-        {% endfor %}
+
+      {% for cr in comptes_rendus %}
+      <div class="cr-item">
+        <div class="cr-head">
+          <div>
+            <b>👷 {{ cr.technicien.full_name|default:cr.technicien.email|default:"—" }}</b>
+            <span class="text-muted" style="margin-left:6px;">
+              {{ cr.date_saisie|date:"d/m/Y H:i" }}
+            </span>
+            {% if cr.saisie_par_chef %}
+            <span class="chip" style="margin-left:6px;">saisi par le chef</span>
+            {% endif %}
+          </div>
+          <span class="cr-duree">{{ cr.duree_label }}</span>
+        </div>
+
+        {% if cr.description %}
+        <div class="l">Travaux effectués</div>
+        <div style="white-space:pre-line;">{{ cr.description }}</div>
+        {% endif %}
+
+        {% if cr.pieces_utilisees %}
+        <div class="l">Pièces utilisées</div>
+        <div style="white-space:pre-line;">{{ cr.pieces_utilisees }}</div>
+        {% endif %}
+
+        {% if cr.observations %}
+        <div class="l">Observations</div>
+        <div style="white-space:pre-line;">{{ cr.observations }}</div>
+        {% endif %}
       </div>
-      {% endif %}
+      {% endfor %}
     </div>
-    {% empty %}
-    <div class="text-center text-muted" style="padding:20px;">Aucun compte rendu</div>
-    {% endfor %}
+    {% endif %}
+
+    <!-- ── Formulaire nouveau compte rendu ── -->
+    {% if tache.statut == 'EN_COURS' %}
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📝 Nouveau compte rendu</div>
+      </div>
+
+      <form method="post" action="{% url 'soumettre_compte_rendu' tache.id %}">
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label class="form-label">Travaux effectués *</label>
+          <textarea name="description" class="form-textarea" rows="4" required
+                    placeholder="Décrivez ce que vous avez fait..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Durée réelle *</label>
+          <div class="duree-row">
+            <input type="number" name="duree_heures" class="form-input"
+                   value="{{ tache.est_h }}" min="0" max="99" placeholder="0">
+            <span>h</span>
+            <input type="number" name="duree_minutes" class="form-input"
+                   value="{{ tache.est_m }}" min="0" max="59" placeholder="0">
+            <span>min</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Pièces utilisées</label>
+          <textarea name="pieces_utilisees" class="form-textarea" rows="2"
+                    placeholder="Ex : Plaquettes Brembo x4"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Observations</label>
+          <textarea name="observations" class="form-textarea" rows="2"></textarea>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+          <button name="action" value="sauvegarder" class="btn btn-outline">
+            💾 Sauvegarder le brouillon
+          </button>
+          <button name="action" value="terminer" class="btn btn-success" style="padding:12px;">
+            ✅ Terminer la tâche
+          </button>
+        </div>
+      </form>
+    </div>
+    {% elif tache.statut == 'A_FAIRE' %}
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="text-muted text-small">
+        Démarrez la tâche pour pouvoir saisir un compte rendu.
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if tache.statut == 'EN_COURS' and tache.date_debut %}
+<script>
+(function(){
+  const debut = new Date("{{ tache.date_debut|date:'Y-m-d' }}T{{ tache.date_debut|date:'H:i:s' }}");
+  const el = document.getElementById('chrono');
+  if (!el) return;
+
+  function update() {
+    const sec = Math.max(0, Math.floor((Date.now() - debut.getTime()) / 1000));
+    const h = String(Math.floor(sec / 3600)).padStart(2, '0');
+    const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+    const s = String(sec % 60).padStart(2, '0');
+    el.textContent = `${h}:${m}:${s}`;
+  }
+
+  update();
+  setInterval(update, 1000);
+})();
+</script>
+{% endif %}
 {% endblock %}

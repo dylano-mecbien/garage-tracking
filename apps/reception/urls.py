@@ -1,4 +1,6 @@
 from django.urls import path
+
+from apps.reception import views_or
 from . import views
 
 
@@ -7,12 +9,13 @@ urlpatterns = [
     path('dashboard/',                              views.dashboard,                   name='dashboard_reception'),
     path('liste/',                                  views.liste_receptions,            name='liste_receptions'),
     path('creer/',                                   views.creer_reception,             name='creer_reception'),
+        path('<uuid:or_id>/details_or/',               views.detail_or_rec,            name='detail_or_rec'),
+    path('Ordre-reparation/',                            views.liste_or,           name='liste_or'),
 
     # ── Réceptions (détail + actions) ────────────────────────────
     path('<uuid:rec_id>/',                          views.detail_reception,            name='detail_reception'),
     path('<uuid:rec_id>/rapport/',                  views.creer_rapport,               name='creer_rapport'),
     path('<uuid:rec_id>/ateliers/',                 views.choisir_ateliers,            name='choisir_ateliers'),
-    path('<uuid:rec_id>/or/',                       views.creer_or,                    name='creer_or_rec'),
     path('<uuid:rec_id>/bon-sortie/',               views.creer_bon_sortie,            name='creer_bon_sortie_rec'),
 
     # ── Historique & véhicules présents ──────────────────────────
@@ -45,6 +48,7 @@ urlpatterns = [
 
     # ── Autocomplete & AJAX ──────────────────────────────────────
     path('autocomplete/vehicules-presents/',        views.autocomplete_vehicules_presents, name='autocomplete_vehicules_presents'),
+    path('autocomplete/vehicules-reception/',        views.autocomplete_vehicules_reception, name='autocomplete_vehicules_reception'),
     path('autocomplete/demandeur/',                 views.autocomplete_demandeur,      name='autocomplete_demandeur'),
     path('demandeur/creer-ajax/',                   views.creer_demandeur_ajax,        name='creer_demandeur_ajax'),
     path('api/vehicules/',                          views.api_vehicules,               name='api_vehicules'),
@@ -64,6 +68,13 @@ urlpatterns = [
             views.modifier_motif_reception,
             name="modifier_motif_reception"
         ),
+
+
+    path('reception/<uuid:rec_id>/creer-or/',
+         views_or.creer_or_depuis_fiche_technique, name='creer_or_depuis_fiche_technique'),
+
+    path('fiches-techniques/<uuid:fiche_id>/pdf/', views_or.pdf_fiche_technique, name='pdf_fiche_technique'),
+    path('fiches-controle/<uuid:fiche_id>/pdf/', views_or.pdf_fiche_controle, name='pdf_fiche_controle'),
 
     # ── Bases — Clients ──────────────────────────────────────────
     path('clients/',                                views.rec_clients,                 name='rec_clients'),

@@ -12,6 +12,8 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-produc
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 
+# settings.py
+SITE_URL = "https://garage.laprudenceplus-cm.com"
 # Apps
 INSTALLED_APPS = [
 
@@ -38,6 +40,7 @@ INSTALLED_APPS = [
     'apps.documents',
     'apps.audit',
     'apps.atelier',
+    'apps.inventaire',
 ]
 
 MIDDLEWARE = [

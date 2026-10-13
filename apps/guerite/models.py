@@ -8,23 +8,10 @@ from django.utils import timezone
 import re
 from django.db import transaction
 
-
-class MotifEntree(models.TextChoices):
-    VISITE = 'VISITE', 'Visite'
-    STATIONNEMENT = 'STATIONNEMENT', 'Stationnement'
-    INTERNE = 'INTERNE', 'Interne'
-    REPARATION = 'REPARATION', 'Réparation'
+from apps.accounts.choices import EtatBon, MotifEntree, StatutVehicule, TypeBon
 
 
 
-class StatutEntree(models.TextChoices):
-    GARAGE= 'GARAGE', 'garage'
-    EN_COURS = 'EN_COURS', 'En cours (dans garage)'
-    SORTI = 'SORTI', 'Sorti'
-
-class StatutViewHinstorisue(models.TextChoices):
-    PRESENT = 'PRESENT', 'Présent (dans garage)'
-    SORTI = 'SORTI', 'Sorti'
 
 
 class EnregistrementEntree(models.Model):
@@ -40,7 +27,7 @@ class EnregistrementEntree(models.Model):
         verbose_name="Conducteur"
     )
     motif = models.CharField(max_length=20, choices=MotifEntree.choices, verbose_name="Motif")
-    statut = models.CharField(max_length=15, choices=StatutEntree.choices, default=StatutEntree.EN_COURS)
+    statut = models.CharField(max_length=50, choices=StatutVehicule.choices, default=StatutVehicule.EN_COURS)
     date_entree = models.DateTimeField(default=timezone.now, verbose_name="Date/heure entrée")
     date_sortie = models.DateTimeField(null=True, blank=True, verbose_name="Date/heure sortie")
     kilometrage_entree = models.IntegerField(default=0, verbose_name="Kilométrage à l'entrée")
@@ -122,14 +109,7 @@ class EnregistrementEntree(models.Model):
 
 
 
-class TypeBon(models.TextChoices):
-    VEHICULE = 'VEHICULE', 'Véhicule'
-    DIVERS = 'DIVERS', 'Divers'
 
-class EtatBon(models.TextChoices):
-    CREER = 'CREER', 'Créer'
-    APPROBATION = 'APPROBATION', 'Approbation'
-    VALIDER = 'VALIDER', 'Valider'
 
 
 class BonSortie(models.Model):
