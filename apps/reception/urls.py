@@ -79,6 +79,12 @@ urlpatterns = [
     # ── Bases — Clients ──────────────────────────────────────────
     path('clients/',                                views.rec_clients,                 name='rec_clients'),
     path('clients/<uuid:client_id>/',               views.rec_detail_client,           name='rec_detail_client'),
+
+
+    path('clients/<uuid:client_id>/creer/',     views.creer_centre,     name='creer_centre'),
+    path('clients/<uuid:centre_id>/modifier/',     views.modifier_centre,     name='modifier_centre'),
+    path('clients/<uuid:centre_id>/supp/',     views.supprimer_centre,     name='supprimer_centre'),
+
     path('clients/<uuid:client_id>/modifier/',      views.rec_modifier_client,         name='rec_modifier_client'),
     path('client/export-pdf/',                      views.export_client_pdf,           name='export_client_pdf'),
 

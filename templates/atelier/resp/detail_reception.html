@@ -120,44 +120,66 @@
         </div>
       </div>
 
-      {# 2. Fiche d'entrée (rapport réception) #}
-      <div class="tl-item">
-        <div class="tl-dot {% if client_a_signe %}done{% else %}active{% endif %}">
-          {% if client_a_signe %}✓{% else %}✍{% endif %}
-        </div>
-        <div>
-          <div class="font-bold text-small">Fiche de réception</div>
-          {% if client_a_signe %}
-            <div class="text-small text-muted">
-              {{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}
-            </div>
+     
+{# 2. Fiche de réception #}
+
+        <div class="tl-item">
+<div class="tl-dot {% if client_a_signe %}done{% else %}active{% endif %}">
+  {% if client_a_signe %}✓{% else %}✍{% endif %}
+  </div>
+
+  <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+    <div>
+      <div class="font-bold text-small">Fiche de réception</div>
+        {% if client_a_signe %}
+            <div class="text-small text-muted">{{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}</div>
           {% else %}
             <div class="text-small" style="color:var(--accent);">À compléter</div>
           {% endif %}
-        </div>
-      </div>
+    </div>
+
+    {% if client_a_signe %}
+      <a href="{% url 'voir_fiche_controle' rec.id %}"
+         class="btn btn-primary btn-sm"
+         style="flex-shrink:0;">
+        Consulter
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+
+   
 
       {# 3. Fiche de contrôle #}
- 
-       <div class="tl-item">
-        <div class="tl-dot {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' %}done{% elif a_fiche_controle %}active{% else %}wait{% endif %}">
-          {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI'%}✓{% else %}📋{% endif %}
-        </div>
-        <div>
-          <div class="font-bold text-small">Fiche de contrôle</div>
-          {% if fiche_technique %}
-            <div class="text-small text-muted">{{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}</div>
-          {% elif a_fiche_controle %}
-              {% if rec.statut != 'REPARATION_EN_COURS' %}
+    <div class="tl-item">
+  <div class="tl-dot {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' %}done{% elif a_fiche_controle %}active{% else %}wait{% endif %}">
+    {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' %}✓{% else %}📋{% endif %}
+  </div>
 
-            <div class="text-small" style="color:var(--accent);">En attente</div>
-
-            {% endif %}
-          {% else %}
-            <div class="text-small text-muted">—</div>
-          {% endif %}
+  <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+    <div>
+      <div class="font-bold text-small">Fiche de contrôle</div>
+      {% if fiche_technique %}
+        <div class="text-small text-muted">
+          {{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}
         </div>
-      </div>
+      {% elif a_fiche_controle and rec.statut != 'REPARATION_EN_COURS' %}
+        <div class="text-small" style="color:var(--accent);">En attente</div>
+      {% elif not a_fiche_controle %}
+        <div class="text-small text-muted">—</div>
+      {% endif %}
+    </div>
+
+    {% if fiche_technique %}
+      <a href="{% url 'voir_fiche_technique' rec.id %}"
+         class="btn btn-primary btn-sm"
+         style="flex-shrink:0;">
+        Consulter
+      </a>
+    {% endif %}
+  </div>
+</div>
 
 
       {# 4. Travaux — tests explicites #}
