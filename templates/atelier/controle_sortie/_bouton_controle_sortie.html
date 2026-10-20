@@ -1,0 +1,22 @@
+{% comment %}
+  Bouton du contrôle de sortie, à inclure dans le détail réception (atelier et réception) :
+    {% include "atelier/controle_sortie/_bouton_controle_sortie.html" %}
+  Variable attendue : rec (Reception)
+{% endcomment %}
+{% with fc=rec.entree.fiche_controle %}
+{% if fc and fc.signee_client %}
+  {% if fc.sortie_signee %}
+    <a href="{% url 'voir_fiche_controle' rec.id %}" class="btn btn-success btn-sm">🚪 Sortie signée — voir le comparatif</a>
+  {% elif fc.controle_sortie_temp %}
+    {% if fc.controle_sortie_temp.statut == 'A_SIGNER' %}
+      <a href="{% url 'controle_sortie_client' rec.id %}" class="btn btn-accent btn-sm">✍️ Présenter au client et faire signer</a>
+    {% elif fc.controle_sortie_temp.statut == 'VERIFICATION' %}
+      <a href="{% url 'controle_sortie_verification' rec.id %}" class="btn btn-warning btn-sm">🔎 Vérifier les différences</a>
+    {% else %}
+      <a href="{% url 'controle_sortie_saisie' rec.id %}" class="btn btn-warning btn-sm">🚪 Reprendre le contrôle de sortie</a>
+    {% endif %}
+  {% elif rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' %}
+    <a href="{% url 'controle_sortie_saisie' rec.id %}" class="btn btn-primary btn-sm">🚪 Contrôle de sortie</a>
+  {% endif %}
+{% endif %}
+{% endwith %}

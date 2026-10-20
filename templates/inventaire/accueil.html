@@ -33,9 +33,10 @@
 
 <div class="card"><div class="card-header"><div class="card-title">Historique</div></div>
 <table><thead><tr><th>Date</th><th>Statut</th><th>Décision</th><th></th></tr></thead><tbody>
-{% for i in historique %}<tr><td>{{ i.date|date:"d/m/Y" }}</td><td><span class="bdg {{ i.statut }}">{{ i.get_statut_display }}</span></td>
+{% for i in historique %}<tr><td>{{ i.date_creation|date:"d/m/Y H:i" }}</td><td><span class="bdg {{ i.statut }}">{{ i.get_statut_display }}</span></td>
   <td class="text-small text-muted">{% if i.decide_par %}par {{ i.decide_par.get_full_name }} le {{ i.date_decision|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
   <td><a href="{% url 'inventaire_detail' i.id %}" class="btn btn-outline btn-sm">Ouvrir</a></td></tr>
 {% empty %}<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);">Aucun inventaire</td></tr>{% endfor %}
 </tbody></table></div>
 {% endblock %}
+ 

@@ -8,6 +8,8 @@
 <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
 <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
 <li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
+<li><a href="{% url 'inventaire_admin_liste' %}"><span class="icon">📋</span> Inventaire</a></li>
+  <li><a href="{% url 'liste_or_admin' %} " ><span class="icon">🔧</span> Ordres de réparation</a></li>
 
 <div class="sidebar-section">Bases</div>
 <ul class="sidebar-nav">
@@ -139,17 +141,10 @@
             {% if c.dernier_passage %}{{ c.dernier_passage.date_entree|date:"d/m/Y" }}<br><span style="font-size:11px;">{{ c.dernier_passage.vehicule.immatriculation }}</span>{% else %}—{% endif %}
           </td>
           <td>
-            <div style="display:flex;gap:4px;">
-              <button onclick="editCond('{{ c.id }}','{{ c.nom|escapejs }}','{{ c.prenom|escapejs }}','{{ c.telephone }}','{{ c.telephone2|default:'' }}','{{ c.cni|default:'' }}','{{ c.permis|default:'' }}','{{ c.categorie_permis|default:'' }}')"
-                      class="btn btn-outline btn-sm">✏️</button>
-              <form method="post" action="{% url 'admin_supprimer_conducteur' c.id %}"
-                    onsubmit="return confirm('Supprimer {{ c.prenom }} {{ c.nom }} ?')" style="display:inline;">
-                {% csrf_token %}
-                <button class="btn btn-sm" style="border:1.5px solid var(--danger);color:var(--danger);background:transparent;"
-                        {% if c.nb_passages > 0 %}disabled title="A des passages enregistrés"{% endif %}>🗑</button>
-              </form>
-            </div>
-          </td>
+  <button type="button"
+    onclick="editCond('{{ c.id }}','{{ c.nom|escapejs }}','{{ c.prenom|escapejs }}','{{ c.telephone }}','{{ c.telephone2|default:'' }}','{{ c.cni|default:'' }}','{{ c.permis|default:'' }}','{{ c.categorie_permis|default:'' }}')"
+    class="btn btn-outline btn-sm">✏️</button>
+</td>
         </tr>
         {% empty %}
         <tr><td colspan="8" style="text-align:center;padding:50px;color:var(--text-muted);">
@@ -159,6 +154,8 @@
       </tbody>
     </table>
   </div>
+
+{% include "_pagination.html" with page_obj=page_obj filters=filters %}
 </div>
 {% endblock %}
 {% block extra_js %}

@@ -113,9 +113,7 @@
   <button onclick="openForm()" class="btn btn-primary">➕ Nouvel atelier</button>
 </div>
 
-{% for msg in messages %}
-<div class="alert alert-{{ msg.tags }}" style="margin-bottom:12px;">{{ msg }}</div>
-{% endfor %}
+
 
 <!-- ══ FORMULAIRE INLINE ══════════════════════════════════════ -->
 <div class="inline-form" id="inline-form">
@@ -235,7 +233,10 @@
       </div>
       {% endif %}
     </div>
+   
 
+     <a href="{% url 'admin_atelier_detail' a.id %}" class="btn btn-outline">Consuter</a>
+     
     <!-- Actions -->
     <div style="display:flex;gap:6px;flex-shrink:0;">
       <button onclick="editAtelier(

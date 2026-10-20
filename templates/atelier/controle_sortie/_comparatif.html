@@ -1,0 +1,95 @@
+{% comment %}
+  Comparatif « Avant / Maintenant » (écran client + historique de la fiche).
+  Variables : sections, nb_diff, km_entree, km_sortie, degats_avant, degats_apres
+{% endcomment %}
+<style>
+.cmp-km{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.cmp-km div{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:10px 16px;min-width:170px;}
+.cmp-km .k{font-size:12px;color:var(--text-muted);font-weight:600;} .cmp-km .n{font-size:20px;font-weight:800;}
+.cmp-leg{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;margin-bottom:10px;}
+.cmp-leg span{display:inline-flex;align-items:center;gap:6px;}
+.cmp-leg i{width:14px;height:14px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.15);}
+.cmp-sec{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;}
+.cmp-sec h3{margin:0;padding:10px 14px;font-size:14px;background:var(--surface2,#f1f5f9);border-bottom:1.5px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;}
+.cmp-sec h3 .nb{font-size:12px;font-weight:700;padding:2px 10px;border-radius:12px;background:#fef3c7;color:#92400e;}
+.cmp-t{width:100%;border-collapse:collapse;font-size:13px;}
+.cmp-t th{text-align:left;padding:7px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);}
+.cmp-t td{padding:8px 14px;border-top:1px solid var(--border);vertical-align:top;}
+.cmp-t td.v{font-weight:700;width:24%;}
+.cmp-t .good{color:#15803d;} .cmp-t .bad{color:#b91c1c;}
+.cmp-t tr.t-pire td{background:#fee2e2;} .cmp-t tr.t-mieux td{background:#dcfce7;} .cmp-t tr.t-change td{background:#fef3c7;}
+.cmp-t tr.t-pire td.v.apres,.cmp-t tr.t-mieux td.v.apres,.cmp-t tr.t-change td.v.apres{text-decoration:underline;text-underline-offset:3px;}
+.cmp-t tr.expl td{padding-top:0;font-size:12.5px;}
+.cmp-t tr.expl .box{border-left:3px solid #92400e;padding:4px 10px;background:rgba(255,255,255,.6);border-radius:4px;}
+.cmp-only-diff tr.t-same{display:none;}
+.cmp-schemas{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;padding:12px 14px;border-top:1px solid var(--border);}
+.cmp-schemas canvas{width:100%;border:1.5px solid var(--border);border-radius:8px;background:#f8fafc;}
+@media print{ .cmp-toggle{display:none;} .cmp-sec{break-inside:avoid;} }
+</style>
+
+<div class="cmp-km">
+  <div><div class="k">Kilométrage à l'entrée</div><div class="n">{{ km_entree|default:0 }} km</div></div>
+  <div><div class="k">Kilométrage à la sortie</div><div class="n">{% if km_sortie is not None %}{{ km_sortie }} km{% else %}—{% endif %}</div></div>
+</div>
+
+<div class="cmp-leg">
+  <span><i style="background:#fee2e2"></i> Dégradé</span>
+  <span><i style="background:#dcfce7"></i> Amélioré (réparé)</span>
+  <span><i style="background:#fef3c7"></i> Modifié</span>
+  <span><i style="background:var(--surface)"></i> Identique</span>
+  <label class="cmp-toggle" style="margin-left:auto;display:inline-flex;gap:6px;align-items:center;cursor:pointer;">
+    <input type="checkbox" onchange="document.getElementById('cmp-root').classList.toggle('cmp-only-diff', this.checked)">
+    N'afficher que les différences ({{ nb_diff }})
+  </label>
+</div>
+
+<div id="cmp-root">
+{% for s in sections %}
+<div class="cmp-sec">
+  <h3>{{ s.titre }}{% if s.nb_diff %}<span class="nb">{{ s.nb_diff }} différence{{ s.nb_diff|pluralize }}</span>{% endif %}</h3>
+  <table class="cmp-t">
+    <thead><tr><th>Élément</th><th>Avant (entrée)</th><th>Maintenant (sortie)</th></tr></thead>
+    <tbody>
+    {% for l in s.lignes %}
+      <tr class="{% if l.tendance %}t-{{ l.tendance }}{% else %}t-same{% endif %}">
+        <td>{{ l.libelle }}</td>
+        <td class="v {{ l.avant_css }}">{{ l.avant_txt }}</td>
+        <td class="v apres {{ l.apres_css }}">{{ l.apres_txt }}</td>
+      </tr>
+      {% if l.tendance and l.explication %}
+      <tr class="expl t-{{ l.tendance }}"><td colspan="3"><div class="box">💬 <b>Explication du technicien :</b> {{ l.explication }}</div></td></tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if s.titre == "Peinture et carrosserie" %}
+  <div class="cmp-schemas">
+    <div><div class="text-small font-bold">Avant</div><canvas id="cmp-schema-avant" width="600" height="280"></canvas></div>
+    <div><div class="text-small font-bold">Maintenant</div><canvas id="cmp-schema-apres" width="600" height="280"></canvas></div>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+</div>
+
+{{ degats_avant|json_script:"cmp-degats-avant" }}
+{{ degats_apres|json_script:"cmp-degats-apres" }}
+<script>
+(function(){
+  const COL={PIQURE:'#6366f1',RAYURE:'#f59e0b',BOSSE:'#3b82f6',CASSE:'#ef4444'}, SYM={PIQURE:'✕',RAYURE:'✦',BOSSE:'●',CASSE:'#'};
+  function dessiner(id, dataId){
+    const c=document.getElementById(id), d=document.getElementById(dataId); if(!c||!d) return;
+    let pts=[]; try{ pts=JSON.parse(d.textContent)||[]; }catch(e){}
+    const ctx=c.getContext('2d');
+    ctx.strokeStyle='#94a3b8';ctx.lineWidth=1.5;ctx.fillStyle='#eef2f6';
+    ctx.beginPath();ctx.roundRect(60,25,480,225,20);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#e2e8f0';ctx.beginPath();ctx.roundRect(140,70,320,130,12);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#475569';[[55,45,20,50],[55,185,20,50],[505,45,20,50],[505,185,20,50]].forEach(([x,y,w,h])=>{ctx.beginPath();ctx.roundRect(x,y,w,h,5);ctx.fill();});
+    ctx.fillStyle='#64748b';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('AVANT ▲',300,16);ctx.fillText('ARRIÈRE ▼',300,272);
+    pts.forEach(p=>{ctx.fillStyle=COL[p.type]||'#000';ctx.font='bold 16px sans-serif';ctx.textBaseline='middle';ctx.fillText(SYM[p.type]||'?',p.x,p.y);});
+  }
+  dessiner('cmp-schema-avant','cmp-degats-avant');
+  dessiner('cmp-schema-apres','cmp-degats-apres');
+})();
+</script>

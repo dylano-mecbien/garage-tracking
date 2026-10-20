@@ -4,24 +4,11 @@ import uuid
 from django.db import models
 from django.utils import timezone
 
-from apps.accounts.choices import PrioriteTache, StatutOR, StatutTache, UrgenceOR
-
-BON_DEFAUT = [('BON', 'Bon'), ('DEFAUT', 'Défaut')]
-OUI_NON = [('OUI', 'Oui'), ('NON', 'Non')]
-NIVEAU_HUILE = [('MINI', 'Mini'), ('CORRECT', 'Correct'), ('MAXI', 'Maxi')]
-JAUGE = [('E', 'Vide (E)'), ('QUART', '1/4'), ('DEMI', '1/2'), ('TROIS_QUARTS', '3/4'), ('F', 'Plein (F)')]
+from apps.accounts.choices import PrioriteTache, StatutOR, StatutTache, TypeRetour, UrgenceOR
 
 
-def bd():   # champ Bon / Défaut
-    return models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
 
 
-def on():   # champ Oui / Non
-    return models.CharField(max_length=3, choices=OUI_NON, blank=True)
-
-
-def mm():   # mesure en mm
-    return models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="mm")
 
 
 def _format_minutes(minutes):
@@ -122,37 +109,65 @@ class OrdreReparation(models.Model):
             now = timezone.now()
             self.numero = f"OR-{now.strftime('%Y%m')}-{OrdreReparation.objects.count() + 1:04d}"
         super().save(*args, **kwargs)
-
+ 
     def __str__(self):
         return f"{self.numero} — {self.vehicule.immatriculation}"
-
-    # ── Propriétés : durées ──────────────────────────────────────
-
+ 
+    # ── Verrou ───────────────────────────────────────────────────
+ 
     @property
-    def duree_prevue_label(self):
-        return _format_minutes(self.duree_fin_prevu)
-
+    def est_cloture(self):
+        """OR clôturé : plus aucune création / modification de tâche.
+        Seule la réouverture (côté réception) le débloque."""
+        return self.statut == StatutOR.CLOTURE
+ 
+    # ── Réception ────────────────────────────────────────────────
+ 
+    @property
+    def reception_actuelle(self):
+        """Réception de la dernière réouverture, sinon la réception d'origine."""
+        derniere = self.reouvertures.exclude(reception__isnull=True).select_related('reception').first()
+        return derniere.reception if derniere else self.reception
+ 
+    # ── Durées ───────────────────────────────────────────────────
+    # Durée prévue = somme des durées estimées des tâches
+    #              + somme des durées prévues des réouvertures.
+    # Durée réelle = somme des comptes rendus de toutes les tâches.
+    # Les deux sont STOCKÉES (duree_fin_prevu / duree_fin_reel) et recalculées
+    # à chaque changement : les labels ne refont plus de requête SUM.
+ 
     @property
     def duree_reelle_totale(self):
         from django.db.models import Sum
         total = (
             CompteRendu.objects
-        .filter(tache__ordre_reparation=self)
-        .aggregate(total=Sum('duree_minutes'))['total']
+            .filter(tache__ordre_reparation=self)
+            .aggregate(total=Sum('duree_minutes'))['total']
         )
         return total or 0
-
+ 
+    @property
+    def duree_reelle(self):
+        """Valeur stockée ; calculée seulement si jamais enregistrée."""
+        if self.duree_fin_reel is None:
+            return self.duree_reelle_totale
+        return self.duree_fin_reel
+ 
+    @property
+    def duree_prevue_label(self):
+        return _format_minutes(self.duree_fin_prevu)
+ 
     @property
     def duree_reelle_label(self):
-        return _format_minutes(self.duree_reelle_totale)
-
+        return _format_minutes(self.duree_reelle)
+ 
     @property
     def ecart_duree_minutes(self):
         """Différence durée réelle - durée prévue."""
         if not self.duree_fin_prevu:
             return None
-        return (self.duree_reelle_totale or 0) - self.duree_fin_prevu
-
+        return (self.duree_reelle or 0) - self.duree_fin_prevu
+ 
     @property
     def ecart_duree_label(self):
         ecart = self.ecart_duree_minutes
@@ -160,38 +175,57 @@ class OrdreReparation(models.Model):
             return '—'
         signe = '+' if ecart > 0 else ''
         return f"{signe}{_format_minutes(abs(ecart))}"
-
+ 
     @property
     def en_retard_duree(self):
         if not self.duree_fin_prevu:
             return False
-        return (self.duree_reelle_totale or 0) > self.duree_fin_prevu
-
+        return (self.duree_reelle or 0) > self.duree_fin_prevu
+ 
+    @property
+    def duree_immobilisation_label(self):
+        """Temps passé au garage : création → clôture (ou maintenant)."""
+        fin = self.date_cloture or timezone.now()
+        return _format_minutes(int((fin - self.date_creation).total_seconds() // 60))
+ 
+    def recalculer_duree_prevue(self, save=True):
+        """duree_fin_prevu = Σ durées estimées des tâches + Σ durées des réouvertures."""
+        from django.db.models import Sum
+        taches = self.taches.aggregate(t=Sum('duree_estimee_minutes'))['t'] or 0
+        reouv = self.reouvertures.aggregate(r=Sum('duree_prevue_minutes'))['r'] or 0
+        total = taches + reouv
+        if self.duree_fin_prevu != total:
+            self.duree_fin_prevu = total
+            if save:
+                self.save(update_fields=['duree_fin_prevu'])
+        return total
+ 
     def recalculer_duree_reelle(self, save=True):
-        """Recalcule duree_fin_reel à partir des tâches."""
+        """Recalcule duree_fin_reel à partir des comptes rendus."""
         total = self.duree_reelle_totale
         if self.duree_fin_reel != total:
             self.duree_fin_reel = total
             if save:
                 self.save(update_fields=['duree_fin_reel'])
         return total
-
+ 
     def recalculer_toutes_durees(self, save=True):
-        """Recalcule en cascade : chaque tâche, puis l'OR."""
+        """Recalcule en cascade : chaque tâche, puis l'OR (prévue + réelle)."""
         from django.db import transaction
         with transaction.atomic():
             for t in self.taches.all():
                 t.recalculer_duree_reelle(save=True)
+            self.recalculer_duree_prevue(save=save)
             return self.recalculer_duree_reelle(save=save)
-
-    # ── Propriétés : dates ───────────────────────────────────────
-
+ 
+    # ── Dates ────────────────────────────────────────────────────
+ 
     def recalculer_date_fin_reelle(self):
-        """Dernière date de validation, sinon dernière date de fin, sinon date_cloture."""
+        """Date de clôture, sinon dernière validation, sinon dernière date de fin."""
         from django.db.models import Max
         if self.date_cloture:
             return self.date_cloture
-
+ 
         derniere = (
             self.taches
             .exclude(date_validation__isnull=True)
@@ -199,17 +233,17 @@ class OrdreReparation(models.Model):
         )
         if derniere:
             return derniere
-
+ 
         return (
             self.taches
             .exclude(date_fin__isnull=True)
             .aggregate(d=Max('date_fin'))['d']
         )
-
+ 
     @property
     def date_fin_reelle(self):
         return self.recalculer_date_fin_reelle()
-
+ 
     @property
     def en_retard(self):
         return bool(
@@ -217,13 +251,13 @@ class OrdreReparation(models.Model):
             and self.statut != StatutOR.CLOTURE
             and timezone.localdate() > self.date_fin_prevue
         )
-
+ 
     # ── Stats ────────────────────────────────────────────────────
-
+ 
     @property
     def est_termine(self):
         return self.stats_globales()['cloturable']
-
+ 
     def stats_globales(self):
         """Toutes tâches de TOUS les ateliers — pour savoir si l'OR est clôturable."""
         taches = list(self.taches.all())
@@ -235,7 +269,7 @@ class OrdreReparation(models.Model):
             'pct_valide': int(validees / total * 100) if total else 0,
             'cloturable': total > 0 and validees == total,
         }
-
+ 
     def stats_pour_atelier(self, atelier):
         taches = list(self.taches.filter(atelier=atelier))
         total = len(taches)
@@ -247,13 +281,14 @@ class OrdreReparation(models.Model):
             'terminees':  c(StatutTache.TERMINEE),
             'en_cours':   c(StatutTache.EN_COURS),
             'a_faire':    c(StatutTache.A_FAIRE),
+            'a_reprendre': sum(1 for t in taches if t.est_a_reprendre),
             'pct_valide': int(validees / total * 100) if total else 0,
         }
-
-
+ 
 # ══════════════════════════════════════════════════════════════════
 #  TÂCHE
 # ══════════════════════════════════════════════════════════════════
+
 
 class Tache(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -300,6 +335,14 @@ class Tache(models.Model):
         'accounts.User', on_delete=models.SET_NULL, null=True,
         related_name='taches_creees',
     )
+
+       # Retour au technicien (refus du responsable ou réouverture de l'OR)
+    type_retour     = models.CharField(max_length=12, choices=TypeRetour.choices, default=TypeRetour.AUCUN, blank=True)
+    motif_retour    = models.TextField(blank=True)
+    date_retour     = models.DateTimeField(null=True, blank=True)
+    nb_refus        = models.PositiveIntegerField(default=0)
+    nb_reouvertures = models.PositiveIntegerField(default=0)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -307,36 +350,66 @@ class Tache(models.Model):
         verbose_name = "Tâche"
         ordering = ['created_at']
 
+
     def __str__(self):
         return f"{self.libelle} ({self.atelier.nom})"
-
+ 
+    # ── Retours ──────────────────────────────────────────────────
+ 
+    @property
+    def est_a_reprendre(self):
+        """Tâche revenue au technicien (refus ou réouverture) et pas encore refaite."""
+        return bool(self.type_retour) and self.statut in (StatutTache.A_FAIRE, StatutTache.EN_COURS)
+ 
+    @property
+    def est_refusee(self):
+        return self.type_retour == TypeRetour.REFUS
+ 
+    @property
+    def est_reouverte(self):
+        return self.type_retour == TypeRetour.REOUVERTURE
+ 
+    @property
+    def est_modifiable(self):
+        """Le responsable peut modifier une tâche non démarrée d'un OR non clôturé."""
+        return self.statut == StatutTache.A_FAIRE and not self.ordre_reparation.est_cloture
+ 
+    @property
+    def est_supprimable(self):
+        """Non démarrée ET sans historique (pas de compte rendu, jamais réouverte)."""
+        return (
+            self.est_modifiable
+            and self.nb_reouvertures == 0
+            and not self.comptes_rendus.exists()
+        )
+ 
     # ── Durées ───────────────────────────────────────────────────
-
+ 
     @property
     def duree_estimee_label(self):
         return _format_minutes(self.duree_estimee_minutes)
-
+ 
     @property
     def duree_technicien_minutes(self):
         """Somme des durées des comptes rendus."""
         from django.db.models import Sum
         total = self.comptes_rendus.aggregate(total=Sum('duree_minutes'))['total']
         return total or 0
-
+ 
     @property
     def duree_technicien_label(self):
         return _format_minutes(self.duree_technicien_minutes)
-
+ 
     @property
     def duree_reelle_label(self):
         return _format_minutes(self.duree_reelle_minutes)
-
+ 
     @property
     def ecart_minutes(self):
         if self.duree_estimee_minutes is None:
             return None
         return (self.duree_reelle_minutes or 0) - self.duree_estimee_minutes
-
+ 
     @property
     def ecart_label(self):
         ecart = self.ecart_minutes
@@ -344,7 +417,7 @@ class Tache(models.Model):
             return '—'
         signe = '+' if ecart > 0 else ''
         return f"{signe}{_format_minutes(abs(ecart))}"
-
+ 
     def recalculer_duree_reelle(self, save=True):
         """Met à jour duree_reelle_minutes = somme des comptes rendus."""
         total = self.duree_technicien_minutes
@@ -353,26 +426,26 @@ class Tache(models.Model):
             if save:
                 self.save(update_fields=['duree_reelle_minutes'])
         return total
-
+ 
     # ── Retard & délais ──────────────────────────────────────────
-
+ 
     @property
     def delai_avant_demarrage_minutes(self):
         if self.date_assignation and self.date_debut:
             return int((self.date_debut - self.date_assignation).total_seconds() / 60)
         return None
-
+ 
     @property
     def en_retard(self):
         if self.duree_reelle_minutes is not None and self.duree_estimee_minutes:
             return self.duree_reelle_minutes > self.duree_estimee_minutes
-
+ 
         if self.statut == StatutTache.EN_COURS and self.date_debut and self.duree_estimee_minutes:
             elapsed = (timezone.now() - self.date_debut).total_seconds() / 60
             return elapsed > self.duree_estimee_minutes
-
+ 
         return False
-
+ 
 
 # ══════════════════════════════════════════════════════════════════
 #  COMPTE RENDU
@@ -409,6 +482,90 @@ class CompteRendu(models.Model):
         return _format_minutes(self.duree_minutes)
 
 
+
+
+
+PRIORITE_RANK = {'URGENTE': 3, 'HAUTE': 2, 'NORMALE': 1, 'BASSE': 0}
+
+
+
+
+class ReouvertureOR(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ordre_reparation = models.ForeignKey(OrdreReparation, on_delete=models.CASCADE, related_name='reouvertures')
+ 
+    # Avant : tache = ForeignKey(Tache, ...)  → une seule tâche
+    # Maintenant : plusieurs tâches à refaire
+    taches = models.ManyToManyField(Tache, blank=True, related_name='reouvertures')
+
+    reception = models.ForeignKey(
+        'reception.Reception', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reouvertures_or',
+    )
+ 
+    # Durée générale attribuée à la réouverture (en minutes)
+    duree_prevue_minutes = models.PositiveIntegerField(default=0)
+ 
+    raison = models.TextField()
+    reouvert_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True,
+                                     related_name='reouvertures_effectuees')
+    date_reouverture = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        db_table = 'reouvertures_or'
+        ordering = ['-date_reouverture']
+ 
+    @property
+    def duree_prevue_label(self):
+        m = self.duree_prevue_minutes or 0
+        if not m:
+            return '—'
+        h, mn = divmod(m, 60)
+        if h and mn:
+            return f"{h}h{mn:02d}"
+        return f"{h}h" if h else f"{mn} min"
+
+
+
+
+
+
+
+# ══════════════════════════════════════════════════════════════════
+#  apps/atelier/models.py — FICHES (à la place de FicheTechnique et FicheControle)
+#
+#  - FicheTechnique : ton modèle, inchangé.
+#  - FicheControle  : mêmes colonnes qu'avant. Les éléments contrôlés sont
+#    rangés dans une classe abstraite (ElementsControle) pour être partagés
+#    avec la table temporaire. Ajouts : sièges (catégorie « Habitacle ») et
+#    archive du contrôle de sortie.
+#  - FicheControleTemporaire : table fiches_controle_temporaires, contrôle de
+#    sortie en cours. La ligne est supprimée après la signature du client.
+#
+#  bd(), on(), mm(), JAUGE et NIVEAU_HUILE restent ceux de ton models.py.
+# ══════════════════════════════════════════════════════════════════
+
+
+
+
+
+
+BON_DEFAUT = [('BON', 'Bon'), ('DEFAUT', 'Défaut')]
+OUI_NON = [('OUI', 'Oui'), ('NON', 'Non')]
+NIVEAU_HUILE = [('MINI', 'Mini'), ('CORRECT', 'Correct'), ('MAXI', 'Maxi')]
+JAUGE = [('E', 'Vide (E)'), ('QUART', '1/4'), ('DEMI', '1/2'), ('TROIS_QUARTS', '3/4'), ('F', 'Plein (F)')]
+
+
+def bd():   # champ Bon / Défaut
+    return models.CharField(max_length=10, choices=BON_DEFAUT, blank=True)
+
+
+def on():   # champ Oui / Non
+    return models.CharField(max_length=3, choices=OUI_NON, blank=True)
+
+
+def mm():   # mesure en mm
+    return models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="mm")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -455,6 +612,7 @@ class FicheTechnique(models.Model):
 
     voyant_tableau_bord = bd()
     code_defaut = bd()
+    sieges = bd()
 
     bougies_faisceau = bd()
     sonde_lamda = bd()
@@ -485,6 +643,12 @@ class FicheTechnique(models.Model):
     alternateur_demarreur = bd()
     liquide_refroidissement = bd()
 
+    # --- Habitacle : sièges ---
+    siege_conducteur_etat = bd()
+    siege_passager_etat = bd()
+    sieges_arriere_etat = bd()
+    ceintures_securite_etat = bd()
+
     # === VEHICULE MI HAUTEUR ===
     pneu_av_g_profondeur = mm()
     pneu_av_d_profondeur = mm()
@@ -496,6 +660,10 @@ class FicheTechnique(models.Model):
     pneu_av_d_usure = bd()
     pneu_ar_g_usure = bd()
     pneu_ar_d_usure = bd()
+    ecrou_goujons_av_g = bd()
+    ecrou_goujons_av_d = bd()
+    ecrou_goujons_ar_g = bd()
+    ecrou_goujons_ar_d = bd()
 
     geometrie_necessaire = on()
 
@@ -523,6 +691,26 @@ class FicheTechnique(models.Model):
     susp_biellettes_av_d = bd()
     susp_biellettes_ar_g = bd()
     susp_biellettes_ar_d = bd()
+
+    roulements_av_g = bd()
+    roulements_av_d = bd()
+    roulements_ar_g = bd()
+    roulements_ar_d = bd()
+
+    rotules_av_g = bd()
+    rotules_av_d = bd()
+    rotules_ar_g = bd()
+    rotules_ar_d = bd()
+
+    bras_de_suspension_av_g = bd()
+    bras_de_suspension_av_d = bd()
+    bras_de_suspension_ar_g = bd()
+    bras_de_suspension_ar_d = bd()
+
+    silent_bloc_s_av_g = bd()
+    silent_bloc_s_av_d = bd()
+    silent_bloc_s_ar_g = bd()
+    silent_bloc_s_ar_d = bd()
 
     frein_flexibles_av_g = bd()
     frein_flexibles_av_d = bd()
@@ -589,15 +777,10 @@ class FicheTechnique(models.Model):
     ok_etiquette_vidange = models.BooleanField(default=False, verbose_name="Mise en place étiquette vidange *Ok")
     ok_etiquette_monte_pneumatique = models.BooleanField(default=False, verbose_name="Mise en place étiquette monte pneumatique *Ok")
     ok_remise_a_zero_maintenance = models.BooleanField(default=False, verbose_name="Remise à zéro indicateur de maintenance *Ok")
+    ok_pression_des_pneus = models.BooleanField(default=False, verbose_name="Pression des pneus *Ok")
 
     # === Diagnostic, chiffrage & synthèse ===
     diagnostic = models.TextField(verbose_name="Diagnostic technique")
-    pieces_recommandees = models.TextField(blank=True, verbose_name="Pièces recommandées")
-    main_oeuvre_estimee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    pieces_estimees = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    temps_estime_heures = models.DecimalField(max_digits=6, decimal_places=2, default=0)
-    commentaires = models.TextField(blank=True)
-    observations = models.TextField(blank=True)
 
     # --- Signatures ---
     nom_controleur = models.CharField(max_length=100, blank=True)
@@ -614,24 +797,23 @@ class FicheTechnique(models.Model):
         verbose_name = "Fiche technique"
         verbose_name_plural = "Fiches techniques"
 
-
     @property
     def terminee(self):
         """Terminée = page 3 validée avec la signature du technicien."""
         return bool(self.signature_controleur)
-    
-    @property
-    def total_estime(self):
-        return self.main_oeuvre_estimee + self.pieces_estimees
+
+    # ⚠️ total_estime retiré : il lisait main_oeuvre_estimee et pieces_estimees,
+    # qui n'existent plus dans le modèle (AttributeError à l'affichage).
 
     def __str__(self):
         return f"Fiche diagnostic {self.numero_fiche or self.id} - {self.immatriculation}"
 
 
 # ══════════════════════════════════════════════════════════════════
-#  FICHE DE CONTRÔLE — TON MODÈLE, seule la liaison change (entree au lieu de ordre_reparation)
+#  ÉLÉMENTS CONTRÔLÉS — partagés par la fiche (entrée) et la table temporaire (sortie)
+#  Classe abstraite : aucune table, les colonnes restent dans fiches_controle.
 # ══════════════════════════════════════════════════════════════════
-class FicheControle(models.Model):
+class ElementsControle(models.Model):
     STATUT_CHOICES = [('BON', 'Bon'), ('DEFAUT', 'Défaut')]
     ETAT_VITRE_CHOICES = [('INTACT', 'Intact'), ('FISSURE', 'Fissuré'), ('CASSE', 'Cassé')]
     TYPE_VEHICULE_CHOICES = [
@@ -640,26 +822,7 @@ class FicheControle(models.Model):
         ('FOURGON', 'Fourgon / Van'),
     ]
     JAUGE_CHOICES = JAUGE
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # ⬇️ SEULE MODIFICATION : liée à l'entrée guérite (une nouvelle fiche à chaque nouvelle entrée)
-
-    entree = models.OneToOneField(
-        'guerite.EnregistrementEntree',
-        on_delete=models.PROTECT,
-        related_name='fiche_controle',
-        db_column='entree_id', 
-    )
-
-    # --- En-tête ---
-    travail_a_effectuer = models.TextField(blank=True, verbose_name="Travail à effectuer")
-    entree_le = models.DateField(null=True, blank=True, verbose_name="Entrée le")
-    sortir_le = models.DateField(null=True, blank=True, verbose_name="Sortie le")
-    immatriculation = models.CharField(max_length=20, blank=True)
-    marque = models.CharField(max_length=50, blank=True)
-    modele = models.CharField(max_length=50, blank=True)
-    kilometrage = models.IntegerField(default=0, verbose_name="Kilométrage")
-    telephone = models.CharField(max_length=20, blank=True)
+    ETAT_GENERAL_CHOICES = [('BON', 'Bon'), ('MOYEN', 'Moyen'), ('MAUVAIS', 'Mauvais')]
 
     # --- Colonne 1 ---
     alarme_fonctionne = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
@@ -684,14 +847,14 @@ class FicheControle(models.Model):
     extincteur_present = models.BooleanField(null=True, blank=True)
     boite_pharmacie_presente = models.BooleanField(null=True, blank=True)
     bouton_eclairage_plafonnier = models.BooleanField(null=True, blank=True)
-    roue_secours_gonflee = models.BooleanField(null=True, blank=True)
+    roue_secours_gonflee_et_remis_en_place = models.BooleanField(null=True, blank=True)
 
     cric_present = models.BooleanField(default=False)
     manivelle_presente = models.BooleanField(default=False)
     cle_roue_presente = models.BooleanField(default=False)
 
     joints_portieres_propres = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
-    enjoliveurs_roues_presents = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
+    enjoliveurs_et_ecrous_roues_presents = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
     plaques_immatriculation_avant_arriere = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
     tares_avant_arriere_presentes = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
     garde_boues_presents_bien_montes = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
@@ -716,7 +879,6 @@ class FicheControle(models.Model):
     voyant_ceintures_securite_s_allume = models.CharField(max_length=10, choices=STATUT_CHOICES, blank=True)
 
     # --- Colonne 3 ---
-    sieges_propres_bon_etat = models.BooleanField(null=True, blank=True)
     tapis_sol_5_presents = models.BooleanField(null=True, blank=True)
     vitres_avant_se_baissent = models.BooleanField(null=True, blank=True)
     vitres_arriere_se_baissent = models.BooleanField(null=True, blank=True)
@@ -726,6 +888,22 @@ class FicheControle(models.Model):
 
     jauge_carburant = models.CharField(max_length=15, choices=JAUGE_CHOICES, blank=True)
 
+    cosses_batterie_serrées = models.BooleanField(null=True, blank=True)
+    reglage_des_miroirs_retroviseurs_fonctionnel = models.BooleanField(null=True, blank=True)
+    console_fermeture_ouverture_portiere_fonctionnel = models.BooleanField(null=True, blank=True)
+    sous_capot_moteur_est_propre = models.BooleanField(null=True, blank=True)
+    isolant_thermique_capot_present = models.BooleanField(null=True, blank=True)
+    niveau_liquide_lave_glace_bon = models.BooleanField(null=True, blank=True)
+    niveau_liquide_huile_bon = models.BooleanField(null=True, blank=True)
+    niveau_liquide_refroisseur_bon = models.BooleanField(null=True, blank=True)
+    niveau_liquide_frein_bon = models.BooleanField(null=True, blank=True)
+
+    qualite_rendu_peinture_rayures = models.BooleanField(null=True, blank=True)
+    qualite_rendu_peinture_decollement = models.BooleanField(null=True, blank=True)
+    qualite_rendu_peinture_couleur = models.BooleanField(null=True, blank=True)
+    qualite_rendu_peinture_eclat_brillance = models.BooleanField(null=True, blank=True)
+    qualite_rendu_peinture_frissure = models.BooleanField(null=True, blank=True)
+
     # --- Schéma carrosserie ---
     type_vehicule = models.CharField(max_length=20, choices=TYPE_VEHICULE_CHOICES, blank=True)
     points_degats_carrosserie = models.JSONField(
@@ -733,9 +911,34 @@ class FicheControle(models.Model):
         help_text="Liste de points sur le schéma: [{'x':.., 'y':.., 'type':'PIQURE|RAYURE|BOSSE|CASSE'}, ...]")
 
     # --- Synthèse ---
-    etat_general = models.CharField(max_length=20, choices=[('BON', 'Bon'), ('MOYEN', 'Moyen'), ('MAUVAIS', 'Mauvais')], default='BON')
+    etat_general = models.CharField(max_length=20, choices=ETAT_GENERAL_CHOICES, default='BON')
     commentaires = models.TextField(blank=True)
-    defauts_observes = models.TextField(blank=True)
+
+    class Meta:
+        abstract = True
+
+
+# ══════════════════════════════════════════════════════════════════
+#  FICHE DE CONTRÔLE — définitive (état d'entrée + archive de la sortie)
+# ══════════════════════════════════════════════════════════════════
+class FicheControle(ElementsControle):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    entree = models.OneToOneField(
+        'guerite.EnregistrementEntree',
+        on_delete=models.PROTECT,
+        related_name='fiche_controle',
+        db_column='entree_id',
+    )
+
+    # --- En-tête ---
+    travail_a_effectuer = models.TextField(blank=True, verbose_name="Travail à effectuer")
+    entree_le = models.DateField(null=True, blank=True, verbose_name="Entrée le")
+    sortir_le = models.DateField(null=True, blank=True, verbose_name="Sortie le")
+    immatriculation = models.CharField(max_length=20, blank=True)
+    marque = models.CharField(max_length=50, blank=True)
+    modele = models.CharField(max_length=50, blank=True)
+    kilometrage = models.IntegerField(default=0, verbose_name="Kilométrage")
+    telephone = models.CharField(max_length=20, blank=True)
 
     # --- Signatures (5 blocs) ---
     nom_receptionniste = models.CharField(max_length=100, blank=True)
@@ -753,6 +956,20 @@ class FicheControle(models.Model):
                                      related_name='fiches_controle')
     date_inspection = models.DateTimeField(auto_now_add=True)
 
+    # ➕ NOUVEAU — archive du contrôle de sortie (remplie à la signature du client)
+    kilometrage_sortie = models.IntegerField(null=True, blank=True, verbose_name="Kilométrage à la sortie")
+    etat_sortie = models.JSONField(default=dict, blank=True,
+                                   help_text="Valeurs relevées à la sortie : {champ: valeur}")
+    differences_sortie = models.JSONField(
+        default=list, blank=True,
+        help_text="Différences confirmées : [{champ, libelle, categorie, avant, apres, explication}]")
+    controle_sortie_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+                                            related_name='fiches_controle_sortie')
+    date_controle_sortie = models.DateTimeField(null=True, blank=True,
+                                                verbose_name="Contrôle de sortie validé le")
+    date_signature_sortie = models.DateTimeField(null=True, blank=True,
+                                                 verbose_name="Signé par le client le")
+
     class Meta:
         db_table = 'fiches_controle'
         verbose_name = "Fiche de contrôle"
@@ -765,24 +982,49 @@ class FicheControle(models.Model):
 
     @property
     def signee_client(self):
-        """Le client a signé (bouton « Valider la réception » côté réception)."""
+        """Le client a signé l'état d'entrée."""
         return bool(self.signature_client_avant)
 
-    
+    @property
+    def sortie_signee(self):
+        """Contrôle de sortie archivé et signé par le client."""
+        return bool(self.signature_client_apres and self.date_signature_sortie)
+
     def __str__(self):
         return f"Fiche contrôle - {self.immatriculation or self.entree_id}"
 
-PRIORITE_RANK = {'URGENTE': 3, 'HAUTE': 2, 'NORMALE': 1, 'BASSE': 0}
 
-class ReouvertureOR(models.Model):
+# ══════════════════════════════════════════════════════════════════
+#  CONTRÔLE DE SORTIE EN COURS — table temporaire
+# ══════════════════════════════════════════════════════════════════
+class FicheControleTemporaire(ElementsControle):
+    class Statut(models.TextChoices):
+        SAISIE = 'SAISIE', "Saisie en cours"
+        VERIFICATION = 'VERIFICATION', "Vérification des différences"
+        A_SIGNER = 'A_SIGNER', "Validée, en attente de la signature du client"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    ordre_reparation = models.ForeignKey(OrdreReparation, on_delete=models.CASCADE, related_name='reouvertures')
-    tache = models.ForeignKey(Tache, on_delete=models.SET_NULL, null=True, blank=True, related_name='reouvertures')
-    raison = models.TextField()
-    reouvert_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True,
-                                     related_name='reouvertures_effectuees')
-    date_reouverture = models.DateTimeField(auto_now_add=True)
+    fiche_controle = models.OneToOneField(
+        FicheControle,
+        on_delete=models.CASCADE,
+        related_name='controle_sortie_temp',
+    )
+    kilometrage_sortie = models.IntegerField(null=True, blank=True, verbose_name="Kilométrage à la sortie")
+    statut = models.CharField(max_length=15, choices=Statut.choices, default=Statut.SAISIE)
+    # {champ: {'apres': valeur confirmée, 'explication': '...', 'par': id, 'le': iso}}
+    confirmations = models.JSONField(default=dict, blank=True)
+
+    technicien = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True,
+                                   related_name='controles_sortie_en_cours')
+    date_debut = models.DateTimeField(auto_now_add=True)
+    date_maj = models.DateTimeField(auto_now=True)
+    date_validation = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        db_table = 'reouvertures_or'
-        ordering = ['-date_reouverture']
+        db_table = 'fiches_controle_temporaires'
+        verbose_name = "Contrôle de sortie en cours"
+        verbose_name_plural = "Contrôles de sortie en cours"
+
+    def __str__(self):
+        return f"Contrôle de sortie en cours - {self.fiche_controle}"
+

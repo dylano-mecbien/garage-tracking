@@ -7,6 +7,7 @@ Même charte que pdf_generator (COULEUR_PRIMAIRE / ACCENT ...).
 Les signatures sont des TextField en base64 (avec ou sans préfixe data:image/...).
 """
 import base64
+import json
 import logging
 from html import escape
 from io import BytesIO
@@ -98,10 +99,25 @@ def _etat(v):
     return None
 
 
-def _oui_non(v):
+def _bool(v):
+    """Oui / Non → True / False / None. Accepte les booléens et les champs on() ('OUI' / 'NON')."""
     if v is None or v == '':
+        return None
+    if isinstance(v, bool):
+        return v
+    s = str(v).strip().upper()
+    if s in ('OUI', 'TRUE', '1', 'O'):
+        return True
+    if s in ('NON', 'FALSE', '0', 'N'):
+        return False
+    return None
+
+
+def _oui_non(v):
+    b = _bool(v)
+    if b is None:
         return ''
-    return 'Oui' if v else 'Non'
+    return 'Oui' if b else 'Non'
 
 
 def _date(d):
@@ -511,32 +527,56 @@ def _contour_vehicule(d, x, y, w, h, type_vehicule):
                  fillColor=COULEUR_ACCENT, textAnchor='start'))
 
 
-def _schema_carrosserie(fiche, largeur, hauteur=36 * mm):
-    """Schéma + points de dégâts (x, y en % ou fraction de la zone, origine en haut à gauche)."""
-    type_v = _get(fiche, 'type_vehicule') or 'VOITURE'
+# Le schéma de la saisie est un canvas de 600 x 280 px : les points y sont enregistrés en pixels.
+CANVAS_W, CANVAS_H = 600, 280
+COULEURS_DEGATS = {k: colors.HexColor(v) for k, v in
+                   {'PIQURE': '#6366f1', 'RAYURE': '#f59e0b', 'BOSSE': '#3b82f6', 'CASSE': '#ef4444'}.items()}
+
+
+def _dessin_canvas(d, largeur, hauteur):
+    """Même dessin que le canvas de saisie (drawCar), pour que les marques tombent au même endroit."""
+    kx, ky = largeur / CANVAS_W, hauteur / CANVAS_H
+
+    def rect(x, y, w, h, r, **kw):
+        d.add(Rect(x * kx, hauteur - (y + h) * ky, w * kx, h * ky, rx=r * kx, ry=r * ky, **kw))
+
+    rect(60, 25, 480, 225, 20, fillColor=colors.HexColor('#eef2f6'), strokeColor=colors.HexColor('#94a3b8'),
+         strokeWidth=0.8)
+    rect(140, 70, 320, 130, 12, fillColor=colors.HexColor('#e2e8f0'), strokeColor=colors.HexColor('#94a3b8'),
+         strokeWidth=0.8)
+    for x, y in ((55, 45), (55, 185), (505, 45), (505, 185)):
+        rect(x, y, 20, 50, 5, fillColor=colors.HexColor('#475569'), strokeColor=None)
+    gris = colors.HexColor('#64748b')
+    d.add(String(largeur / 2, hauteur - 16 * ky, "AVANT", fontName='Helvetica', fontSize=5.5,
+                 fillColor=gris, textAnchor='middle'))
+    d.add(String(largeur / 2, (CANVAS_H - 274) * ky, "ARRIÈRE", fontName='Helvetica', fontSize=5.5,
+                 fillColor=gris, textAnchor='middle'))
+
+
+def _schema_carrosserie(fiche, largeur, hauteur=None):
+    """Schéma + points de dégâts saisis sur le canvas (pixels 600 x 280, origine en haut à gauche)."""
+    hauteur = hauteur or largeur * CANVAS_H / CANVAS_W
     points = _get(fiche, 'points_degats_carrosserie') or []
-    elements = []
-    img_path = SCHEMA_IMAGES.get(type_v)
+    if isinstance(points, str):
+        try:
+            points = json.loads(points)
+        except ValueError:
+            points = []
 
     d = Drawing(largeur, hauteur)
     d.add(Rect(0, 0, largeur, hauteur, fillColor=colors.white, strokeColor=COULEUR_BORD, strokeWidth=0.5))
-    if img_path:
-        try:
-            from reportlab.graphics.shapes import Image as GImage
-            d.add(GImage(1, 1, largeur - 2, hauteur - 2, img_path))
-        except Exception as e:
-            logging.warning("Schéma %s introuvable : %s", img_path, e)
-            img_path = None
-    if not img_path:
-        _contour_vehicule(d, largeur * 0.12, hauteur * 0.2, largeur * 0.76, hauteur * 0.6, type_v)
+    _dessin_canvas(d, largeur, hauteur)
 
     pts = [p for p in points if isinstance(p, dict) and p.get('x') is not None and p.get('y') is not None]
-    echelle = 1 if pts and all(float(p['x']) <= 1 and float(p['y']) <= 1 for p in pts) else 100
+    # Anciennes données éventuelles en fractions (0-1) ; sinon pixels du canvas.
+    fraction = bool(pts) and all(float(p['x']) <= 1 and float(p['y']) <= 1 for p in pts)
+    ex, ey = (1, 1) if fraction else (CANVAS_W, CANVAS_H)
     for p in pts:
         try:
-            px = float(p['x']) / echelle * largeur
-            py = hauteur - float(p['y']) / echelle * hauteur
-            _symbole(d, p.get('type'), px, py)
+            px = float(p['x']) / ex * largeur
+            py = hauteur - float(p['y']) / ey * hauteur
+            t = str(p.get('type') or '').upper()
+            _symbole(d, t, px, py, couleur=COULEURS_DEGATS.get(t, COULEUR_KO))
         except (TypeError, ValueError):
             continue
     lib_type = _display(fiche, 'type_vehicule') or 'Véhicule'
@@ -544,44 +584,78 @@ def _schema_carrosserie(fiche, largeur, hauteur=36 * mm):
                  fillColor=COULEUR_PRIMAIRE))
     d.add(String(largeur - 2 * mm, 1.6 * mm, f"{len(pts)} dégât(s) relevé(s)", fontName='Helvetica',
                  fontSize=6, fillColor=COULEUR_TEXTE, textAnchor='end'))
-    elements.append(d)
-    return elements
+    return [d]
 
 
 # ════════════════════════════════════════════════════════════════
 #  Signatures (base64)
 # ════════════════════════════════════════════════════════════════
+def _signature_brute(data):
+    """Octets de l'image : dataURL / base64, ou chemin enregistré dans le storage (local ou MinIO)."""
+    s = str(data).strip()
+    if s.startswith('data:'):
+        s = s.split(',', 1)[1]
+    elif '/' in s or s.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+        from django.core.files.storage import default_storage
+        with default_storage.open(s, 'rb') as fh:
+            return fh.read()
+    s = ''.join(s.split())
+    return base64.b64decode(s + '=' * (-len(s) % 4))
+
+
+def _rogner_signature(raw):
+    """Coupe les marges vides du canvas : le trait remplit ensuite la case au lieu d'y être minuscule."""
+    from PIL import Image as PILImage, ImageChops
+    im = PILImage.open(BytesIO(raw)).convert('RGBA')
+    fond = PILImage.new('RGBA', im.size, (255, 255, 255, 255))
+    fond.alpha_composite(im)                                  # transparent -> blanc
+    gris = fond.convert('L')
+    boite = ImageChops.invert(gris).point(lambda v: 255 if v > 40 else 0).getbbox()
+    if boite:
+        m = 6
+        boite = (max(boite[0] - m, 0), max(boite[1] - m, 0),
+                 min(boite[2] + m, im.width), min(boite[3] + m, im.height))
+        fond = fond.crop(boite)
+    out = BytesIO()
+    fond.convert('RGB').save(out, 'PNG')
+    return out.getvalue()
+
+
 def _signature_b64(data, max_w=50 * mm, max_h=16 * mm):
     if not data:
         return None
     try:
-        s = str(data).strip()
-        if s.startswith('data:'):
-            s = s.split(',', 1)[1]
-        s = ''.join(s.split())
-        raw = base64.b64decode(s + '=' * (-len(s) % 4))
+        raw = _signature_brute(data)
         if not raw:
             return None
+        try:
+            raw = _rogner_signature(raw)
+        except Exception as e:
+            logging.warning("Signature non rognée : %s", e)
         iw, ih = ImageReader(BytesIO(raw)).getSize()
-        k = min(max_w / iw, max_h / ih)
-        return Image(BytesIO(raw), width=iw * k, height=ih * k, mask='auto')
+        k = min(max_w / iw, max_h / ih, 0.3 * mm)   # pas plus de 0,3 mm par pixel : évite l'effet escalier
+        return Image(BytesIO(raw), width=iw * k, height=ih * k)
     except Exception as e:
-        logging.warning("Signature base64 illisible : %s", e)
+        logging.warning("Signature illisible (%s) : %s", str(data)[:60], e)
         return None
 
 
 def _case_signature(titre, nom, signature_b64, largeur, hauteur=22 * mm):
-    img = _signature_b64(signature_b64, largeur - 6 * mm, hauteur - 11 * mm)
-    contenu = [PC(titre, 7, True), Spacer(1, 1 * mm)]
-    contenu.append(img if img else Spacer(1, hauteur - 11 * mm))
-    contenu.append(PC(_txt(nom) or '&nbsp;', 7, False, COULEUR_TEXTE))
-    t = Table([[contenu]], colWidths=[largeur], rowHeights=[hauteur])
+    """Titre en haut, signature centrée au milieu, nom en bas : même position dans toutes les cases."""
+    h_titre, h_nom = 4.5 * mm, 4 * mm
+    h_sig = hauteur - h_titre - h_nom
+    img = _signature_b64(signature_b64, largeur - 6 * mm, h_sig - 1.5 * mm)
+    t = Table([[PC(titre, 7, True)], [img or ''], [PC(_txt(nom) or '&nbsp;', 7, False, COULEUR_TEXTE)]],
+              colWidths=[largeur], rowHeights=[h_titre, h_sig, h_nom])
     t.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 0.8, COULEUR_PRIMAIRE),
         ('ROUNDEDCORNERS', [4, 4, 4, 4]),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('VALIGN', (0, 0), (-1, 0), 'TOP'),
+        ('VALIGN', (0, 1), (-1, 1), 'MIDDLE'),
+        ('VALIGN', (0, 2), (-1, 2), 'BOTTOM'),
+        ('TOPPADDING', (0, 0), (-1, -1), 1), ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, 0), 2), ('BOTTOMPADDING', (0, 2), (-1, 2), 2),
     ]))
     return t
 
@@ -634,11 +708,11 @@ CONTROLE_COL1 = [
     ("*Y a-t-il l'extincteur ?", 'extincteur_present', 'B'),
     ("*La boîte à pharmacie ?", 'boite_pharmacie_presente', 'B'),
     ("*Le bouton d'allumage de l'éclairage du plafonnier fonctionne-t-il ?", 'bouton_eclairage_plafonnier', 'B'),
-    ("*La roue de secours est-elle gonflée ?", 'roue_secours_gonflee', 'B'),
+    ("*La roue de secours est-elle gonflée ?", 'roue_secours_gonflee_et_remis_en_place', 'B'),
     ("*Y a-t-il le cric ? La manivelle ? La clé de roue ?",
      ('cric_present', 'manivelle_presente', 'cle_roue_presente'), 'M'),
     ("*Les joints de portières sont-ils propres ?", 'joints_portieres_propres', 'S'),
-    ("*Les enjoliveurs de roues sont-ils présents ?", 'enjoliveurs_roues_presents', 'S'),
+    ("*Les enjoliveurs et écrous de roues sont-ils présents ?", 'enjoliveurs_et_ecrous_roues_presents', 'S'),
     ("*Y a-t-il les plaques d'immatriculation avant &amp; arrière ?", 'plaques_immatriculation_avant_arriere', 'S'),
     ("*Les tares avant &amp; arrière sont-elles présentes ?", 'tares_avant_arriere_presentes', 'S'),
     ("*Les garde-boues sont-ils présents et bien montés ?", 'garde_boues_presents_bien_montes', 'S'),
@@ -666,7 +740,6 @@ CONTROLE_COL2 = [
      'voyant_ceintures_securite_s_allume', 'S'),
 ]
 CONTROLE_COL3 = [
-    ("*Les sièges sont-ils propres et en bon état ?", 'sieges_propres_bon_etat', 'B'),
     ("*Les 05 tapis de sol sièges sont-ils présents ?", 'tapis_sol_5_presents', 'B'),
     ("*Les vitres avant se baissent-elles ?", 'vitres_avant_se_baissent', 'B'),
     ("*Les vitres arrière se baissent-elles ?", 'vitres_arriere_se_baissent', 'B'),
@@ -674,6 +747,25 @@ CONTROLE_COL3 = [
     ("*Les autocollants du pare-brise sont-ils présents ? (si pare-brise à remplacer)",
      'autocollants_pare_brise_presents', 'B'),
     ("*Y a-t-il des voiles de peinture sur les vitres ?", 'voiles_peinture_sur_vitres', 'I'),
+    ("*Le réglage des rétroviseurs fonctionne-t-il ?", 'reglage_des_miroirs_retroviseurs_fonctionnel', 'B'),
+    ("*La console d'ouverture / fermeture des portières fonctionne-t-elle ?",
+     'console_fermeture_ouverture_portiere_fonctionnel', 'B'),
+]
+CONTROLE_CAPOT = [
+    ("*Les cosses de batterie sont-elles serrées ?", 'cosses_batterie_serrées', 'B'),
+    ("*Le dessous du capot moteur est-il propre ?", 'sous_capot_moteur_est_propre', 'B'),
+    ("*L'isolant thermique du capot est-il présent ?", 'isolant_thermique_capot_present', 'B'),
+    ("*Niveau du lave-glace bon ?", 'niveau_liquide_lave_glace_bon', 'B'),
+    ("*Niveau d'huile bon ?", 'niveau_liquide_huile_bon', 'B'),
+    ("*Niveau du liquide de refroidissement bon ?", 'niveau_liquide_refroisseur_bon', 'B'),
+    ("*Niveau du liquide de frein bon ?", 'niveau_liquide_frein_bon', 'B'),
+]
+CONTROLE_PEINTURE = [
+    ("*Rayures ?", 'qualite_rendu_peinture_rayures', 'I'),
+    ("*Décollement ?", 'qualite_rendu_peinture_decollement', 'I'),
+    ("*Couleur conforme ?", 'qualite_rendu_peinture_couleur', 'B'),
+    ("*Éclat / brillance ?", 'qualite_rendu_peinture_eclat_brillance', 'B'),
+    ("*Fissures ?", 'qualite_rendu_peinture_frissure', 'I'),
 ]
 
 
@@ -720,8 +812,8 @@ def _table_bon_defaut(fiche, lignes, largeur, size=6.3):
     return _grille(data, [largeur - 2 * cw, cw, cw])
 
 
-def _table_oui_non(fiche, lignes, largeur, size=6.3):
-    data = [[P('', 6.5), PC('Réponse', 5.8)]]
+def _table_oui_non(fiche, lignes, largeur, size=6.3, titre=''):
+    data = [[PC(titre, 6.5) if titre else P('', 6.5), PC('Réponse', 5.8)]]
     for lib, champ, type_ in lignes:
         v = _get(fiche, champ)
         rep = _oui_non(v)
@@ -731,7 +823,45 @@ def _table_oui_non(fiche, lignes, largeur, size=6.3):
     return _grille(data, [largeur - 11 * mm, 11 * mm])
 
 
+class _VueSortie:
+    """La fiche vue avec les valeurs du contrôle de sortie (etat_sortie) une fois la sortie archivée.
+    Un élément non relevé à la sortie garde sa valeur d'entrée."""
+
+    def __init__(self, fiche, etat):
+        self._fiche, self._etat = fiche, etat
+
+    def _sortie(self, champ):
+        v = self._etat.get(champ)
+        return None if v in (None, '', []) else v
+
+    def __getattr__(self, name):
+        if name.startswith('get_') and name.endswith('_display'):
+            champ = name[4:-8]
+            v = self._sortie(champ)
+            if v is not None:
+                try:
+                    choix = dict(self._fiche._meta.get_field(champ).flatchoices)
+                except Exception:
+                    choix = {}
+                return lambda: str(choix.get(v, v))
+        elif name in self._etat:
+            v = self._sortie(name)
+            if v is not None:
+                return v
+        return getattr(self._fiche, name)
+
+
+def _kilometrage(fiche):
+    entree, sortie = _get(fiche, 'kilometrage'), _get(fiche, 'kilometrage_sortie')
+    if sortie in (None, ''):
+        return _num(entree or None, ' km')
+    return f"Entrée : {_num(entree or 0, ' km')}   –   Sortie : {_num(sortie, ' km')}"
+
+
 def generer_pdf_fiche_controle(fiche):
+    etat = _get(fiche, 'etat_sortie')
+    if isinstance(etat, dict) and etat:
+        fiche = _VueSortie(fiche, etat)      # fiche finale : valeurs de sortie
     buffer = BytesIO()
     titre = "FICHE ENTRÉE - SORTIE ATELIER"
     doc = _doc(buffer, titre)
@@ -751,7 +881,7 @@ def generer_pdf_fiche_controle(fiche):
     droite = _champs([
         ("Immatriculation", _get(fiche, 'immatriculation')),
         ("Marque / Modèle", f"{_get(fiche, 'marque') or ''} {_get(fiche, 'modele') or ''}".strip()),
-        ("Kilométrage", _num(_get(fiche, 'kilometrage') or None, ' km')),
+        ("Kilométrage", _kilometrage(fiche)),
         ("Téléphone", _get(fiche, 'telephone')),
     ], [26 * mm, 70 * mm])
     info = _colonnes([gauche, droite], [92 * mm, LARGEUR - 92 * mm], gap=2 * mm)
@@ -767,7 +897,9 @@ def generer_pdf_fiche_controle(fiche):
     col1 = [_table_bon_defaut(fiche, CONTROLE_COL1, w1)]
 
     col2 = _schema_carrosserie(fiche, w2) + [Spacer(1, 1.5 * mm),
-                                             _table_bon_defaut(fiche, CONTROLE_COL2, w2)]
+                                             _table_bon_defaut(fiche, CONTROLE_COL2, w2),
+                                             Spacer(1, 1.5 * mm),
+                                             _table_oui_non(fiche, CONTROLE_PEINTURE, w2, titre='QUALITÉ PEINTURE')]
 
     jauge = _jauge_carburant(_get(fiche, 'jauge_carburant'), _display(fiche, 'jauge_carburant'), w3, 22 * mm)
     jauge_t = Table([[PC("JAUGE CARBURANT", 7, True, colors.white)], [jauge]], colWidths=[w3])
@@ -790,33 +922,29 @@ def generer_pdf_fiche_controle(fiche):
                             ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3)]))
     col3 = [
         _legende(w3), Spacer(1, 1.5 * mm), jauge_t, Spacer(1, 1.5 * mm),
-        _table_oui_non(fiche, CONTROLE_COL3, w3), Spacer(1, 1.5 * mm),
-        eg, Spacer(1, 1.5 * mm),
-        _bloc_texte("DÉFAUTS OBSERVÉS", _get(fiche, 'defauts_observes'), w3),
-        Spacer(1, 1.5 * mm),
-        _bloc_texte("COMMENTAIRES", _get(fiche, 'commentaires'), w3, min_h=14 * mm),
+        _table_oui_non(fiche, CONTROLE_COL3, w3, titre='HABITACLE'), Spacer(1, 1.5 * mm),
+        _table_oui_non(fiche, CONTROLE_CAPOT, w3, titre='SOUS LE CAPOT'), Spacer(1, 1.5 * mm),
+        eg,
     ]
     el.append(_colonnes([col1, col2, col3], [w1 + 2 * mm, w2 + 2 * mm, w3]))
     el.append(Spacer(1, 2.5 * mm))
 
-    # ── Signatures (3 + 2) ──
-    ws = (LARGEUR - 4 * mm) / 3
-    ligne1 = _colonnes([
-        _case_signature("Nom &amp; signature du réceptionniste",
-                        _get(fiche, 'nom_receptionniste'), _get(fiche, 'signature_receptionniste'), ws),
-        _case_signature("Nom &amp; signature du client avant réparation",
-                        _get(fiche, 'nom_client_avant'), _get(fiche, 'signature_client_avant'), ws),
-        _case_signature("Nom &amp; signature du client après réparation",
-                        _get(fiche, 'nom_client_apres'), _get(fiche, 'signature_client_apres'), ws),
-    ], [ws + 2 * mm, ws + 2 * mm, ws])
-    wd = (LARGEUR - 2 * mm) / 2
-    ligne2 = _colonnes([
-        _case_signature("Nom &amp; signature Technicien",
-                        _get(fiche, 'nom_technicien'), _get(fiche, 'signature_technicien'), wd),
-        _case_signature("Nom &amp; signature Contrôleur",
-                        _get(fiche, 'nom_controleur'), _get(fiche, 'signature_controleur'), wd),
-    ], [wd + 2 * mm, wd])
-    el.append(KeepTogether([ligne1, Spacer(1, 2 * mm), ligne2]))
+    # ── Commentaires : grande zone horizontale, juste avant les signatures ──
+    el.append(_bloc_texte("COMMENTAIRES", _get(fiche, 'commentaires'), LARGEUR, min_h=20 * mm, size=8))
+    el.append(Spacer(1, 2.5 * mm))
+
+    # ── Signatures : les 5 sur une seule ligne ──
+    cases = [
+        ("Réceptionniste", 'nom_receptionniste', 'signature_receptionniste'),
+        ("Client avant réparation", 'nom_client_avant', 'signature_client_avant'),
+        ("Client après réparation", 'nom_client_apres', 'signature_client_apres'),
+        ("Technicien", 'nom_technicien', 'signature_technicien'),
+        ("Contrôleur", 'nom_controleur', 'signature_controleur'),
+    ]
+    ws = (LARGEUR - 4 * 1.5 * mm) / 5
+    el.append(_colonnes(
+        [_case_signature(lib, _get(fiche, nom), _get(fiche, sig), ws, 19 * mm) for lib, nom, sig in cases],
+        [ws + 1.5 * mm] * 4 + [ws]))
 
     pied = _pied_de_page(f"Fiche entrée-sortie atelier N° {numero}")
     doc.build(el, onFirstPage=pied, onLaterPages=pied)
@@ -857,7 +985,7 @@ def _t_eclairage(f, w):
 
 def _t_simple(titre, lignes, f, w, entete=('Bon', 'Défaut')):
     cw = 8.2 * mm
-    data = [[PC(titre, 6.8), PC(entete[0], 6.3), PC(entete[1], 6.3)]]
+    data = [[PC(titre, 6.8), PC(entete[0], 6.3), PC(entete[1], 5.6)]]
     for lib, champ in lignes:
         data.append([P(lib)] + _bd(_get(f, champ)))
     return _grille(data, [w - 2 * cw, cw, cw])
@@ -907,7 +1035,8 @@ def _t_niveau(titre, valeur, libelle, w):
 
 def _oui_non_cells(v):
     """2 cellules Oui / Non (la réponse est pastillée)."""
-    if v is None or v == '':
+    v = _bool(v)
+    if v is None:
         return [PC('Oui', 6.3, False, COULEUR_VIDE), PC('Non', 6.3, False, COULEUR_VIDE)]
     return [PC('Oui', 6.8, True, COULEUR_ACCENT) if v else PC('Oui', 6.3, False, COULEUR_VIDE),
             PC('Non', 6.8, True, COULEUR_ACCENT) if not v else PC('Non', 6.3, False, COULEUR_VIDE)]
@@ -958,7 +1087,8 @@ def _t_roues(titre, lignes, f, w, prefixe, notes=None, mesures=None):
             m = mesures.get(suffixe)
             row.append(P(f"<b>{m}</b>" if m else '', 6.3, align=TA_RIGHT) if m is not None else '')
         for r in roues:
-            row.append(_roue(_get(f, f'{prefixe}_{suffixe}_{r}')) if r in dispo else '')
+            champ = f'{prefixe}_{suffixe}_{r}' if prefixe else f'{suffixe}_{r}'
+            row.append(_roue(_get(f, champ)) if r in dispo else '')
         data.append(row)
     off = 1 if has_mes else 0
     extra = [
@@ -987,13 +1117,14 @@ def _t_pneus(f, w):
         [P('Profondeur')] + [P(f"<b>{_num(v, ' mm')}</b>" if v not in (None, '') else '…… mm', 6.3,
                                align=TA_CENTER) for v in pr],
         [P('Usure*')] + [_roue(_get(f, f'pneu_{r}_usure')) for r in TOUTES] + [''],
+        [P('Écrous / goujons')] + [_roue(_get(f, f'ecrou_goujons_{r}')) for r in TOUTES] + [''],
         [P('Géométrie nécessaire')] + _oui_non_geo(_get(f, 'geometrie_necessaire')),
     ]
     return _grille(data, [lw] + [10 * mm] * 5, entetes=2, extra=[
         ('SPAN', (0, 0), (0, 1)), ('SPAN', (1, 0), (2, 0)), ('SPAN', (3, 0), (4, 0)), ('SPAN', (5, 0), (5, 1)),
-        ('SPAN', (1, 4), (2, 4)), ('SPAN', (3, 4), (4, 4)),
+        ('SPAN', (1, 5), (2, 5)), ('SPAN', (3, 5), (4, 5)),
         ('BACKGROUND', (0, 0), (-1, 1), COULEUR_ENTETE),
-        ('BACKGROUND', (5, 3), (5, 4), colors.HexColor('#eceff3')),
+        ('BACKGROUND', (5, 3), (5, 5), colors.HexColor('#eceff3')),
     ])
 
 
@@ -1043,6 +1174,7 @@ POST_CONTROLES = [
     ('Mise en place étiquette vidange', 'ok_etiquette_vidange'),
     ('Mise en place étiquette monte pneumatique', 'ok_etiquette_monte_pneumatique'),
     ('Remise à zéro indicateur de maintenance', 'ok_remise_a_zero_maintenance'),
+    ('Pression des pneus', 'ok_pression_des_pneus'),
 ]
 
 
@@ -1063,7 +1195,7 @@ def _case_oui_non_entete(f, w):
     data = [[P(''), PC('Oui', 6.5), PC('Non', 6.5)]]
     for lib, champ in (('Rendre pièces', 'rendre_pieces'), ('Écrou antivol', 'ecrou_antivol'),
                        ('Alarme', 'alarme')):
-        v = _get(f, champ)
+        v = _bool(_get(f, champ))
         data.append([P(lib, 7)] + [Coche('ok') if v is True else Coche(None),
                                    Coche('ko') if v is False else Coche(None)])
     return _grille(data, [w - 18 * mm, 9 * mm, 9 * mm])
@@ -1097,7 +1229,13 @@ def generer_pdf_fiche_technique(fiche):
     wc = (LARGEUR - 4 * mm) / 3
     c1 = [_t_eclairage(f, wc), Spacer(1, 1.5 * mm),
           _t_simple('ÉLECTRONIQUE', [('Voyant tableau de bord', 'voyant_tableau_bord'),
-                                     ('Code défaut', 'code_defaut')], f, wc)]
+                                     ('Code défaut', 'code_defaut')], f, wc),
+          Spacer(1, 1.5 * mm),
+          _t_simple('HABITACLE', [('Sièges', 'sieges'),
+                                  ('Siège conducteur', 'siege_conducteur_etat'),
+                                  ('Siège passager', 'siege_passager_etat'),
+                                  ('Sièges arrière / banquette', 'sieges_arriere_etat'),
+                                  ('Ceintures de sécurité', 'ceintures_securite_etat')], f, wc)]
     c2 = [_t_simple('ALLUMAGE', [('Bougies / Faisceau', 'bougies_faisceau'), ('Sonde lambda', 'sonde_lamda')], f, wc),
           Spacer(1, 1.5 * mm), _t_freinage_sol(f, wc),
           P("* Liquide DOT4 doit être supérieur à 165 °C<br/>* Liquide DOT5 doit être supérieur à 185 °C", 5.6),
@@ -1125,8 +1263,12 @@ def generer_pdf_fiche_technique(fiche):
         ('Amortisseurs', 'amortisseurs'), ('Coupelles', 'coupelles'), ('Ressorts', 'ressorts'),
         ('Kit de protection', 'kit_protection'), ('Butées', 'butees'),
         ('Biellettes suspension', 'biellettes'))]
+    liaisons = [(lib, c, TOUTES) for lib, c in (
+        ('Roulements', 'roulements'), ('Rotules', 'rotules'), ('Bras de suspension', 'bras_de_suspension'),
+        ('Silent-blocs', 'silent_bloc_s'))]
     gauche = [_t_pneus(f, wg), P("* La profondeur minimum autorisée par la loi est de 2,6 millimètres", 5.6),
-              Spacer(1, 1.5 * mm), _t_roues('SUSPENSION', susp, f, wg, 'susp')]
+              Spacer(1, 1.5 * mm), _t_roues('SUSPENSION', susp, f, wg, 'susp'),
+              Spacer(1, 1.5 * mm), _t_roues('ROULEMENTS ET LIAISONS AU SOL', liaisons, f, wg, '')]
     ep = _num(_get(f, 'frein_disques_epaisseur_mm'), ' mm')
     diam = _num(_get(f, 'frein_tambours_diametre_mm'), ' mm')
     freins = [('Flexibles', 'flexibles', TOUTES), ('Disques', 'disques', TOUTES),
@@ -1165,42 +1307,9 @@ def generer_pdf_fiche_technique(fiche):
              Spacer(1, 1.5 * mm),
              _case_signature("Signature Client", _get(f, 'nom_client_signataire'), _get(f, 'signature_client'),
                              w2, 20 * mm)]
-    comm = [_bloc_texte("Commentaires", _get(f, 'commentaires'), w3, min_h=45 * mm),
-            Spacer(1, 1.5 * mm),
-            _bloc_texte("Observations", _get(f, 'observations'), w3, min_h=20 * mm)]
+    comm = [_bandeau("DIAGNOSTIC TECHNIQUE", w3, 8), Spacer(1, 1.5 * mm),
+            _bloc_texte("Diagnostic technique", _get(f, 'diagnostic'), w3, min_h=88 * mm, size=7.5)]
     el.append(KeepTogether(_colonnes([leve, post, comm], [w1 + 2 * mm, w2 + 2 * mm, w3])))
-
-    # ── DIAGNOSTIC & CHIFFRAGE ──
-    el.append(Spacer(1, 3 * mm))
-    total = _get(f, 'total_estime')
-    if total is None:
-        try:
-            total = (_get(f, 'main_oeuvre_estimee') or 0) + (_get(f, 'pieces_estimees') or 0)
-        except TypeError:
-            total = None
-    chiffrage = Table([
-        [PC("Main d'œuvre estimée", 6.8), PC("Pièces estimées", 6.8), PC("Total estimé", 6.8),
-         PC("Temps estimé", 6.8)],
-        [PC(_num(_get(f, 'main_oeuvre_estimee'), ' FCFA', 0), 9, True, COULEUR_TEXTE),
-         PC(_num(_get(f, 'pieces_estimees'), ' FCFA', 0), 9, True, COULEUR_TEXTE),
-         PC(_num(total, ' FCFA', 0), 10, True, COULEUR_ACCENT),
-         PC(_num(_get(f, 'temps_estime_heures'), ' h'), 9, True, COULEUR_TEXTE)],
-    ], colWidths=[LARGEUR / 4] * 4)
-    chiffrage.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.4, COULEUR_BORD), ('BOX', (0, 0), (-1, -1), 0.8, COULEUR_PRIMAIRE),
-        ('BACKGROUND', (0, 0), (-1, 0), COULEUR_ENTETE), ('BACKGROUND', (2, 1), (2, 1), colors.HexColor('#fff4e8')),
-        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-    ]))
-    pieces = [x.strip() for x in str(_get(f, 'pieces_recommandees') or '').replace(';', '\n').split('\n')
-              if x.strip()]
-    el.append(KeepTogether([
-        _bandeau("DIAGNOSTIC, CHIFFRAGE &amp; SYNTHÈSE"), Spacer(1, 1.5 * mm),
-        _bloc_texte("Diagnostic technique", _get(f, 'diagnostic'), LARGEUR, size=7.5),
-        Spacer(1, 1.5 * mm),
-    ]))
-    el.append(_bloc_texte("Pièces recommandées",
-                          '\n'.join(f"{i}. {p}" for i, p in enumerate(pieces, 1)), LARGEUR, size=7.5))
-    el += [Spacer(1, 1.5 * mm), chiffrage]
 
     pied = _pied_de_page(f"Fiche de diagnostic mécanique N° {numero}")
     doc.build(el, onFirstPage=pied, onLaterPages=pied)

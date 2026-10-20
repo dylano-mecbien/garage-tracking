@@ -5,6 +5,7 @@ from apps.accounts.decorators import admin_required
 from apps.audit.service import log_action
 from apps.audit.models import ActionType
 
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 @admin_required
 def admin_conducteurs(request):
@@ -17,8 +18,11 @@ def admin_conducteurs(request):
     if request.method == 'POST':
         action  = request.POST.get('action')
         cond_id = request.POST.get('cond_id', '').strip()
+
         if action == 'creer':
-            nom, prenom, tel = request.POST.get('nom','').strip(), request.POST.get('prenom','').strip(), request.POST.get('telephone','').strip()
+            nom    = request.POST.get('nom', '').strip()
+            prenom = request.POST.get('prenom', '').strip()
+            tel    = request.POST.get('telephone', '').strip()
             if not all([nom, prenom, tel]):
                 messages.error(request, "Nom, prénom et téléphone sont obligatoires.")
             elif Conducteur.objects.filter(telephone=tel).exists():
@@ -26,50 +30,85 @@ def admin_conducteurs(request):
             else:
                 c = Conducteur.objects.create(
                     nom=nom, prenom=prenom, telephone=tel,
-                    telephone2=request.POST.get('telephone2','').strip(),
-                    cni=request.POST.get('cni','').strip(),
-                    permis=request.POST.get('permis','').strip(),
-                    categorie_permis=request.POST.get('categorie_permis','').strip(),
+                    telephone2=request.POST.get('telephone2', '').strip(),
+                    cni=request.POST.get('cni', '').strip(),
+                    permis=request.POST.get('permis', '').strip(),
+                    categorie_permis=request.POST.get('categorie_permis', '').strip(),
                     created_by=request.user,
                 )
                 log_action(request, ActionType.CREATION, 'ADMIN', c)
                 messages.success(request, f"Conducteur {c.prenom} {c.nom} créé.")
+
         elif action == 'modifier' and cond_id:
             c   = get_object_or_404(Conducteur, id=cond_id)
-            nom = request.POST.get('nom','').strip()
-            tel = request.POST.get('telephone','').strip()
+            nom = request.POST.get('nom', '').strip()
+            tel = request.POST.get('telephone', '').strip()
             if not nom or not tel:
                 messages.error(request, "Nom et téléphone sont obligatoires.")
             else:
-                c.nom=nom; c.prenom=request.POST.get('prenom','').strip()
-                c.telephone=tel; c.telephone2=request.POST.get('telephone2','').strip()
-                c.cni=request.POST.get('cni','').strip()
-                c.permis=request.POST.get('permis','').strip()
-                c.categorie_permis=request.POST.get('categorie_permis','').strip()
+                c.nom = nom
+                c.prenom = request.POST.get('prenom', '').strip()
+                c.telephone = tel
+                c.telephone2 = request.POST.get('telephone2', '').strip()
+                c.cni = request.POST.get('cni', '').strip()
+                c.permis = request.POST.get('permis', '').strip()
+                c.categorie_permis = request.POST.get('categorie_permis', '').strip()
                 c.save()
                 log_action(request, ActionType.MODIFICATION, 'ADMIN', c)
                 messages.success(request, f"Conducteur {c.prenom} {c.nom} mis à jour.")
+
         return redirect('admin_conducteurs')
 
-    qs = Conducteur.objects.all()
+    qs = Conducteur.objects.all().order_by('nom', 'prenom')
     if q:
-        qs = qs.filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(telephone__icontains=q)|Q(cni__icontains=q)|Q(permis__icontains=q))
+        qs = qs.filter(
+            Q(nom__icontains=q)
+            | Q(prenom__icontains=q)
+            | Q(telephone__icontains=q)
+            | Q(cni__icontains=q)
+            | Q(permis__icontains=q)
+        )
     if categorie:
         qs = qs.filter(categorie_permis__icontains=categorie)
 
+    paginator = Paginator(qs, 25)
+    page_number = request.GET.get('page', 1)
+    try:
+        page_obj = paginator.page(page_number)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+
     conducteurs = []
-    for c in qs[:100]:
-        c.nb_passages     = EnregistrementEntree.objects.filter(conducteur=c).count()
-        c.dernier_passage = EnregistrementEntree.objects.filter(conducteur=c).select_related('vehicule').order_by('-date_entree').first()
+    for c in page_obj.object_list:
+        c.nb_passages = EnregistrementEntree.objects.filter(conducteur=c).count()
+        c.dernier_passage = (
+            EnregistrementEntree.objects
+            .filter(conducteur=c)
+            .select_related('vehicule')
+            .order_by('-date_entree')
+            .first()
+        )
         conducteurs.append(c)
 
-    categories = list(Conducteur.objects.exclude(categorie_permis='').exclude(categorie_permis__isnull=True)
-        .values_list('categorie_permis', flat=True).distinct().order_by('categorie_permis'))
+    categories = list(
+        Conducteur.objects
+        .exclude(categorie_permis='')
+        .exclude(categorie_permis__isnull=True)
+        .values_list('categorie_permis', flat=True)
+        .distinct()
+        .order_by('categorie_permis')
+    )
 
     return render(request, 'admin_custom/conducteurs/liste.html', {
-        'conducteurs': conducteurs, 'nb_total': Conducteur.objects.count(),
-        'categories': categories, 'filters': {'q': q, 'categorie': categorie},
+        'conducteurs': conducteurs,
+        'page_obj': page_obj,
+        'nb_total': Conducteur.objects.count(),
+        'categories': categories,
+        'filters': {'q': q, 'categorie': categorie},
     })
+
 
 
 @admin_required

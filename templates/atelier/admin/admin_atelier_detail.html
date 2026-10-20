@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load atelier_extras %}
+{% block title %}{{ a.nom }}{% endblock %}
+{% block page_title %}🏭 {{ a.nom }}{% endblock %}
+{% block sidebar_nav %}{% include "atelier/admin/_sb.html" %}{% endblock %}
+{% block extra_css %}{% include "atelier/admin/_base_css.html" %}
+<style>.pick{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:13px;}
+.pick.off{opacity:.45;cursor:not-allowed;background:var(--surface2);} .pick input{width:17px;height:17px;accent-color:var(--primary);}</style>{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>{{ a.nom }}</h1><div class="breadcrumb"><a href="{% url 'admin_ateliers' %}">Suivi des ateliers</a> › {{ a.nom }}</div></div>
+  <a href="{% url 'admin_ateliers' %}" class="btn btn-outline">← Retour</a></div>
+{% for m in messages %}<div class="alert alert-{{ m.tags }}" style="margin-bottom:12px;">{{ m }}</div>{% endfor %}
+
+<div class="card mb-2"><div style="display:flex;gap:28px;flex-wrap:wrap;font-size:13px;">
+  <div><span class="text-muted">Chef :</span> <b>{{ a.responsable.get_full_name|default:"—" }}</b></div>
+  <div><span class="text-muted">Localisation :</span> <b>{{ a.localisation|default:"—" }}</b></div>
+  <div><span class="text-muted">Téléphone :</span> <b>{{ a.telephone|default:"—" }}</b></div>
+  <div><span class="text-muted">Statut :</span> <b>{% if a.is_active %}Actif{% else %}Inactif{% endif %}</b></div>
+</div>{% if a.description %}<div class="text-small text-muted" style="margin-top:8px;">{{ a.description }}</div>{% endif %}</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="v">{{ kpi.nb_or }}</div><div class="l">OR reçus</div></div>
+  <div class="kpi"><div class="v">{{ kpi.en_cours }}</div><div class="l">En cours</div></div>
+  <div class="kpi"><div class="v">{{ kpi.clotures }}</div><div class="l">Clôturés</div></div>
+  <div class="kpi"><div class="v" style="color:#92400e;">{{ kpi.reouverts }}</div><div class="l">Réouverts</div></div>
+  <div class="kpi"><div class="v">{{ kpi.validees }}/{{ kpi.total }}</div><div class="l">Tâches validées</div></div>
+  <div class="kpi"><div class="v">{{ kpi.est|duree }}</div><div class="l">Temps estimé</div></div>
+  <div class="kpi"><div class="v {% if kpi.est and kpi.reel and kpi.reel > kpi.est %}late{% endif %}">{{ kpi.reel|duree }}</div><div class="l">Temps réel</div></div>
+</div>
+
+<form method="get" class="card" style="margin-bottom:14px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+  <div><label class="form-label">Afficher</label><select name="statut" class="form-select">
+    <option value="">Tous les OR</option><option value="cours" {% if statut == 'cours' %}selected{% endif %}>En cours (ouverts / réouverts)</option>
+    <option value="clos" {% if statut == 'clos' %}selected{% endif %}>Clôturés</option>
+    <option value="reouverts" {% if statut == 'reouverts' %}selected{% endif %}>Réouverts pour cet atelier</option></select></div>
+  <div><label class="form-label">Du</label><input type="date" name="debut" value="{{ debut }}" class="form-input"></div>
+  <div><label class="form-label">Au</label><input type="date" name="fin" value="{{ fin }}" class="form-input"></div>
+  <button class="btn btn-primary">Filtrer</button><a href="{% url 'admin_atelier_detail' a.id %}" class="btn btn-outline">✕</a>
+</form>
+
+<div class="card mb-2" style="padding:0;overflow-x:auto;"><div class="card-header" style="padding:12px 14px;"><div class="card-title">🔧 Ordres de réparation de l'atelier ({{ ors|length }})</div></div>
+<table><thead><tr><th>OR</th><th>Véhicule</th><th>Statut</th><th>Tâches de l'atelier</th><th>Estimé (atelier)</th><th>Réel (atelier)</th><th>OR : estimé / réel</th><th>Réouv.</th><th></th></tr></thead><tbody>
+{% for o in ors %}<tr>
+  <td><b>{{ o.numero }}</b><div class="text-small text-muted">{{ o.date_creation|date:"d/m/Y" }}</div></td>
+  <td>{{ o.vehicule.immatriculation }}<div class="text-small text-muted">{{ o.vehicule.client }}</div></td>
+  <td><span class="bdg {{ o.statut }}">{{ o.get_statut_display }}</span></td>
+  <td>{{ o.nb_validees }} / {{ o.nb_taches }}</td><td>{{ o.est_atelier|duree }}</td>
+  <td class="{% if o.est_atelier and o.reel_atelier and o.reel_atelier > o.est_atelier %}late{% endif %}">{{ o.reel_atelier|duree }}</td>
+  <td class="text-small">{{ o.duree_estimee_minutes|duree }} / <span class="{% if o.en_depassement %}late{% endif %}">{{ o.duree_reelle_minutes|duree }}</span></td>
+  <td>{% if o.nb_reouv %}<span class="bdg REOUVERT">↩ {{ o.nb_reouv }}</span>{% else %}—{% endif %}</td>
+  <td style="white-space:nowrap;"><a href="{% url 'detail_or_admin' o.id %}" class="btn btn-outline btn-sm">Détail</a>
+    {% if o.reouvrables %}<button type="button" class="btn btn-warning btn-sm" onclick="openRe('{{ o.id }}')">↩ Réouvrir</button>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="9" style="text-align:center;padding:26px;color:var(--text-muted);">Aucun OR</td></tr>{% endfor %}
+</tbody></table></div>
+
+<div class="grid-2" style="align-items:start;">
+  <div class="card" style="padding:0;"><div class="card-header" style="padding:12px 14px;"><div class="card-title">↩ OR réouverts pour cet atelier ({{ reouvertures|length }})</div></div>
+  {% for r in reouvertures %}<div style="padding:12px 14px;border-top:1px solid var(--border);font-size:13px;">
+    <div><a href="{% url 'detail_or_admin' r.ordre_reparation.id %}"><b>{{ r.ordre_reparation.numero }}</b></a> · {{ r.ordre_reparation.vehicule.immatriculation }}
+      <span class="bdg {{ r.ordre_reparation.statut }}" style="margin-left:6px;">{{ r.ordre_reparation.get_statut_display }}</span></div>
+    <div class="text-small text-muted">Le {{ r.date|date:"d/m/Y H:i" }} par {{ r.par.get_full_name|default:"—" }}</div>
+    <div style="margin:4px 0;">« {{ r.motif }} »</div>
+    <div class="text-small">Tâches réouvertes : {% for t in r.taches_atelier %}<span class="bdg {{ t.statut }}" title="{{ t.get_statut_display }}">{{ t.libelle }}</span> {% endfor %}</div></div>
+  {% empty %}<div style="padding:20px;color:var(--text-muted);" class="text-small">Aucun OR réouvert pour cet atelier.</div>{% endfor %}</div>
+
+  <div class="card" style="padding:0;"><div class="card-header" style="padding:12px 14px;"><div class="card-title">👷 Temps par technicien</div></div>
+  <table><thead><tr><th>Technicien</th><th>Tâches</th><th>Temps passé</th></tr></thead><tbody>
+  {% for t in techniciens %}<tr><td>{{ t.technicien__first_name }} {{ t.technicien__last_name }}{% if not t.technicien__first_name and not t.technicien__last_name %}{{ t.technicien__email|default:"—" }}{% endif %}</td><td>{{ t.nb_taches }}</td><td><b>{{ t.temps|duree }}</b></td></tr>
+  {% empty %}<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun compte rendu</td></tr>{% endfor %}</tbody></table></div>
+</div>
+
+<!-- ═════════ POP-UPS : réouvrir un OR en choisissant ses tâches (de cet atelier) ═════════ -->
+{% for o in ors %}{% if o.reouvrables %}
+<div class="modal-ov" id="re-{{ o.id }}"><div class="modal-box">
+  <div style="display:flex;justify-content:space-between;margin-bottom:10px;"><strong style="font-size:16px;">↩ Réouvrir {{ o.numero }} — {{ a.nom }}</strong>
+    <button type="button" class="btn btn-outline btn-sm" onclick="closeRe('{{ o.id }}')">✕</button></div>
+  <div class="text-small text-muted" style="margin-bottom:12px;">Choisis les tâches de <b>{{ a.nom }}</b> à réouvrir. Elles repassent « À faire » (mêmes techniciens) ; comptes rendus et temps déjà passé sont conservés.
+    Pour réouvrir aussi des tâches d'un autre atelier : <a href="{% url 'detail_or_admin' o.id %}">page de l'OR</a>.</div>
+  <form method="post" action="{% url 'reouverture_or_admin' o.id %}">{% csrf_token %}
+    <input type="hidden" name="retour_atelier" value="{{ a.id }}">
+    <div style="text-align:right;margin-bottom:6px;"><button type="button" class="btn btn-outline btn-sm" onclick="document.querySelectorAll('#re-{{ o.id }} input[name=taches]:not(:disabled)').forEach(c=>c.checked=true)">Tout sélectionner</button></div>
+    {% for t in o.taches_atelier %}{% if t.statut == 'VALIDEE' or t.statut == 'TERMINEE' %}
+      <label class="pick"><input type="checkbox" name="taches" value="{{ t.id }}"><div style="flex:1;"><b>{{ t.libelle }}</b>
+        <div class="text-small text-muted">{{ t.get_statut_display }} · prévu {{ t.duree_estimee_minutes|duree }} · réel {{ t.duree_reelle_minutes|duree }}
+          · 👷 {% for u in t.techniciens.all %}{{ u.get_full_name|default:u.email }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</div></div></label>
+    {% else %}
+      <label class="pick off"><input type="checkbox" disabled><div style="flex:1;"><b>{{ t.libelle }}</b><div class="text-small text-muted">{{ t.get_statut_display }} — pas encore terminée</div></div></label>
+    {% endif %}{% endfor %}
+    <div class="form-group" style="margin-top:12px;"><label class="form-label">Motif de la réouverture *</label>
+      <textarea name="motif" class="form-textarea" rows="3" required placeholder="Ex : reprise du réglage des freins…"></textarea></div>
+    <button class="btn btn-warning" style="width:100%;padding:11px;">↩ Réouvrir les tâches choisies</button>
+  </form>
+</div></div>
+{% endif %}{% endfor %}
+{% endblock %}
+{% block extra_js %}<script>
+function openRe(id){document.getElementById('re-'+id).classList.add('open');}
+function closeRe(id){document.getElementById('re-'+id).classList.remove('open');}
+document.querySelectorAll('.modal-ov').forEach(m=>m.addEventListener('mousedown',e=>{if(e.target===m)m.classList.remove('open');}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-ov.open').forEach(m=>m.classList.remove('open'));});
+</script>{% endblock %}

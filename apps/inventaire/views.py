@@ -159,7 +159,9 @@ def admin_detail(request, inv_id):
         'sorties': [m for m in mv if m.type == TypeMouvement.SORTIE],
         'rapport': (inv.rapport or {}).get('mouvements', []), 'etat': services.resume(inv),
         'peut_decider': inv.statut == StatutInventaire.SOUMIS,
-        'peut_revoquer': inv.statut in (StatutInventaire.SOUMIS, StatutInventaire.EN_COURS),
+
+        'peut_revoquer': inv.statut == StatutInventaire.SOUMIS,
+        'revocations': (inv.rapport or {}).get('revocations', []),
     })
 
 
@@ -185,7 +187,8 @@ def admin_revoquer(request, inv_id):
     inv = get_object_or_404(Inventaire, id=inv_id)
     try:
         services.revoquer(inv, request.user, request.POST.get('motif', ''))
-        messages.success(request, "Inventaire révoqué — aucun mouvement n'a été appliqué.")
+        messages.success(request, "↩️ Inventaire renvoyé à la guérite pour correction — aucun mouvement n'a été appliqué.")
+
     except InventaireError as e:
         messages.error(request, str(e))
     return redirect('inventaire_admin_detail', inv_id=inv.id)

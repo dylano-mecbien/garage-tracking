@@ -25,6 +25,7 @@
 
 <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
   <a href="{% url 'mes_taches' %}" class="btn {% if not statut %}btn-primary{% else %}btn-outline{% endif %} btn-sm">Toutes</a>
+  <a href="{% url 'mes_taches' %}?statut=A_REPRENDRE" class="btn {% if statut == 'A_REPRENDRE' %}btn-danger{% else %}btn-outline{% endif %} btn-sm">↩️ À reprendre{% if total_par_statut.a_reprendre %} ({{ total_par_statut.a_reprendre }}){% endif %}</a>
   <a href="{% url 'mes_taches' %}?statut=A_FAIRE" class="btn {% if statut == 'A_FAIRE' %}btn-primary{% else %}btn-outline{% endif %} btn-sm">À faire</a>
   <a href="{% url 'mes_taches' %}?statut=EN_COURS" class="btn {% if statut == 'EN_COURS' %}btn-primary{% else %}btn-outline{% endif %} btn-sm">En cours</a>
   <a href="{% url 'mes_taches' %}?statut=TERMINEE" class="btn {% if statut == 'TERMINEE' %}btn-primary{% else %}btn-outline{% endif %} btn-sm">Terminées</a>
@@ -41,7 +42,12 @@
   {% if t.atelier %} · 🏭 {{ t.atelier.nom }}{% endif %}
   · ⏱️ {{ t.duree_estimee_label }}
 </div>
+      {% if t.est_a_reprendre and t.motif_retour %}
+      <div class="text-small" style="color:var(--danger);margin-top:2px;">Motif : {{ t.motif_retour|truncatechars:90 }}</div>
+      {% endif %}
     </div>
+    {% if t.est_refusee and t.est_a_reprendre %}<span class="badge badge-danger" style="margin-right:6px;">↩️ Refusée</span>
+    {% elif t.est_reouverte and t.est_a_reprendre %}<span class="badge badge-warning" style="margin-right:6px;">🔓 À refaire</span>{% endif %}
     {% if t.statut == 'VALIDEE' %}<span class="badge badge-success">Validée</span>
     {% elif t.statut == 'TERMINEE' %}<span class="badge badge-warning">En attente</span>
     {% elif t.statut == 'EN_COURS' %}<span class="badge" style="background:var(--warning);color:#fff;">En cours</span>

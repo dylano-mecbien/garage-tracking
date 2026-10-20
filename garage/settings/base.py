@@ -55,6 +55,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.audit.middleware.AuditMiddleware',
+    'apps.accounts.middleware.ForcePasswordChangeMiddleware',
     'garage.middleware.SlowRequestMiddleware',
 ]
 

@@ -10,7 +10,7 @@
 
 </ul> 
 {% endblock %}
-
+ 
 {% block extra_css %}
 <style>
 .hero{background:var(--surface);border:1.5px solid var(--border);border-left:5px solid var(--primary);border-radius:var(--radius);padding:16px 20px;margin-bottom:14px;
@@ -54,16 +54,41 @@
   <div><h1>{{ titre }}</h1><div class="breadcrumb">{{ rec.numero }} — {{ rec.vehicule.immatriculation }}</div></div>
   <div style="display:flex;gap:8px;">
 
-    
-    <a href="{% url 'pdf_fiche_controle' fiche.id %}?inline=1" target="_blank">Imprimer</a>
+     {% if titre == "Fiche de contrôle" %}
+
+    <a href="{% url 'pdf_fiche_controle' fiche.id %}?inline=1"
+   target="_blank"
+   rel="noopener"
+   class="btn btn-info btn-sm"
+   title="Ouvrir le PDF dans un nouvel onglet">
+  🖨️ Imprimer
+     </a>
+
+     {% else %}
+
+   <a href="{% url 'pdf_fiche_technique' fiche.id %}?inline=1"
+   target="_blank"
+   rel="noopener"
+   class="btn btn-info btn-sm"
+   title="Ouvrir le PDF dans un nouvel onglet">
+  🖨️ Imprimer
+     </a>
+
+
+      {% endif %}
 
     {% if request.user.is_resp_atelier %}
 
     {% if peut_modifier %}<a href="{% url modifier_url_name rec.id 1 %}" class="btn btn-warning">✏️ Modifier</a>{% endif %}
 
-    <a href="{% url 'signer_fiche_controle' rec.id %}" class="btn btn-accent">
-        ✍️ Faire signer le client
-      </a>
+    {% if mode == 'controle' %}
+      {% if terminee and not signee_client %}
+        <a href="{% url 'signer_fiche_controle' rec.id %}" class="btn btn-accent">✍️ Faire signer le client</a>
+      {% elif signee_client and not sortie %}
+        <a href="{% url 'controle_sortie_saisie' rec.id %}" class="btn btn-accent">
+          🚪 {% if sortie_en_cours %}Reprendre le contrôle de sortie{% else %}Contrôle de sortie{% endif %}</a>
+      {% endif %}
+    {% endif %}
  {% endif %}
     <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
   </div>
@@ -80,13 +105,14 @@
     <div>
       {% if terminee %}<span class="stat ok">✅ Fiche terminée</span>{% else %}<span class="stat wait">⏳ Fiche en cours de saisie</span>{% endif %}
       {% if mode == 'controle' %}
-        {% if signee_client %}<span class="stat ok">✍️ Signée par le client</span>{% elif terminee %}<span class="stat wait">✍️ En attente de la signature du client</span>{% endif %}
+        {% if signee_client %}<span class="stat ok">✍️ Entrée signée par le client</span>{% elif terminee %}<span class="stat wait">✍️ En attente de la signature du client</span>{% endif %}
+        {% if sortie %}<span class="stat ok">🚪 Sortie signée le {{ sortie.date_signature|date:"d/m/Y" }}</span>
+        {% elif sortie_en_cours %}<span class="stat wait">🚪 Contrôle de sortie en cours : {{ sortie_en_cours.get_statut_display }}</span>{% endif %}
       {% endif %}
     </div>
     <div class="text-small text-muted" style="margin-top:4px;">
       {% if numero_fiche %}N° {{ numero_fiche }} · {% endif %}Remplie par <b>{{ auteur.get_full_name|default:auteur.email|default:"—" }}</b> le {{ date|date:"d/m/Y à H:i" }}
     </div>
-    {% if mode == 'technique' and total_estime %}<div style="margin-top:4px;font-weight:800;">💰 Estimation : {{ total_estime|floatformat:0 }} FCFA</div>{% endif %}
   </div>
 </div>
 
@@ -134,6 +160,15 @@
 <div class="rien">✅ Aucun défaut relevé dans cette fiche.</div>
 {% endif %}
 
+{% if sortie %}
+<div class="sec-h" style="margin-top:22px;">Contrôle de sortie</div>
+<div class="text-small text-muted" style="margin-bottom:10px;">
+  Contrôlé par <b>{{ sortie.par.get_full_name|default:sortie.par|default:"—" }}</b>
+  le {{ sortie.date_controle|date:"d/m/Y à H:i" }} · signé par le client le {{ sortie.date_signature|date:"d/m/Y à H:i" }}
+</div>
+{% include "atelier/controle_sortie/_comparatif.html" with sections=sortie.sections nb_diff=sortie.nb_diff km_entree=sortie.km_entree km_sortie=sortie.km_sortie degats_avant=sortie.degats_avant degats_apres=sortie.degats_apres %}
+{% endif %}
+
 {{ degats_json|json_script:"degats-data" }}
 {% endblock %}
 
@@ -158,3 +193,5 @@ function tab(i){
 })();
 </script>
 {% endblock %}
+
+

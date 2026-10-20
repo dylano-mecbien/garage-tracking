@@ -9,6 +9,8 @@ apps/inventaire/services.py — logique de l'inventaire (un seul inventaire, val
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from apps.inventaire.notifications import envoyer_inventaire_a_valider
+
 from . import adapters
 from .models import (Inventaire, LigneInventaire, MouvementTemporaire, Presence, StatutInventaire, TypeMouvement)
 
@@ -133,6 +135,8 @@ def resume(inv):
     }
 
 
+
+
 def soumettre(inv, user, observation):
     """La guérite VALIDE l'inventaire → e-mail à l'administrateur. Retourne le message à afficher."""
     _verifier_modifiable(inv)
@@ -140,16 +144,21 @@ def soumettre(inv, user, observation):
     r = resume(inv)
     if r['a_verifier']:
         raise InventaireError(f"{r['a_verifier']} véhicule(s) n'ont pas encore été vérifiés.")
+    renvoi = bool(inv.motif_revocation)                                  # ← nouveau
+    inv.mouvements.exclude(erreur='').update(erreur='')                  # ← nouveau
     inv.statut = StatutInventaire.SOUMIS
     inv.soumis_par, inv.date_soumission, inv.observation = user, timezone.now(), (observation or '').strip()
+    inv.motif_revocation = ''                                            # ← nouveau (l'historique reste dans rapport)
+    inv.decide_par, inv.date_decision = None, None                       # ← nouveau
     inv.save()
-    from .notifications import envoyer_inventaire_a_valider
     ok, nb, err = envoyer_inventaire_a_valider(inv)
     inv.email_envoye, inv.email_erreur = ok, err
     inv.save(update_fields=['email_envoye', 'email_erreur'])
+    quoi = "corrigé et renvoyé" if renvoi else "validé et envoyé"
     if ok:
-        return f"✅ Inventaire validé et envoyé à l'administrateur ({nb} destinataire(s))."
-    return "✅ Inventaire validé. L'e-mail n'a pas pu partir, mais l'administrateur le voit dans son espace."
+        return f"✅ Inventaire {quoi} à l'administrateur ({nb} destinataire(s))."
+    return f"✅ Inventaire {quoi}. L'e-mail n'a pas pu partir, mais l'administrateur le voit dans son espace."
+
 
 
 # ═════════════════════════  ADMINISTRATEUR  ═════════════════════════
@@ -195,23 +204,39 @@ def valider_selection(inv, admin, ids_selectionnes):
         inv.mouvements.all().delete()
         inv.statut = StatutInventaire.VALIDE
         inv.decide_par, inv.date_decision = admin, timezone.now()
-    inv.rapport = {'mouvements': rapport}
+        # avant : inv.rapport = {'mouvements': rapport}
+    inv.rapport = {**(inv.rapport or {}), 'mouvements': rapport}
     inv.save()
     return appliques, ecartes, erreurs
 
 
+
+
 @transaction.atomic
 def revoquer(inv, admin, motif):
-    if inv.statut not in (StatutInventaire.SOUMIS, StatutInventaire.EN_COURS):
-        raise InventaireError("Seul un inventaire en cours ou en attente peut être révoqué.")
+    """
+    L'administrateur renvoie l'inventaire à la guérite pour correction.
+    Rien n'est appliqué : lignes et mouvements sont CONSERVÉS, l'inventaire redevient EN_COURS (modifiable).
+    """
+    if inv.statut != StatutInventaire.SOUMIS:
+        raise InventaireError("Seul un inventaire en attente de validation peut être renvoyé pour correction.")
     motif = (motif or '').strip()
     if len(motif) < MOTIF_REVOCATION_MIN:
         raise InventaireError("Indique le motif de la révocation.")
-    rapport = list((inv.rapport or {}).get('mouvements', []))
-    for mv in inv.mouvements.all():
-        rapport.append(_ligne_rapport(mv, 'REVOQUE'))
-    inv.mouvements.all().delete()                  # rien n'est appliqué
-    inv.statut, inv.motif_revocation = StatutInventaire.REVOQUE, motif
+
+    rapport = dict(inv.rapport or {})
+    rapport.setdefault('revocations', []).append({
+        'date': timezone.now().isoformat(),
+        'par': admin.get_full_name() if hasattr(admin, 'get_full_name') else str(admin),
+        'motif': motif,
+        'soumis_le': inv.date_soumission.isoformat() if inv.date_soumission else None,
+        'nb_entrees': inv.mouvements.filter(type=TypeMouvement.ENTREE).count(),
+        'nb_sorties': inv.mouvements.filter(type=TypeMouvement.SORTIE).count(),
+    })
+
+    inv.statut = StatutInventaire.EN_COURS
+    inv.motif_revocation = motif                   # affiché à la guérite tant qu'elle n'a pas renvoyé
     inv.decide_par, inv.date_decision = admin, timezone.now()
-    inv.rapport = {'mouvements': rapport}
+    inv.email_envoye, inv.email_erreur = False, ''
+    inv.rapport = rapport
     inv.save()

@@ -1,140 +1,466 @@
-from reportlab.lib.pagesizes import A4, landscape, portrait
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT
-from reportlab.lib.units import mm
-from reportlab.lib import colors
-from io import BytesIO
-from django.utils import timezone
-from apps.documents.pdf_generator import COULEUR_ACCENT, COULEUR_GRIS, COULEUR_PRIMAIRE, COULEUR_TEXTE, format_datetime
+"""
+PDF des listes (admin) : véhicules et clients.
+Même charte que les fiches atelier et les exports guérite :
+en-tête logo « CENTRE AUTO La PRUDENCE+ », bandeau titre bleu souligné orange,
+encadré compteur, bandeau de répartition, tableau zébré, pied « Page x / y ».
 
-def generer_pdf_liste_bons(qs):
-    """
-    Génère un PDF de la liste des bons de sortie (paysage A4).
-    `qs` : queryset de BonSortie (déjà filtré).
-    """
+Les signatures ne changent pas :
+    generer_pdf_liste_vehicules(qs, today=None) -> bytes
+    generer_pdf_liste_clients(qs)               -> bytes
+    generer_pdf_liste_bons(qs)                  -> bytes
+"""
+from collections import Counter
+from html import escape
+from io import BytesIO
+
+from django.utils import timezone
+from reportlab.graphics.shapes import Drawing, Ellipse, String
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas as rl_canvas
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+from apps.documents.pdf_generator import COULEUR_ACCENT, COULEUR_GRIS, COULEUR_PRIMAIRE, COULEUR_TEXTE
+
+COULEUR_DISCRET = colors.HexColor('#6b7280')
+COULEUR_LIGNE = colors.HexColor('#d5dbe1')
+VERT, ROUGE, ORANGE, BLEU, GRIS = '#16a34a', '#dc2626', '#e67e22', '#2563eb', '#6b7280'
+
+SERVICES = ("Tôlerie – Peinture – Freinage – Chaudronnerie – Mécanique Générale<br/>"
+            "Électricité – Climatisation – Pneumatique – Tapisserie – Sérigraphie")
+ADRESSE = "BP : 9060 Douala – Tél : (+237) 650 99 75 09"
+
+PAGE_W, PAGE_H = landscape(A4)
+MARGE = 10 * mm
+LARGEUR = PAGE_W - 2 * MARGE  # 277 mm
+
+
+# ════════════════════════════════════════════════════════════════
+#  Briques communes
+# ════════════════════════════════════════════════════════════════
+def _maintenant():
+    n = timezone.now()
+    return timezone.localtime(n) if timezone.is_aware(n) else n
+
+
+def _txt(v):
+    return escape(str(v)) if v not in (None, '') else ''
+
+
+def P(texte, size=7.5, bold=False, align=TA_LEFT, color=COULEUR_TEXTE):
+    return Paragraph(texte or '', ParagraphStyle(
+        '', fontName='Helvetica-Bold' if bold else 'Helvetica', fontSize=size,
+        leading=size * 1.25, alignment=align, textColor=color))
+
+
+def _vide_cell():
+    return P('—', align=TA_CENTER, color=COULEUR_DISCRET)
+
+
+def _badge(libelle, couleur, sous_texte=''):
+    """Pastille colorée + libellé gras, avec éventuellement une 2e ligne grise."""
+    txt = f"<font size=9 color='{couleur}'>•</font>&nbsp;<font color='{couleur}'><b>{escape(libelle)}</b></font>"
+    if sous_texte:
+        txt += f"<br/><font size=6.5 color='#6b7280'>{escape(sous_texte)}</font>"
+    return P(txt, 7.5)
+
+
+def _sans_marges(t):
+    t.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    return t
+
+
+def _logo(largeur=62 * mm, hauteur=21 * mm):
+    d = Drawing(largeur, hauteur)
+    d.add(String(largeur / 2, hauteur - 6.5 * mm, "CENTRE AUTO", fontName='Helvetica-Bold',
+                 fontSize=11, fillColor=COULEUR_PRIMAIRE, textAnchor='middle'))
+    d.add(Ellipse(largeur / 2, hauteur / 2 - 3.2 * mm, largeur / 2 - 1, 6.4 * mm,
+                  fillColor=COULEUR_PRIMAIRE, strokeColor=COULEUR_ACCENT, strokeWidth=1.2))
+    d.add(String(largeur / 2, hauteur / 2 - 2.6 * mm, "La PRUDENCE+", fontName='Helvetica-Bold',
+                 fontSize=14, fillColor=colors.white, textAnchor='middle'))
+    d.add(String(largeur / 2, hauteur / 2 - 6.6 * mm, "Véhicules Légers / Poids Lourds",
+                 fontName='Helvetica-Oblique', fontSize=6.5, fillColor=colors.white, textAnchor='middle'))
+    return d
+
+
+def _entete(titre, total, unite):
+    haut = _sans_marges(Table([[
+        _logo(),
+        P(f"<b>{SERVICES}</b><br/><font color='#e67e22'><b>{ADRESSE}</b></font>",
+          8.5, False, TA_CENTER, COULEUR_PRIMAIRE),
+    ]], colWidths=[66 * mm, LARGEUR - 66 * mm]))
+
+    titre_t = Table([[P(f"<b>{escape(titre)}</b>", 13, True, TA_LEFT, colors.white)]], colWidths=[150 * mm])
+    titre_t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), COULEUR_PRIMAIRE),
+        ('LINEBELOW', (0, 0), (-1, -1), 2, COULEUR_ACCENT),
+        ('LEFTPADDING', (0, 0), (-1, -1), 7),
+        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('ROUNDEDCORNERS', [4, 4, 0, 0]),
+    ]))
+    compteur = Table([[[
+        P(f"<font color='#c0392b'><b>{total}</b></font>&nbsp;&nbsp;"
+          f"<font size=9 color='#2c3e50'><b>{unite}</b></font>", 15, False, TA_CENTER),
+        P(f"Édité le {_maintenant().strftime('%d/%m/%Y à %H:%M')}", 6.5, False, TA_CENTER, COULEUR_DISCRET),
+    ]]], colWidths=[62 * mm])
+    compteur.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, COULEUR_PRIMAIRE),
+        ('ROUNDEDCORNERS', [5, 5, 5, 5]),
+        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    bas = _sans_marges(Table([[titre_t, '', compteur]], colWidths=[150 * mm, LARGEUR - 212 * mm, 62 * mm]))
+    return [haut, Spacer(1, 3 * mm), bas, Spacer(1, 3 * mm)]
+
+
+def _bandeau_repartition(lignes):
+    """lignes = [(titre, [(libellé, nombre, couleur), ...]), ...]"""
+    morceaux = []
+    for titre, items in lignes:
+        items = [i for i in items if i[1]]
+        if not items:
+            continue
+        puces = '&nbsp;&nbsp;&nbsp;'.join(
+            f"<font size=9 color='{c}'>•</font>&nbsp;{escape(lib)}&nbsp;<b>{n}</b>" for lib, n, c in items)
+        morceaux.append(f"<font color='#1a3a5c'><b>{escape(titre)} :</b></font>&nbsp;&nbsp;{puces}")
+    if not morceaux:
+        return []
+    t = Table([[P('<br/>'.join(morceaux), 8)]], colWidths=[LARGEUR])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), COULEUR_GRIS),
+        ('LINEBEFORE', (0, 0), (0, -1), 3, COULEUR_ACCENT),
+        ('LEFTPADDING', (0, 0), (-1, -1), 7),
+        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    return [t, Spacer(1, 3 * mm)]
+
+
+def _tableau(entetes, largeurs_mm, lignes, centrer=()):
+    """entetes : libellés ; largeurs_mm : proportions ; centrer : index des colonnes centrées."""
+    k = LARGEUR / (sum(largeurs_mm) * mm)
+    data = [[P(f"<b>{escape(h)}</b>", 8, True, TA_CENTER, colors.white) for h in entetes]] + lignes
+    t = Table(data, colWidths=[w * mm * k for w in largeurs_mm], repeatRows=1)
+    cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), COULEUR_PRIMAIRE),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.5, COULEUR_ACCENT),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, COULEUR_GRIS]),
+        ('LINEBELOW', (0, 1), (-1, -1), 0.3, COULEUR_LIGNE),
+        ('BOX', (0, 0), (-1, -1), 0.8, COULEUR_PRIMAIRE),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, 0), 5), ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('TOPPADDING', (0, 1), (-1, -1), 3.5), ('BOTTOMPADDING', (0, 1), (-1, -1), 3.5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4), ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]
+    for i in centrer:
+        cmds.append(('ALIGN', (i, 1), (i, -1), 'CENTER'))
+    t.setStyle(TableStyle(cmds))
+    return t
+
+
+def _message_vide(texte):
+    t = Table([[P(texte, 9.5, True, TA_CENTER, COULEUR_DISCRET)]], colWidths=[LARGEUR])
+    t.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 0.8, colors.HexColor('#9aa7b4')),
+        ('BACKGROUND', (0, 0), (-1, -1), COULEUR_GRIS),
+        ('TOPPADDING', (0, 0), (-1, -1), 14), ('BOTTOMPADDING', (0, 0), (-1, -1), 14),
+    ]))
+    return t
+
+
+class _CanvasNumerote(rl_canvas.Canvas):
+    """Pied de page avec le nombre total de pages (« Page 2 / 5 »)."""
+    titre = ''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._pages = []
+
+    def showPage(self):
+        self._pages.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        total = len(self._pages)
+        for etat in self._pages:
+            self.__dict__.update(etat)
+            self.saveState()
+            self.setStrokeColor(COULEUR_ACCENT)
+            self.setLineWidth(0.8)
+            self.line(MARGE, 9 * mm, PAGE_W - MARGE, 9 * mm)
+            self.setFont('Helvetica', 6.5)
+            self.setFillColor(COULEUR_DISCRET)
+            self.drawString(MARGE, 5.5 * mm, f"Centre Auto La Prudence+ – {self.titre} – imprimé le "
+                                             f"{_maintenant().strftime('%d/%m/%Y %H:%M')}")
+            self.drawRightString(PAGE_W - MARGE, 5.5 * mm, f"Page {self._pageNumber} / {total}")
+            self.restoreState()
+            super().showPage()
+        super().save()
+
+
+def _construire(titre, elements):
     buffer = BytesIO()
     doc = SimpleDocTemplate(
-        buffer,
-        pagesize=landscape(A4),
-        topMargin=12 * mm,
-        bottomMargin=12 * mm,
-        leftMargin=12 * mm,
-        rightMargin=12 * mm,
+        buffer, pagesize=landscape(A4), title=titre, author="Centre Auto La Prudence+",
+        topMargin=8 * mm, bottomMargin=13 * mm, leftMargin=MARGE, rightMargin=MARGE,
     )
-    styles = getSampleStyleSheet()
-    elements = []
-    # ── En-tête ──
-    titre_style = ParagraphStyle(
-        '', fontSize=16, fontName='Helvetica-Bold',
-        textColor=COULEUR_ACCENT, alignment=TA_RIGHT
-    )
-    nom_style = ParagraphStyle(
-        '', fontSize=13, fontName='Helvetica-Bold',
-        textColor=COULEUR_PRIMAIRE
-    )
-    sub_style = ParagraphStyle(
-        '', fontSize=8, textColor=colors.HexColor('#666666'), leading=11
-    )
-    meta_style = ParagraphStyle(
-        '', fontSize=8, textColor=colors.HexColor('#555555'),
-        alignment=TA_RIGHT, leading=11
-    )
-
-    now_str = format_datetime(timezone.now())
-    total = qs.count()
-
-    header_data = [
-        [
-            Paragraph("CENTRE AUTO LA PRUDENCE +", nom_style),
-            Paragraph("BONS DE SORTIE", titre_style),
-        ],
-        [
-            Paragraph("BP 9060 — Douala, Cameroun<br/>Tél : +237 650 99 75 09", sub_style),
-            Paragraph(f"Export du {now_str}<br/>Total : <b>{total}</b> bon(s)", meta_style),
-        ],
-    ]
-    header = Table(header_data, colWidths=[140 * mm, 130 * mm])
-    header.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('LINEBELOW', (0, -1), (-1, -1), 1.5, COULEUR_PRIMAIRE),
-    ]))
-    elements.append(header)
-    elements.append(Spacer(1, 6 * mm))
+    doc.build(elements, canvasmaker=type('Canvas', (_CanvasNumerote,), {'titre': titre}))
+    return buffer.getvalue()
 
 
-# Style cellules normales (corps)
-    cell = ParagraphStyle(
-    '', fontSize=7.5, textColor=COULEUR_TEXTE, leading=10
-    )
-    cell_head = ParagraphStyle(
-    '', fontSize=7.5, fontName='Helvetica-Bold',
-    textColor=colors.white, leading=10
-    )
+def _nom_client(c):
+    if c is None:
+        return ''
+    if c.type_client == 'PARTICULIER':
+        return f"{c.prenom or ''} {c.nom or ''}".strip()
+    return c.nom or ''
 
-    head = ['N° Bon', 'Type', 'État', 'Véhicule', 'Demandeur', 'Créé le', 'Validé le', 'Créé par']
-    data = [[Paragraph(f"<b>{h}</b>", cell_head) for h in head]]
 
-    for bon in qs:
-        type_label = "Véhicule" if bon.types == 'VEHICULE' else "Divers"
-        etat_label = {
-            'VALIDER': 'Validé',
-            'APPROBATION': 'Approbation',
-            'CREER': 'Créé',
-        }.get(bon.etats, bon.etats or '—')
+# ════════════════════════════════════════════════════════════════
+#  LISTE DES VÉHICULES
+# ════════════════════════════════════════════════════════════════
+def _presence(v):
+    local, atelier = getattr(v, 'en_local', False), getattr(v, 'en_atelier', False)
+    if local and atelier:
+        return "Local + Atelier", '#7c3aed'
+    if local:
+        return "Présent sur site", ROUGE
+    if atelier:
+        return "En atelier", ORANGE
+    return "Hors garage", GRIS
 
-        if bon.types == 'VEHICULE' and bon.vehicule:
-            vehicule_txt = bon.vehicule.immatriculation
+
+def _echeance(date, today, ok, ko):
+    if not date:
+        return None
+    if date < today:
+        return ko, ROUGE, date.strftime('%d/%m/%Y')
+    if (date - today).days <= 30:
+        return "Bientôt", ORANGE, date.strftime('%d/%m/%Y')
+    return ok, VERT, date.strftime('%d/%m/%Y')
+
+
+def generer_pdf_liste_vehicules(qs, today=None):
+    """Génère le PDF de la liste des véhicules (A4 paysage)."""
+    today = today or timezone.localdate()
+    if hasattr(qs, 'select_related'):
+        qs = qs.select_related('client', 'client__parent')
+    vehicules = list(qs)
+
+    presences, assurances_exp, visites_exp = Counter(), 0, 0
+    lignes = []
+    for v in vehicules:
+        lib, coul = _presence(v)
+        presences[(lib, coul)] += 1
+
+        # Véhicule
+        modele = _txt(f"{v.marque or ''} {v.modele or ''}".strip()) or '—'
+        details = " · ".join(x for x in [str(v.annee or ''), _txt(getattr(v, 'couleur', ''))] if x)
+        veh = f"<b>{modele}</b>" + (f"<br/><font size=6.5 color='#6b7280'>{details}</font>" if details else '')
+
+        # Propriétaire (entreprise + centre si c'est un centre)
+        c = v.client
+        if c is None:
+            prop = _vide_cell()
         else:
-            vehicule_txt = "—"
+            parent = getattr(c, 'parent', None)
+            nom = _txt(parent.nom if parent else _nom_client(c))
+            sous = [f"Centre : {_txt(c.nom)}" if parent else '', _txt(c.telephone)]
+            prop = P(f"<b>{nom}</b>" + ''.join(
+                f"<br/><font size=6.5 color='#6b7280'>{s}</font>" for s in sous if s))
 
-        cree_par = bon.cree_par.full_name if bon.cree_par else "—"
-        valide_le = format_datetime(bon.date_validation) if bon.date_validation else "—"
+        # Carburant
+        try:
+            carb = v.get_type_carburant_display() if v.type_carburant not in (None, '', 'NON_DEFINI') else ''
+        except Exception:
+            carb = v.type_carburant or ''
 
-        data.append([
-            Paragraph(str(bon.numero), cell),
-            Paragraph(type_label, cell),
-            Paragraph(etat_label, cell),
-            Paragraph(str(vehicule_txt), cell),
-            Paragraph(bon.nom_demandeur or "—", cell),
-            Paragraph(format_datetime(bon.created_at), cell),
-            Paragraph(valide_le, cell),
-            Paragraph(cree_par, cell),
+        # Assurance / visite
+        ass = _echeance(v.expiry_assurance, today, "Valide", "Expirée")
+        vis = _echeance(v.date_visite, today, "OK", "À renouveler")
+        if ass and ass[0] == "Expirée":
+            assurances_exp += 1
+        if vis and vis[0] == "À renouveler":
+            visites_exp += 1
+
+        nb = getattr(v, 'nb_passages', None)
+        if nb is None:
+            nb = v.entrees.count() if hasattr(v, 'entrees') else 0
+
+        lignes.append([
+            _badge(lib, coul),
+            P(f"<b>{_txt(v.immatriculation) or '—'}</b>", 8.5, True, TA_CENTER, COULEUR_PRIMAIRE),
+            P(veh),
+            prop,
+            P(_txt(carb)) if carb else _vide_cell(),
+            _badge(*ass) if ass else _vide_cell(),
+            _badge(*vis) if vis else _vide_cell(),
+            P(f"<b>{nb}</b>", 9, True, TA_CENTER, COULEUR_PRIMAIRE if nb else COULEUR_DISCRET),
         ])
 
-    col_widths = [24*mm, 20*mm, 24*mm, 26*mm, 32*mm, 28*mm, 28*mm, 30*mm]
-    table = Table(data, colWidths=col_widths, repeatRows=1)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COULEUR_PRIMAIRE),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 3),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, COULEUR_GRIS]),
-        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#dde1e6')),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-    ]))
-    elements.append(table)
+    titre = "Liste des véhicules"
+    elements = _entete(titre.upper(), len(vehicules), "véhicule(s)")
+    elements += _bandeau_repartition([
+        ("Présence", [(lib, n, c) for (lib, c), n in presences.most_common()]),
+        ("Alertes", [("Assurances expirées", assurances_exp, ROUGE),
+                     ("Visites techniques à renouveler", visites_exp, ORANGE)]),
+    ])
+    if lignes:
+        elements.append(_tableau(
+            ['Présence', 'Immatriculation', 'Véhicule', 'Propriétaire', 'Carburant',
+             'Assurance', 'Visite technique', 'Passages'],
+            [32, 30, 44, 50, 22, 28, 30, 18], lignes, centrer=(4, 7)))
+    else:
+        elements.append(_message_vide("Aucun véhicule ne correspond à ces critères."))
+    return _construire(titre, elements)
 
-    # ── Pied de page via callback ──
-    def add_footer(canvas, doc):
-        canvas.saveState()
-        canvas.setFont('Helvetica', 7)
-        canvas.setFillColor(colors.HexColor('#999999'))
-        canvas.drawString(12 * mm, 8 * mm, "Centre Auto La Prudence + — Document généré automatiquement")
-        canvas.drawRightString(
-            landscape(A4)[0] - 12 * mm,
-            8 * mm,
-            f"Page {doc.page}"
-        )
-        canvas.restoreState()
 
-    doc.build(elements, onFirstPage=add_footer, onLaterPages=add_footer)
-    pdf_bytes = buffer.getvalue()
-    buffer.close()
-    return pdf_bytes
+# ════════════════════════════════════════════════════════════════
+#  LISTE DES CLIENTS
+# ════════════════════════════════════════════════════════════════
+def generer_pdf_liste_clients(qs):
+    """Génère le PDF de la liste des clients (A4 paysage)."""
+    if hasattr(qs, 'prefetch_related'):
+        qs = qs.prefetch_related('centres')
+    clients = list(qs)
+
+    types = Counter('Particulier' if c.type_client == 'PARTICULIER' else 'Entreprise' for c in clients)
+    total_veh = total_centres = 0
+    lignes = []
+    for c in clients:
+        particulier = c.type_client == 'PARTICULIER'
+
+        nb_veh = getattr(c, 'nb_vehicules_total', None)
+        if nb_veh is None:
+            nb_veh = getattr(c, 'nb_vehicules', None)
+        if nb_veh is None:
+            nb_veh = c.vehicules.count()
+        nb_pass = getattr(c, 'nb_passages', None)
+        centres = [] if particulier else [ct.nom for ct in c.centres.all()]
+        total_veh += nb_veh or 0
+        total_centres += len(centres)
+
+        nom = f"<b>{_txt(_nom_client(c)) or '—'}</b>"
+        if getattr(c, 'numero_client', ''):
+            nom += f"<br/><font size=6.5 color='#6b7280'>N° {_txt(c.numero_client)}</font>"
+        if centres:
+            liste = ", ".join(_txt(n) for n in centres[:4]) + (f" +{len(centres) - 4}" if len(centres) > 4 else '')
+            nom += f"<br/><font size=6.5 color='#e67e22'>{len(centres)} centre(s) : {liste}</font>"
+
+        contact = '<br/>'.join(_txt(x) for x in [c.telephone, getattr(c, 'telephone2', '')] if x)
+
+        lignes.append([
+            P(nom),
+            _badge('Particulier', BLEU) if particulier else _badge('Entreprise', '#7c3aed'),
+            P(contact) if contact else _vide_cell(),
+            P(_txt(c.email)) if c.email else _vide_cell(),
+            P(_txt(c.ville)) if c.ville else _vide_cell(),
+            P(f"<b>{nb_veh}</b>", 9, True, TA_CENTER, COULEUR_PRIMAIRE if nb_veh else COULEUR_DISCRET),
+            P(f"<b>{nb_pass}</b>", 9, True, TA_CENTER, COULEUR_PRIMAIRE if nb_pass else COULEUR_DISCRET)
+            if nb_pass is not None else _vide_cell(),
+            P(c.created_at.strftime('%d/%m/%Y') if c.created_at else '—', 7.5, False, TA_CENTER),
+        ])
+
+    titre = "Liste des clients"
+    elements = _entete(titre.upper(), len(clients), "client(s)")
+    elements += _bandeau_repartition([
+        ("Répartition", [("Entreprises", types['Entreprise'], '#7c3aed'),
+                         ("Particuliers", types['Particulier'], BLEU),
+                         ("Centres", total_centres, ORANGE),
+                         ("Véhicules", total_veh, '#1a3a5c')]),
+    ])
+    if lignes:
+        elements.append(_tableau(
+            ['Client', 'Type', 'Téléphone', 'Email', 'Ville', 'Véhicules', 'Passages', 'Client depuis'],
+            [62, 26, 30, 50, 28, 20, 20, 24], lignes, centrer=(5, 6, 7)))
+    else:
+        elements.append(_message_vide("Aucun client ne correspond à ces critères."))
+    return _construire(titre, elements)
+
+
+# ════════════════════════════════════════════════════════════════
+#  LISTE DES BONS DE SORTIE
+# ════════════════════════════════════════════════════════════════
+TYPES_BON = {'VEHICULE': ("Véhicule", BLEU), 'DIVERS': ("Divers", '#7c3aed')}
+ETATS_BON = {
+    'CREER': ("Créé", GRIS),
+    'APPROBATION': ("En approbation", ORANGE),
+    'VALIDER': ("Validé", VERT),
+}
+
+
+def _date_heure(dt):
+    """(date, heure) en heure locale, ou (None, None)."""
+    if not dt:
+        return None, None
+    if timezone.is_aware(dt):
+        dt = timezone.localtime(dt)
+    return dt.strftime('%d/%m/%Y'), dt.strftime('%H:%M')
+
+
+def generer_pdf_liste_bons(qs):
+    """Génère le PDF de la liste des bons de sortie (A4 paysage)."""
+    if hasattr(qs, 'select_related'):
+        qs = qs.select_related('vehicule', 'vehicule__client', 'cree_par')
+    bons = list(qs)
+
+    nb_types, nb_etats = Counter(), Counter()
+    lignes = []
+    for bon in bons:
+        type_lib, type_coul = TYPES_BON.get(bon.types, (bon.types or '—', GRIS))
+        etat_lib, etat_coul = ETATS_BON.get(bon.etats, (bon.etats or '—', GRIS))
+        nb_types[(type_lib, type_coul)] += 1
+        nb_etats[(etat_lib, etat_coul)] += 1
+
+        # Véhicule : immatriculation + modèle + propriétaire
+        v = bon.vehicule if bon.types == 'VEHICULE' else None
+        if v:
+            sous = [_txt(f"{getattr(v, 'marque', '') or ''} {getattr(v, 'modele', '') or ''}".strip())]
+            client = getattr(v, 'client', None)
+            if client is not None:
+                sous.append(_txt(str(client)))
+            veh = P(f"<font color='#1a3a5c'><b>{_txt(v.immatriculation)}</b></font>" + ''.join(
+                f"<br/><font size=6.5 color='#6b7280'>{s}</font>" for s in sous if s))
+        else:
+            veh = _vide_cell()
+
+        # Créé le … par …
+        d, h = _date_heure(bon.created_at)
+        cree_par = getattr(bon.cree_par, 'full_name', '') if bon.cree_par else ''
+        cree = P(f"<b>{d}</b> <font color='#6b7280'>{h}</font>" +
+                 (f"<br/><font size=6.5 color='#6b7280'>par {_txt(cree_par)}</font>" if cree_par else ''),
+                 7.5) if d else _vide_cell()
+
+        # Validé le
+        d, h = _date_heure(bon.date_validation)
+        valide = P(f"<font color='{VERT}'><b>{d}</b></font> <font color='#6b7280'>{h}</font>",
+                   7.5, False, TA_CENTER) if d else _vide_cell()
+
+        lignes.append([
+            P(f"<b>{_txt(bon.numero) or '—'}</b>", 8.5, True, TA_CENTER, COULEUR_PRIMAIRE),
+            _badge(type_lib, type_coul),
+            _badge(etat_lib, etat_coul),
+            veh,
+            P(_txt(bon.nom_demandeur)) if bon.nom_demandeur else _vide_cell(),
+            cree,
+            valide,
+        ])
+
+    titre = "Bons de sortie"
+    elements = _entete(titre.upper(), len(bons), "bon(s)")
+    elements += _bandeau_repartition([
+        ("États", [(lib, n, c) for (lib, c), n in nb_etats.most_common()]),
+        ("Types", [(lib, n, c) for (lib, c), n in nb_types.most_common()]),
+    ])
+    if lignes:
+        elements.append(_tableau(
+            ['N° Bon', 'Type', 'État', 'Véhicule', 'Demandeur', 'Créé le', 'Validé le'],
+            [26, 24, 30, 58, 50, 44, 30], lignes, centrer=(0, 6)))
+    else:
+        elements.append(_message_vide("Aucun bon de sortie ne correspond à ces critères."))
+    return _construire(titre, elements)

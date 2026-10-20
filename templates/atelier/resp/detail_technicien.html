@@ -19,63 +19,143 @@
 .kpi{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;}
 .kpi-val{font-size:26px;font-weight:800;}
 .kpi-lbl{font-size:11px;color:var(--text-muted);margin-top:4px;}
+.kpi-sub{font-size:11px;color:var(--text-muted);}
+.section-titre{font-size:13px;color:var(--text-muted);text-transform:uppercase;margin:6px 0 10px;font-weight:700;}
 .tache-line{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
 .tache-line:last-child{border-bottom:none;}
+.motif{font-size:12px;color:var(--danger);margin-top:2px;}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.tbl th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--text-muted);padding:8px;border-bottom:1.5px solid var(--border);}
+.tbl td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top;}
+.tbl td.num{text-align:right;white-space:nowrap;}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <div><h1>{{ tech.get_full_name }}</h1><div class="breadcrumb">{{ tech.email }}</div></div>
+  <div>
+    <h1>{{ tech.get_full_name }}</h1>
+    <div class="breadcrumb">{{ tech.email }}{% if tech.atelier %} · 🏭 {{ tech.atelier.nom }}{% endif %}</div>
+  </div>
   <a href="{% url 'liste_techniciens' %}" class="btn btn-outline">← Retour</a>
 </div>
 
+<!-- ═══ Tâches ═══ -->
+<div class="section-titre">Tâches</div>
 <div class="kpi-grid">
-  <div class="kpi"><div class="kpi-val" style="color:var(--success);">{{ stats.nb_effectuees }}</div><div class="kpi-lbl">Tâches effectuées</div></div>
+  <div class="kpi"><div class="kpi-val">{{ stats.nb_total }}</div><div class="kpi-lbl">Tâches assignées</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--success);">{{ stats.nb_effectuees }}</div><div class="kpi-lbl">Effectuées</div><div class="kpi-sub">dont {{ stats.nb_validees }} validées</div></div>
   <div class="kpi"><div class="kpi-val">{{ stats.nb_restantes }}</div><div class="kpi-lbl">Restantes</div></div>
-  <div class="kpi"><div class="kpi-val" style="color:var(--danger);">{{ stats.nb_en_retard }}</div><div class="kpi-lbl">Tâches en retard</div></div>
-  <div class="kpi"><div class="kpi-val">{{ stats.duree_totale }} </div><div class="kpi-lbl">Durée totale travaillée</div></div>
-  <div class="kpi"><div class="kpi-val">{{ stats.duree_moyenne }} </div><div class="kpi-lbl">Durée moyenne/tâche</div></div>
-  <div class="kpi"><div class="kpi-val">{{ stats.delai_moyen_demarrage }} </div><div class="kpi-lbl">Délai moyen assignation→démarrage</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--danger);">{{ stats.nb_a_reprendre }}</div><div class="kpi-lbl">À reprendre</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--danger);">{{ stats.nb_refus }}</div><div class="kpi-lbl">Refus reçus</div><div class="kpi-sub">{{ stats.nb_taches_refusees }} tâche{{ stats.nb_taches_refusees|pluralize }} · {{ stats.taux_refus }} %</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--warning);">{{ stats.nb_reouvertures }}</div><div class="kpi-lbl">Réouvertures</div><div class="kpi-sub">{{ stats.nb_taches_reouvertes }} tâche{{ stats.nb_taches_reouvertes|pluralize }}</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--danger);">{{ stats.nb_en_retard }}</div><div class="kpi-lbl">En retard</div></div>
 </div>
 
-<div class="grid-2">
-  <div class="card">
-    <div class="card-header"><div class="card-title">📋 Tâches restantes ({{ taches_restantes|length }})</div></div>
-    {% for t in taches_restantes %}
-    <div class="tache-line">
-      <div style="flex:1;">
-        <div class="font-bold">{{ t.libelle }}</div>
-        <div class="text-muted">🚗 {{ t.ordre_reparation.vehicule.immatriculation }} · 🏭 {{ t.ordre_reparation.atelier.nom }}</div>
-      </div>
+<!-- ═══ Temps ═══ -->
+<div class="section-titre">Temps</div>
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-val">{{ stats.temps_total }}</div><div class="kpi-lbl">Temps total travaillé</div></div>
+  <div class="kpi"><div class="kpi-val">{{ stats.temps_mois }}</div><div class="kpi-lbl">Ce mois-ci</div></div>
+  <div class="kpi"><div class="kpi-val">{{ stats.temps_moyen }}</div><div class="kpi-lbl">Moyenne / tâche effectuée</div></div>
+  <div class="kpi"><div class="kpi-val">{{ stats.temps_estime_faites }}</div><div class="kpi-lbl">Temps prévu (tâches effectuées)</div></div>
+  <div class="kpi"><div class="kpi-val">{{ stats.delai_moyen_demarrage }}</div><div class="kpi-lbl">Délai assignation → démarrage</div></div>
+</div>
+
+<!-- ═══ Onglets ═══ -->
+<div class="tabs">
+  <button type="button" class="btn btn-primary btn-sm" data-tab="restantes">📋 Restantes ({{ taches_restantes|length }})</button>
+  <button type="button" class="btn btn-outline btn-sm" data-tab="faites">✅ Effectuées ({{ taches_faites|length }})</button>
+  <button type="button" class="btn btn-outline btn-sm" data-tab="refusees">↩️ Refusées ({{ taches_refusees|length }})</button>
+  <button type="button" class="btn btn-outline btn-sm" data-tab="reouvertes">🔓 Réouvertes ({{ taches_reouvertes|length }})</button>
+</div>
+
+<!-- Restantes -->
+<div class="card tab-panel active" id="tab-restantes">
+  {% for t in taches_restantes %}
+  <div class="tache-line">
+    <div style="flex:1;">
+      <div class="font-bold">{{ t.libelle }}</div>
+      <div class="text-muted">🚗 {{ t.ordre_reparation.vehicule.immatriculation }} · 🔧 {{ t.ordre_reparation.numero }} · 🏭 {{ t.atelier.nom }} · prévu {{ t.duree_estimee_label }}{% if t.temps_tech %} · fait {{ t.temps_tech_label }}{% endif %}</div>
+      {% if t.est_a_reprendre and t.motif_retour %}<div class="motif">Motif : {{ t.motif_retour|truncatechars:120 }}</div>{% endif %}
+    </div>
+    <div style="text-align:right;">
+      {% if t.est_a_reprendre %}
+        {% if t.est_refusee %}<span class="badge badge-danger">↩️ Refusée</span>{% else %}<span class="badge badge-warning">🔓 À refaire</span>{% endif %}
+      {% endif %}
       {% if t.statut == 'EN_COURS' %}<span class="badge" style="background:var(--warning);color:#fff;">En cours</span>
       {% else %}<span class="badge badge-secondary">À faire</span>{% endif %}
     </div>
-    {% empty %}
-    <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucune tâche en attente</div>
-    {% endfor %}
   </div>
-
-  <div class="card">
-    <div class="card-header"><div class="card-title">✅ Historique des tâches effectuées ({{ taches_faites|length }})</div></div>
-    {% for t in taches_faites %}
-    <div class="tache-line">
-      <div style="flex:1;">
-        <div class="font-bold">{{ t.libelle }}</div>
-        <div class="text-muted">
-          🚗 {{ t.ordre_reparation.vehicule.immatriculation }}
-          · ⏱️ {{ t.duree_reelle_minutes|default:"?" }} min (est. {{ t.duree_estimee_minutes }} min)
-          {% if t.delai_avant_demarrage_minutes != None %} · Démarré {{ t.delai_avant_demarrage_minutes }} min après assignation{% endif %}
-        </div>
-      </div>
-      <div style="text-align:right;">
-        {% if t.statut == 'VALIDEE' %}<span class="badge badge-success">Validée</span>{% else %}<span class="badge badge-warning">En attente</span>{% endif %}
-        {% if t.en_retard %}<div class="text-small" style="color:var(--danger);">⚠️ Retard</div>{% endif %}
-      </div>
-    </div>
-    {% empty %}
-    <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucune tâche effectuée</div>
-    {% endfor %}
-  </div>
+  {% empty %}
+  <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucune tâche en attente</div>
+  {% endfor %}
 </div>
+
+<!-- Effectuées -->
+<div class="card tab-panel" id="tab-faites">
+  <table class="tbl">
+    <thead><tr><th>Tâche</th><th>OR / véhicule</th><th class="num">Prévu</th><th class="num">Son temps</th><th class="num">Démarrage</th><th>Statut</th></tr></thead>
+    <tbody>
+    {% for t in taches_faites %}
+    <tr>
+      <td><b>{{ t.libelle }}</b>{% if t.nb_refus %} <span class="badge badge-danger">{{ t.nb_refus }} refus</span>{% endif %}{% if t.nb_reouvertures %} <span class="badge badge-warning">{{ t.nb_reouvertures }} réouv.</span>{% endif %}</td>
+      <td>{{ t.ordre_reparation.numero }}<br><span class="text-muted">🚗 {{ t.ordre_reparation.vehicule.immatriculation }}</span></td>
+      <td class="num">{{ t.duree_estimee_label }}</td>
+      <td class="num" {% if t.en_retard %}style="color:var(--danger);font-weight:700;"{% endif %}>{{ t.temps_tech_label }}</td>
+      <td class="num">{% if t.delai_avant_demarrage_minutes != None %}{{ t.delai_avant_demarrage_minutes }} min{% else %}—{% endif %}</td>
+      <td>{% if t.statut == 'VALIDEE' %}<span class="badge badge-success">Validée</span>{% else %}<span class="badge badge-warning">En attente</span>{% endif %}<br><span class="text-small text-muted">{{ t.date_fin|date:"d/m/Y" }}</span></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Aucune tâche effectuée</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Refusées -->
+<div class="card tab-panel" id="tab-refusees">
+  {% for t in taches_refusees %}
+  <div class="tache-line">
+    <div style="flex:1;">
+      <div class="font-bold">{{ t.libelle }} <span class="badge badge-danger">{{ t.nb_refus }} refus</span></div>
+      <div class="text-muted">🔧 {{ t.ordre_reparation.numero }} · 🚗 {{ t.ordre_reparation.vehicule.immatriculation }} · son temps {{ t.temps_tech_label }}</div>
+      {% if t.est_refusee and t.motif_retour %}<div class="motif">Dernier motif ({{ t.date_retour|date:"d/m/Y H:i" }}) : {{ t.motif_retour }}</div>{% endif %}
+    </div>
+    <span class="badge {% if t.statut == 'VALIDEE' %}badge-success{% else %}badge-secondary{% endif %}">{{ t.get_statut_display }}</span>
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucune tâche refusée</div>
+  {% endfor %}
+</div>
+
+<!-- Réouvertes -->
+<div class="card tab-panel" id="tab-reouvertes">
+  {% for t in taches_reouvertes %}
+  <div class="tache-line">
+    <div style="flex:1;">
+      <div class="font-bold">{{ t.libelle }} <span class="badge badge-warning">{{ t.nb_reouvertures }} réouverture{{ t.nb_reouvertures|pluralize }}</span></div>
+      <div class="text-muted">🔧 {{ t.ordre_reparation.numero }} · 🚗 {{ t.ordre_reparation.vehicule.immatriculation }} · son temps {{ t.temps_tech_label }}</div>
+      {% if t.est_reouverte and t.motif_retour %}<div class="motif">Raison : {{ t.motif_retour }}</div>{% endif %}
+    </div>
+    <span class="badge {% if t.statut == 'VALIDEE' %}badge-success{% else %}badge-secondary{% endif %}">{{ t.get_statut_display }}</span>
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucune tâche réouverte</div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('[data-tab]').forEach(b => b.classList.replace('btn-primary', 'btn-outline'));
+  btn.classList.replace('btn-outline', 'btn-primary');
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+}));
+</script>
 {% endblock %}

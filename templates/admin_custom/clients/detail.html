@@ -3,31 +3,29 @@
 {% block page_title %}👤 Fiche client{% endblock %}
 
 {% block sidebar_nav %}
-
 <ul class="sidebar-nav">
-<li><a href="{% url 'index' %}" ><span class="icon">📊</span> Tableau de bord</a></li>
-<li class="sidebar-section">Administration</li>
-<li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
-<li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
-<li><a href="{% url 'admin_nettoyage' %}" ><span class="icon">🧹</span> Nettoyage</a></li>
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
 
-<div class="sidebar-section">Bases</div>
-<ul class="sidebar-nav">
-<li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
-<li><a href="{% url 'admin_clients' %}" class="active"><span class="icon">👥</span> Clients</a></li>
-<li><a href="{% url 'admin_conducteurs' %}" ><span class="icon">🪪</span> Conducteurs</a></li>
-<li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
-<li><a href="{% url 'admin_ateliers' %}" ><span class="icon">🏭</span> Ateliers</a></li>
+  <li class="sidebar-section">Administration</li>
+  <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
+  <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
+  <li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
+  <li><a href="{% url 'inventaire_admin_liste' %}"><span class="icon">📋</span> Inventaire</a></li>
+  <li><a href="{% url 'liste_or_admin' %} " ><span class="icon">🔧</span> Ordres de réparation</a></li>
+
+  <li class="sidebar-section">Bases</li>
+  <li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+  <li><a href="{% url 'admin_clients' %}" class="active"><span class="icon">👥</span> Clients</a></li>
+  <li><a href="{% url 'admin_conducteurs' %}"><span class="icon">🪪</span> Conducteurs</a></li>
+  <li><a href="{% url 'admin_vehicules' %}"><span class="icon">🚗</span> Véhicules</a></li>
+  <li><a href="{% url 'admin_ateliers' %}"><span class="icon">🏭</span> Ateliers</a></li>
+
+  <li class="sidebar-section">Mouvements</li>
+  <li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
+  <li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
+  <li><a href="{% url 'liste_receptions_admin' %}"><span class="icon">📥</span> Historique des réceptions</a></li>
+  <li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
 </ul>
-
-</li>
-<li class="sidebar-section">Mouvements</li>
-<li><a href="{% url 'vehicules_presents_admin' %}"><span class="icon">🚗</span> Véhicules présents</a></li>
-<li><a href="{% url 'historique_entrees_admin' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
-<li><a href="{% url 'liste_receptions_admin' %}" ><span class="icon">📥</span> Historique des réceptions</a></li>
-<li><a href="{% url 'liste_bons_admin' %}"><span class="icon">📄</span> Bons de sortie</a></li>
-</ul>
-
 {% endblock %}
 
 {% block extra_css %}
@@ -35,43 +33,81 @@
 /* ── En-tête client ── */
 .client-hero {
   background: linear-gradient(135deg, var(--primary-dark), var(--primary));
-  color: #fff;
-  border-radius: var(--radius);
-  padding: 24px 28px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
+  color: #fff; border-radius: var(--radius); padding: 24px 28px; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
 }
 .client-avatar-lg {
-  width: 64px; height: 64px; border-radius: 50%;
-  background: rgba(255,255,255,.2);
+  width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,.2);
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px; font-weight: 800; flex-shrink: 0;
-  border: 3px solid rgba(255,255,255,.4);
+  font-size: 26px; font-weight: 800; flex-shrink: 0; border: 3px solid rgba(255,255,255,.4);
 }
 .client-hero .ch-name  { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
 .client-hero .ch-sub   { font-size: 13px; opacity: .8; }
 .client-hero .ch-badge { background: rgba(255,255,255,.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+.client-hero .ch-count { text-align: center; padding: 0 10px; }
+.client-hero .ch-count b { display: block; font-size: 30px; font-weight: 800; line-height: 1.1; }
+.client-hero .ch-count span { font-size: 12px; opacity: .8; }
 
 /* ── Stats chips ── */
 .stat-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
 .stat-chip  { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 7px 16px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
 
+/* ── Onglets ── */
+.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 16px; flex-wrap: wrap; }
+.tab-btn { padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--text-muted); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .2s; }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-btn:hover { color: var(--primary); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── Barre centres (filtres) ── */
+.ctr-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.ctr-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px;
+  border: 1.5px solid var(--border); background: var(--surface); font-size: 12.5px; font-weight: 600;
+  color: var(--text); text-decoration: none; transition: all .15s;
+}
+.ctr-chip:hover { border-color: var(--primary); color: var(--primary); }
+.ctr-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.ctr-chip .n { background: rgba(0,0,0,.08); border-radius: 10px; padding: 0 7px; font-size: 11px; }
+.ctr-chip.active .n { background: rgba(255,255,255,.25); }
+.ctr-chip.off { opacity: .55; }
+.ctr-bar .spacer { flex: 1; }
+
+/* ── Groupe centre ── */
+.ctr-group { margin-bottom: 20px; }
+.ctr-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--primary);
+  border-radius: var(--radius); padding: 12px 16px; margin-bottom: 10px;
+}
+.ctr-head.sans { border-left-color: var(--border); background: var(--surface2); }
+.ctr-ico { width: 38px; height: 38px; border-radius: 10px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.ctr-name { font-size: 15px; font-weight: 800; }
+.ctr-code { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); margin-left: 6px; }
+.ctr-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; display: flex; gap: 12px; flex-wrap: wrap; }
+.ctr-total { font-size: 12px; font-weight: 700; color: var(--primary); white-space: nowrap; }
+
 /* ── Véhicules ── */
+.veh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 10px; }
 .veh-card {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 10px;
-  transition: all .2s;
+  background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px; transition: all .2s;
 }
 .veh-card:hover { border-color: var(--primary-light); box-shadow: var(--shadow); }
 .veh-card.present { border-left: 4px solid var(--danger); }
 .veh-card.atelier { border-left: 4px solid var(--warning); }
 .veh-card.libre   { border-left: 4px solid var(--border); }
+.veh-photo {
+  width: 112px; height: 84px; border-radius: 8px; flex-shrink: 0; overflow: hidden; position: relative;
+  background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 30px;
+  border: 1px solid var(--border); cursor: zoom-in;
+}
+.veh-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.veh-photo.vide { cursor: default; }
+.veh-photo .ph-fallback { display: none; }
+.veh-photo.erreur img { display: none; }
+.veh-photo.erreur .ph-fallback { display: block; }
 
 /* ── Timeline mouvements ── */
 .mvt-line { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -81,13 +117,65 @@
 .mvt-dot.sortie { background: #d1fae5; }
 .mvt-dot.repair { background: #fef3c7; }
 
-/* ── Onglets ── */
-.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
-.tab-btn { padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--text-muted); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .2s; }
-.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
-.tab-btn:hover { color: var(--primary); }
-.tab-pane { display: none; }
-.tab-pane.active { display: block; }
+/* ── Pagination ── */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.pager-info { font-size: 12px; color: var(--text-muted); }
+.pager-links { display: flex; gap: 4px; flex-wrap: wrap; }
+.pager-links a, .pager-links span {
+  min-width: 34px; height: 34px; padding: 0 10px; border-radius: 8px; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); text-decoration: none;
+}
+.pager-links a:hover { border-color: var(--primary); color: var(--primary); }
+.pager-links .current { background: var(--primary); border-color: var(--primary); color: #fff; }
+.pager-links .off { opacity: .4; }
+.pager-links .dots { border: none; background: none; min-width: 20px; }
+
+/* ── Modales de la page ── */
+.cl-modal { position: fixed; inset: 0; background: rgba(15,23,42,.55); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+.cl-modal.open { display: flex; animation: clFade .15s ease-out; }
+@keyframes clFade { from { opacity: 0; } to { opacity: 1; } }
+.cl-modal-box { background: var(--surface, #fff); border-radius: 14px; width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; padding: 0; box-shadow: 0 24px 60px rgba(0,0,0,.28); }
+.cl-modal-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 16px 22px; border-bottom: 1px solid var(--border, #e2e8f0);
+  background: linear-gradient(135deg, var(--primary-dark, #0f2740), var(--primary, #1a3a5c));
+  color: #fff; border-radius: 14px 14px 0 0; font-size: 16px;
+}
+.cl-modal-head .btn { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.3); color: #fff; }
+.cl-modal-head .btn:hover { background: rgba(255,255,255,.25); }
+.cl-modal-box form { padding: 20px 22px 22px; }
+
+/* Formulaire : styles autonomes (ne dépend pas du thème) */
+.cl-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.cl-form-grid .full { grid-column: 1 / -1; }
+.cl-form-grid label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted, #64748b); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+.cl-form-grid input[type=text],
+.cl-form-grid input[type=email],
+.cl-form-grid input[type=tel],
+.cl-form-grid textarea {
+  display: block; width: 100%; box-sizing: border-box;
+  padding: 10px 12px; font-size: 14px; font-family: inherit; color: var(--text, #1e293b);
+  background: var(--surface2, #f8fafc); border: 1.5px solid var(--border, #e2e8f0); border-radius: 10px;
+  transition: border-color .15s, box-shadow .15s, background .15s; outline: none;
+}
+.cl-form-grid textarea { min-height: 70px; resize: vertical; }
+.cl-form-grid input::placeholder, .cl-form-grid textarea::placeholder { color: #94a3b8; }
+.cl-form-grid input:focus, .cl-form-grid textarea:focus {
+  background: #fff; border-color: var(--primary, #1a3a5c); box-shadow: 0 0 0 3px rgba(26,58,92,.15);
+}
+.cl-switch { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--surface2, #f8fafc); border: 1.5px solid var(--border, #e2e8f0); cursor: pointer; font-size: 14px; font-weight: 600; text-transform: none !important; letter-spacing: 0 !important; color: var(--text, #1e293b) !important; margin: 0 !important; }
+.cl-switch input { width: 18px; height: 18px; accent-color: var(--primary, #1a3a5c); margin: 0; }
+.cl-actions { display: flex; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border, #e2e8f0); }
+.cl-actions .btn { flex: 1; justify-content: center; padding: 11px 14px; font-size: 14px; border-radius: 10px; }
+.cl-lightbox .cl-modal-box { max-width: 900px; padding: 10px; background: #111; }
+.cl-lightbox img { width: 100%; max-height: 78vh; object-fit: contain; border-radius: 6px; display: block; }
+.cl-lightbox .cap { color: #fff; font-size: 13px; padding: 8px 4px 2px; }
+
+@media (max-width: 640px) {
+  .veh-grid { grid-template-columns: 1fr; }
+  .cl-form-grid { grid-template-columns: 1fr; }
+}
 </style>
 {% endblock %}
 
@@ -112,10 +200,8 @@
   <div class="client-avatar-lg">
     {{ client.nom|first|upper }}{% if client.type_client == 'PARTICULIER' and client.prenom %}{{ client.prenom|first|upper }}{% endif %}
   </div>
-  <div style="flex:1;">
-    <div class="ch-name">
-      {% if client.type_client == 'PARTICULIER' %}{{ client.prenom }} {% endif %}{{ client.nom }}
-    </div>
+  <div style="flex:1;min-width:220px;">
+    <div class="ch-name">{% if client.type_client == 'PARTICULIER' %}{{ client.prenom }} {% endif %}{{ client.nom }}</div>
     <div class="ch-sub">
       {% if client.type_client == 'ENTREPRISE' %}
         🏢 Entreprise{% if client.ninea %} · NINEA : {{ client.ninea }}{% endif %}
@@ -130,15 +216,16 @@
       {% if client.ville %}<span class="ch-badge">📍 {{ client.ville }}</span>{% endif %}
     </div>
   </div>
-  <div style="text-align:right;">
-    <div style="font-size:32px;font-weight:800;">{{ client.vehicules.count }}</div>
-    <div style="font-size:12px;opacity:.8;">véhicule{{ client.vehicules.count|pluralize }}</div>
+  <div style="display:flex;">
+    {% if peut_avoir_centres %}<div class="ch-count"><b>{{ centres|length }}</b><span>centre{{ centres|length|pluralize }}</span></div>{% endif %}
+    <div class="ch-count"><b>{{ nb_vehicules }}</b><span>véhicule{{ nb_vehicules|pluralize }}</span></div>
   </div>
 </div>
 
 <!-- Stats rapides -->
 <div class="stat-chips">
-  <div class="stat-chip">🚗 <strong>{{ client.vehicules.count }}</strong> véhicule{{ client.vehicules.count|pluralize }}</div>
+  {% if peut_avoir_centres %}<div class="stat-chip">🏢 <strong>{{ centres|length }}</strong> centre{{ centres|length|pluralize }}</div>{% endif %}
+  <div class="stat-chip">🚗 <strong>{{ nb_vehicules }}</strong> véhicule{{ nb_vehicules|pluralize }}</div>
   <div class="stat-chip">🔁 <strong>{{ nb_passages }}</strong> passage{{ nb_passages|pluralize }}</div>
   <div class="stat-chip">🔧 <strong>{{ nb_reparations }}</strong> réparation{{ nb_reparations|pluralize }}</div>
   <div class="stat-chip">📅 Client depuis <strong>{{ client.created_at|date:"d/m/Y" }}</strong></div>
@@ -147,136 +234,221 @@
 
 <!-- Onglets -->
 <div class="tabs">
-  <button class="tab-btn active" onclick="showTab('vehicules')">🚗 Véhicules ({{ client.vehicules.count }})</button>
-  <button class="tab-btn" onclick="showTab('mouvements')">📋 Mouvements ({{ entrees|length }})</button>
-  <button class="tab-btn" onclick="showTab('infos')">ℹ️ Informations</button>
+  <button class="tab-btn {% if onglet == 'vehicules' %}active{% endif %}" data-tab="vehicules">🚗 Véhicules{% if peut_avoir_centres %} par centre{% endif %} ({{ nb_vehicules }})</button>
+  <button class="tab-btn {% if onglet == 'mouvements' %}active{% endif %}" data-tab="mouvements">📋 Mouvements ({{ nb_passages }})</button>
+  <button class="tab-btn {% if onglet == 'infos' %}active{% endif %}" data-tab="infos">ℹ️ Informations</button>
 </div>
 
-<!-- ═══ TAB : Véhicules ═══ -->
-<div class="tab-pane active" id="tab-vehicules">
-  {% if client.vehicules.exists %}
-  {% for v in client.vehicules.all %}
-  <div class="veh-card {% if v.en_local and v.en_atelier %}atelier{% elif v.en_local %}present{% else %}libre{% endif %}">
-    <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+<!-- ═══ TAB : Véhicules par centre ═══ -->
+<div class="tab-pane {% if onglet == 'vehicules' %}active{% endif %}" id="tab-vehicules">
 
-      {% if v.photo %}
-      <img src="{{ v.photo.url }}" alt="{{ v.immatriculation }}"
-           style="width:70px;height:54px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;">
-      {% else %}
-      <div style="width:70px;height:54px;background:var(--surface2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">🚗</div>
-      {% endif %}
-
-      <div style="flex:1;">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
-          <strong style="font-size:16px;letter-spacing:.3px;">{{ v.immatriculation }}</strong>
-
-          <!-- Statut présence -->
-          {% if v.en_local and v.en_atelier %}
-          <span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:10px;">🏭 Local + Atelier</span>
-          {% elif v.en_local %}
-          <span class="badge badge-danger" style="font-size:10px;">🔴 Présent sur site</span>
-          {% elif v.en_atelier %}
-          <span class="badge badge-warning" style="font-size:10px;">🟡 En atelier</span>
-          {% else %}
-          <span class="badge badge-secondary" style="font-size:10px;">⚪ Hors garage</span>
-          {% endif %}
-
-          <!-- Assurance expirée -->
-          {% if v.expiry_assurance and v.expiry_assurance < today %}
-          <span class="badge badge-danger" style="font-size:10px;">⚠️ Assurance expirée</span>
-          {% endif %}
-        </div>
-
-        <div class="text-small text-muted">
-          {{ v.marque }} {{ v.modele }}
-          {% if v.annee %} · {{ v.annee }}{% endif %}
-          {% if v.couleur %} · {{ v.couleur }}{% endif %}
-          {% if v.type_carburant != 'NON_DEFINI' %} · {{ v.get_type_carburant_display }}{% endif %}
-          {% if v.transmission != 'NON_DEFINI' %} · {{ v.get_transmission_display }}{% endif %}
-        </div>
-
-        <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap;">
-          {% if v.num_assurance %}
-          <span class="text-small text-muted">🛡️ {{ v.num_assurance }}
-            {% if v.expiry_assurance %}(exp. {{ v.expiry_assurance|date:"d/m/Y" }}){% endif %}
-          </span>
-          {% endif %}
-          {% if v.date_visite %}
-          <span class="text-small {% if v.date_visite < today %}text-danger{% else %}text-muted{% endif %}">
-            🔧 Visite : {{ v.date_visite|date:"d/m/Y" }}
-          </span>
-          {% endif %}
-          {% if v.numero_chassis %}
-          <span class="text-small text-muted">N° châssis : {{ v.numero_chassis }}</span>
-          {% endif %}
-        </div>
-
-        <!-- Dernière entrée -->
-        {% with d=v.derniere_entree %}
-        {% if d %}
-        <div class="text-small text-muted" style="margin-top:4px;">
-          Dernier passage : {{ d.date_entree|date:"d/m/Y" }} ({{ d.get_motif_display }})
-        </div>
-        {% endif %}
-        {% endwith %}
-      </div>
-
-      <!-- Actions -->
-      <div style="display:flex;gap:6px;flex-shrink:0;">
-        <a href="{% url 'admin_modifier_vehicule' v.id %}" class="btn btn-outline btn-sm">✏️ Modifier</a>
-        <a href="{% url 'detail_vehicule_admin' v.id %}" class="btn btn-info btn-sm">🔍 Fiche</a>
-      </div>
-    </div>
-
-    <!-- Notes -->
-    {% if v.notes %}
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);">
-      📝 {{ v.notes }}
-    </div>
-    {% endif %}
+  {% if peut_avoir_centres %}
+  <!-- Filtres par centre + création -->
+  <div class="ctr-bar">
+    <a href="?tab=vehicules" class="ctr-chip {% if not filtre_centre %}active{% endif %}">
+      Tous <span class="n">{{ nb_vehicules }}</span>
+    </a>
+    <a href="?tab=vehicules&centre=siege" class="ctr-chip {% if filtre_centre == 'siege' %}active{% endif %}">
+      🏛️ Siège <span class="n">{{ nb_siege }}</span>
+    </a>
+    {% for ct in centres %}
+    <a href="?tab=vehicules&centre={{ ct.id }}"
+       class="ctr-chip {% if filtre_centre == ct.id|stringformat:'s' %}active{% endif %} {% if not ct.is_active %}off{% endif %}"
+       title="{{ ct.ville|default:'' }}">
+      🏢 {{ ct.nom }} <span class="n">{{ ct.nb_vehicules }}</span>
+    </a>
+    {% endfor %}
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-primary btn-sm" onclick="ouvrirCentre()">➕ Nouveau centre</button>
   </div>
-  {% endfor %}
-  {% else %}
-  <div style="text-align:center;padding:48px;color:var(--text-muted);">
-    <div style="font-size:48px;margin-bottom:12px;">🚗</div>
-    <div class="font-bold">Aucun véhicule enregistré</div>
-    <div class="text-small" style="margin-top:4px;">Ce client n'a pas encore de véhicule dans le système.</div>
+
+  {% if not centres %}
+  <div class="alert alert-info" style="margin-bottom:14px;">
+    Cette entreprise n'a pas encore de centre. Crée ses agences, dépôts ou sites pour y rattacher ses véhicules.
+    Les véhicules rattachés directement à l'entreprise apparaissent sous « Siège ».
   </div>
   {% endif %}
+  {% endif %}
+
+  {% for g in groupes %}
+  <div class="ctr-group">
+    {% if not peut_avoir_centres %}
+    {# Particulier : pas d'en-tête de groupe #}
+    {% elif g.centre %}
+    <div class="ctr-head">
+      <div class="ctr-ico">🏢</div>
+      <div style="flex:1;min-width:200px;">
+        <div>
+          <span class="ctr-name">{{ g.centre.nom }}</span>
+          {% if g.centre.numero_client %}<span class="ctr-code">{{ g.centre.numero_client }}</span>{% endif %}
+          {% if not g.centre.is_active %}<span class="badge badge-secondary" style="font-size:10px;margin-left:6px;">Inactif</span>{% endif %}
+        </div>
+        <div class="ctr-meta">
+          {% if g.centre.ville %}<span>📍 {{ g.centre.ville }}{% if g.centre.adresse %} · {{ g.centre.adresse|truncatechars:50 }}{% endif %}</span>{% endif %}
+          {% if g.centre.telephone %}<span>📞 {{ g.centre.telephone }}</span>{% endif %}
+          {% if g.centre.email %}<span>✉️ {{ g.centre.email }}</span>{% endif %}
+        </div>
+      </div>
+      <span class="ctr-total">{{ g.total }} véhicule{{ g.total|pluralize }}</span>
+      <div style="display:flex;gap:6px;">
+        <button type="button" class="btn btn-outline btn-sm"
+                data-nom="{{ g.centre.nom }}"
+                data-telephone="{{ g.centre.telephone }}" data-email="{{ g.centre.email }}"
+                data-ville="{{ g.centre.ville }}" data-adresse="{{ g.centre.adresse }}"
+                data-actif="{{ g.centre.is_active|yesno:'1,0' }}"
+                data-url="{% url 'admin_modifier_centre' g.centre.id %}"
+                onclick="ouvrirCentre(this)">✏️</button>
+      </div>
+    </div>
+    {% else %}
+    <div class="ctr-head sans">
+      <div class="ctr-ico">🏛️</div>
+      <div style="flex:1;">
+        <span class="ctr-name">Siège — {{ client.nom }}</span>
+        <div class="ctr-meta">Véhicules rattachés directement à l'entreprise.</div>
+      </div>
+      <span class="ctr-total">{{ g.total }} véhicule{{ g.total|pluralize }}</span>
+    </div>
+    {% endif %}
+
+    <div class="veh-grid">
+      {% for v in g.vehicules %}
+      <div class="veh-card {% if v.en_local and v.en_atelier %}atelier{% elif v.en_local %}present{% else %}libre{% endif %}">
+        <div style="display:flex;align-items:flex-start;gap:14px;">
+
+          {% if v.photo %}
+          <div class="veh-photo" onclick="voirPhoto('{% url 'photo_vehicule' v.id %}', '{{ v.immatriculation|escapejs }} — {{ v.marque|escapejs }} {{ v.modele|escapejs }}')">
+            <img src="{% url 'photo_vehicule' v.id %}" alt="{{ v.immatriculation }}" loading="lazy"
+                 onerror="this.parentNode.classList.add('erreur')">
+            <span class="ph-fallback">🚗</span>
+          </div>
+          {% else %}
+          <div class="veh-photo vide" title="Pas de photo">🚗</div>
+          {% endif %}
+
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+              <strong style="font-size:16px;letter-spacing:.3px;">{{ v.immatriculation }}</strong>
+              {% if v.en_local and v.en_atelier %}
+              <span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:10px;">🏭 Local + Atelier</span>
+              {% elif v.en_local %}
+              <span class="badge badge-danger" style="font-size:10px;">🔴 Présent sur site</span>
+              {% elif v.en_atelier %}
+              <span class="badge badge-warning" style="font-size:10px;">🟡 En atelier</span>
+              {% else %}
+              <span class="badge badge-secondary" style="font-size:10px;">⚪ Hors garage</span>
+              {% endif %}
+              {% if v.expiry_assurance and v.expiry_assurance < today %}
+              <span class="badge badge-danger" style="font-size:10px;">⚠️ Assurance expirée</span>
+              {% endif %}
+            </div>
+
+            <div class="text-small text-muted">
+              {{ v.marque }} {{ v.modele }}
+              {% if v.annee %} · {{ v.annee }}{% endif %}
+              {% if v.couleur %} · {{ v.couleur }}{% endif %}
+              {% if v.type_carburant and v.type_carburant != 'NON_DEFINI' %} · {{ v.get_type_carburant_display }}{% endif %}
+              {% if v.transmission and v.transmission != 'NON_DEFINI' %} · {{ v.get_transmission_display }}{% endif %}
+            </div>
+
+            <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap;">
+              {% if v.num_assurance %}
+              <span class="text-small text-muted">🛡️ {{ v.num_assurance }}{% if v.expiry_assurance %} (exp. {{ v.expiry_assurance|date:"d/m/Y" }}){% endif %}</span>
+              {% endif %}
+              {% if v.date_visite %}
+              <span class="text-small {% if v.date_visite < today %}text-danger{% else %}text-muted{% endif %}">🔧 Visite : {{ v.date_visite|date:"d/m/Y" }}</span>
+              {% endif %}
+              {% if v.numero_chassis %}
+              <span class="text-small text-muted">Châssis : {{ v.numero_chassis }}</span>
+              {% endif %}
+            </div>
+
+            <div class="text-small text-muted" style="margin-top:4px;">
+              🔁 {{ v.nb_passages }} passage{{ v.nb_passages|pluralize }}
+              {% with d=v.derniere_entree %}{% if d %} · Dernier : {{ d.date_entree|date:"d/m/Y" }} ({{ d.get_motif_display }}){% endif %}{% endwith %}
+            </div>
+
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              <a href="{% url 'admin_modifier_vehicule' v.id %}" class="btn btn-outline btn-sm">✏️ Modifier</a>
+              <a href="{% url 'detail_vehicule_admin' v.id %}" class="btn btn-info btn-sm">🔍 Fiche</a>
+            </div>
+          </div>
+        </div>
+
+        {% if v.notes %}
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);">
+          📝 {{ v.notes|truncatechars:160 }}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:48px;color:var(--text-muted);">
+    <div style="font-size:48px;margin-bottom:12px;">🚗</div>
+    <div class="font-bold">Aucun véhicule {% if filtre_centre %}dans ce centre{% else %}enregistré{% endif %}</div>
+    <div class="text-small" style="margin-top:4px;">Dans le formulaire véhicule, choisis l'entreprise (siège) ou un de ses centres.</div>
+  </div>
+  {% endfor %}
+
+  {% for ct in centres_vides %}
+  <div class="ctr-head" style="opacity:.85;">
+    <div class="ctr-ico">🏢</div>
+    <div style="flex:1;min-width:200px;">
+      <span class="ctr-name">{{ ct.nom }}</span>
+      {% if not ct.is_active %}<span class="badge badge-secondary" style="font-size:10px;margin-left:6px;">Inactif</span>{% endif %}
+      <div class="ctr-meta">
+        {% if ct.ville %}<span>📍 {{ ct.ville }}</span>{% endif %}
+        {% if ct.telephone %}<span>📞 {{ ct.telephone }}</span>{% endif %}
+        <span>Aucun véhicule pour l'instant</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button type="button" class="btn btn-outline btn-sm"
+              data-nom="{{ ct.nom }}" data-telephone="{{ ct.telephone }}" data-email="{{ ct.email }}"
+              data-ville="{{ ct.ville }}" data-adresse="{{ ct.adresse }}"
+              data-actif="{{ ct.is_active|yesno:'1,0' }}"
+              data-url="{% url 'admin_modifier_centre' ct.id %}"
+              onclick="ouvrirCentre(this)">✏️</button>
+      <form method="post" action="{% url 'admin_supprimer_centre' ct.id %}"
+            onsubmit="return confirm('Supprimer le centre « {{ ct.nom|escapejs }} » ?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-sm" title="Supprimer">🗑</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% include "admin_custom/includes/pagination.html" with page=page_vehicules param="page" qs=qs_vehicules %}
 </div>
 
 <!-- ═══ TAB : Mouvements ═══ -->
-<div class="tab-pane" id="tab-mouvements">
+<div class="tab-pane {% if onglet == 'mouvements' %}active{% endif %}" id="tab-mouvements">
 
-  <!-- Résumé par véhicule -->
-  {% if client.vehicules.exists %}
+  {% if passages_par_vehicule %}
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-    {% for v in client.vehicules.all %}
+    {% for pv in passages_par_vehicule %}
     <div style="background:var(--surface2);border-radius:8px;padding:8px 14px;font-size:12px;">
-      <strong>{{ v.immatriculation }}</strong>
-      <span class="text-muted"> · {{ v.entrees.count }} passage{{ v.entrees.count|pluralize }}</span>
+      <strong>{{ pv.immatriculation }}</strong>
+      <span class="text-muted"> · {{ pv.nb }} passage{{ pv.nb|pluralize }}</span>
     </div>
     {% endfor %}
   </div>
   {% endif %}
 
-  {% if entrees %}
-  {% for e in entrees %}
+  {% for e in page_entrees %}
   <div class="mvt-line">
-    <!-- Icône -->
     <div class="mvt-dot {% if e.statut == 'SORTI' %}sortie{% elif e.motif == 'REPARATION' %}repair{% else %}entree{% endif %}">
       {% if e.statut == 'SORTI' %}🚪{% elif e.motif == 'REPARATION' %}🔧{% else %}🚗{% endif %}
     </div>
 
-    <!-- Infos -->
     <div style="flex:1;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">
         <strong>{{ e.vehicule.immatriculation }}</strong>
-        <span class="badge
-          {% if e.motif == 'REPARATION' %}badge-warning
-          {% elif e.motif == 'VISITE' %}badge-info
-          {% else %}badge-secondary{% endif %}"
-          style="font-size:10px;">{{ e.get_motif_display }}</span>
+        {% if e.vehicule.client_id != client.id %}<span class="text-small text-muted">🏢 {{ e.vehicule.client.nom }}</span>{% endif %}
+        <span class="badge {% if e.motif == 'REPARATION' %}badge-warning{% elif e.motif == 'VISITE' %}badge-info{% else %}badge-secondary{% endif %}"
+              style="font-size:10px;">{{ e.get_motif_display }}</span>
         {% if e.statut == 'SORTI' %}
         <span class="badge badge-success" style="font-size:10px;">✅ Sorti</span>
         {% else %}
@@ -297,13 +469,10 @@
       <div class="text-small text-muted">🔢 {{ e.kilometrage_entree }} km à l'entrée</div>
       {% endif %}
 
-      <!-- Réception liée -->
       {% if e.reception %}
       <div class="text-small" style="margin-top:3px;">
         📋 Réception :
-        <a href="{% url 'detail_reception' e.reception.id %}" style="color:var(--primary);">
-          {{ e.reception.numero }}
-        </a>
+        <a href="{% url 'detail_rec_admin' e.reception.id %}" style="color:var(--primary);">{{ e.reception.numero }}</a>
         — <span class="text-muted">{{ e.reception.get_statut_display }}</span>
       </div>
       {% endif %}
@@ -313,26 +482,25 @@
       {% endif %}
     </div>
 
-    <!-- Date relative -->
     <div class="text-small text-muted" style="flex-shrink:0;text-align:right;">
-      {{ e.date_entree|timesince }} ago<br>
+      il y a {{ e.date_entree|timesince }}<br>
       <span style="font-size:11px;">{{ e.numero }}</span>
     </div>
   </div>
-  {% endfor %}
-  {% else %}
+  {% empty %}
   <div style="text-align:center;padding:40px;color:var(--text-muted);">
     <div style="font-size:40px;margin-bottom:10px;">📋</div>
     Aucun mouvement enregistré
   </div>
-  {% endif %}
+  {% endfor %}
+
+  {% include "admin_custom/includes/pagination.html" with page=page_entrees param="page_mvt" qs=qs_mouvements %}
 </div>
 
 <!-- ═══ TAB : Informations ═══ -->
-<div class="tab-pane" id="tab-infos">
+<div class="tab-pane {% if onglet == 'infos' %}active{% endif %}" id="tab-infos">
   <div class="grid-2">
 
-    <!-- Coordonnées -->
     <div class="card">
       <div class="card-header"><div class="card-title">📞 Coordonnées</div></div>
       <table>
@@ -349,34 +517,22 @@
         <tr><td class="text-muted">Nom complet</td>
           <td><strong>{% if client.type_client == 'PARTICULIER' and client.prenom %}{{ client.prenom }} {% endif %}{{ client.nom }}</strong></td>
         </tr>
-        {% if client.ninea %}
-        <tr><td class="text-muted">NINEA / RC</td><td>{{ client.ninea }}</td></tr>
-        {% endif %}
-        {% if client.numero_client %}
-        <tr><td class="text-muted">N° Client</td><td class="text-muted">{{ client.numero_client }}</td></tr>
-        {% endif %}
+        {% if client.ninea %}<tr><td class="text-muted">NINEA / RC</td><td>{{ client.ninea }}</td></tr>{% endif %}
+        {% if client.numero_client %}<tr><td class="text-muted">N° Client</td><td class="text-muted">{{ client.numero_client }}</td></tr>{% endif %}
         <tr>
           <td class="text-muted">Téléphone</td>
           <td><a href="tel:{{ client.telephone }}" style="color:var(--primary);font-weight:600;">📞 {{ client.telephone }}</a></td>
         </tr>
         {% if client.telephone2 %}
-        <tr>
-          <td class="text-muted">Téléphone 2</td>
-          <td><a href="tel:{{ client.telephone2 }}" style="color:var(--primary);">📞 {{ client.telephone2 }}</a></td>
-        </tr>
+        <tr><td class="text-muted">Téléphone 2</td>
+          <td><a href="tel:{{ client.telephone2 }}" style="color:var(--primary);">📞 {{ client.telephone2 }}</a></td></tr>
         {% endif %}
         {% if client.email %}
-        <tr>
-          <td class="text-muted">Email</td>
-          <td><a href="mailto:{{ client.email }}" style="color:var(--primary);">✉️ {{ client.email }}</a></td>
-        </tr>
+        <tr><td class="text-muted">Email</td>
+          <td><a href="mailto:{{ client.email }}" style="color:var(--primary);">✉️ {{ client.email }}</a></td></tr>
         {% endif %}
-        {% if client.adresse %}
-        <tr><td class="text-muted">Adresse</td><td>{{ client.adresse }}</td></tr>
-        {% endif %}
-        {% if client.ville %}
-        <tr><td class="text-muted">Ville</td><td>{{ client.ville }}</td></tr>
-        {% endif %}
+        {% if client.adresse %}<tr><td class="text-muted">Adresse</td><td>{{ client.adresse }}</td></tr>{% endif %}
+        {% if client.ville %}<tr><td class="text-muted">Ville</td><td>{{ client.ville }}</td></tr>{% endif %}
         <tr><td class="text-muted">Créé le</td><td class="text-muted">{{ client.created_at|date:"d/m/Y à H:i" }}</td></tr>
         <tr><td class="text-muted">Statut</td>
           <td>{% if client.is_active %}<span class="badge badge-success">✅ Actif</span>{% else %}<span class="badge badge-danger">❌ Inactif</span>{% endif %}</td>
@@ -384,21 +540,16 @@
       </table>
     </div>
 
-    <!-- Statistiques -->
     <div class="card">
       <div class="card-header"><div class="card-title">📊 Statistiques</div></div>
       <table>
-        <tr><td class="text-muted">Véhicules</td><td><strong>{{ client.vehicules.count }}</strong></td></tr>
+        {% if peut_avoir_centres %}<tr><td class="text-muted">Centres</td><td><strong>{{ centres|length }}</strong></td></tr>{% endif %}
+        <tr><td class="text-muted">Véhicules</td><td><strong>{{ nb_vehicules }}</strong></td></tr>
         <tr><td class="text-muted">Total passages</td><td><strong>{{ nb_passages }}</strong></td></tr>
         <tr><td class="text-muted">Réparations</td><td><strong>{{ nb_reparations }}</strong></td></tr>
         <tr><td class="text-muted">Visites simples</td><td><strong>{{ nb_visites }}</strong></td></tr>
-        {% if dernier_passage %}
-        <tr><td class="text-muted">Dernier passage</td><td>{{ dernier_passage.date_entree|date:"d/m/Y" }}</td></tr>
-        {% endif %}
-        {% if premier_passage %}
-        <tr><td class="text-muted">Premier passage</td><td>{{ premier_passage.date_entree|date:"d/m/Y" }}</td></tr>
-        {% endif %}
-        {% if assurance_nb_expiree %}
+        {% if dernier_passage %}<tr><td class="text-muted">Dernier passage</td><td>{{ dernier_passage.date_entree|date:"d/m/Y" }}</td></tr>{% endif %}
+        {% if premier_passage %}<tr><td class="text-muted">Premier passage</td><td>{{ premier_passage.date_entree|date:"d/m/Y" }}</td></tr>{% endif %}
         <tr>
           <td class="text-muted">Assurances</td>
           <td>
@@ -409,18 +560,15 @@
             {% endif %}
           </td>
         </tr>
-        {% endif %}
       </table>
 
-      <!-- Répartition motifs -->
       {% if nb_passages %}
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
         <div class="text-small font-bold text-muted" style="margin-bottom:8px;">Répartition des passages</div>
         {% if nb_reparations %}
         <div style="margin-bottom:6px;">
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
-            <span>🔧 Réparations</span>
-            <strong>{{ nb_reparations }}</strong>
+            <span>🔧 Réparations</span><strong>{{ nb_reparations }}</strong>
           </div>
           <div class="progress-bar">
             <div class="progress-fill" style="width:{% widthratio nb_reparations nb_passages 100 %}%;background:var(--warning);"></div>
@@ -430,8 +578,7 @@
         {% if nb_visites %}
         <div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
-            <span>👁 Visites</span>
-            <strong>{{ nb_visites }}</strong>
+            <span>👁 Visites</span><strong>{{ nb_visites }}</strong>
           </div>
           <div class="progress-bar">
             <div class="progress-fill" style="width:{% widthratio nb_visites nb_passages 100 %}%;background:var(--info);"></div>
@@ -443,15 +590,111 @@
     </div>
   </div>
 </div>
+
+{% if peut_avoir_centres %}
+<!-- ═══ Modale : créer / modifier un centre ═══ -->
+<div class="cl-modal" id="modal-centre" onclick="fermer('modal-centre')">
+  <div class="cl-modal-box" onclick="event.stopPropagation()">
+    <div class="cl-modal-head">
+      <strong id="centre-titre">🏢 Nouveau centre</strong>
+      <button type="button" class="btn btn-sm" onclick="fermer('modal-centre')" aria-label="Fermer">✕</button>
+    </div>
+    <form method="post" id="form-centre"
+          action="{% url 'admin_creer_centre' client.id %}"
+          data-url-creer="{% url 'admin_creer_centre' client.id %}">
+      {% csrf_token %}
+      <div class="cl-form-grid">
+        <div class="full">
+          <label for="c-nom">Nom du centre *</label>
+          <input type="text" name="nom" id="c-nom" required
+                 placeholder="Ex. Agence Bonabéri, Dépôt Edéa…">
+        </div>
+        <div>
+          <label for="c-telephone">Téléphone</label>
+          <input type="tel" name="telephone" id="c-telephone"
+                 placeholder="{{ client.telephone|default:'6 XX XX XX XX' }}">
+        </div>
+        <div>
+          <label for="c-email">Email</label>
+          <input type="email" name="email" id="c-email" placeholder="agence@entreprise.cm">
+        </div>
+        <div class="full">
+          <label for="c-ville">Ville</label>
+          <input type="text" name="ville" id="c-ville" maxlength="100" placeholder="Ex. Douala">
+        </div>
+        <div class="full">
+          <label for="c-adresse">Adresse</label>
+          <textarea name="adresse" id="c-adresse" rows="2" placeholder="Quartier, rue, repère…"></textarea>
+        </div>
+        <div class="full">
+          <label class="cl-switch" for="c-actif">
+            <input type="checkbox" name="is_active" id="c-actif" checked> Centre actif
+          </label>
+        </div>
+      </div>
+      <div class="text-small text-muted" style="margin-top:8px;">Téléphone vide = celui de l'entreprise.</div>
+      <div class="cl-actions">
+        <button type="button" class="btn btn-outline" onclick="fermer('modal-centre')">Annuler</button>
+        <button type="submit" class="btn btn-primary" id="centre-submit">➕ Créer le centre</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endif %}
+
+<!-- ═══ Modale : photo en grand ═══ -->
+<div class="cl-modal cl-lightbox" id="modal-photo" onclick="fermer('modal-photo')">
+  <div class="cl-modal-box">
+    <img id="photo-grande" src="" alt="">
+    <div class="cap" id="photo-legende"></div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function showTab(id) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-' + id).classList.add('active');
-  event.currentTarget.classList.add('active');
+// ── Onglets (l'onglet actif est gardé dans l'URL : ?tab=…) ──
+document.querySelectorAll('.tab-btn').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var id = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
+    document.querySelectorAll('.tab-pane').forEach(function (p) { p.classList.toggle('active', p.id === 'tab-' + id); });
+    var url = new URL(window.location);
+    url.searchParams.set('tab', id);
+    history.replaceState(null, '', url);
+  });
+});
+
+// ── Modales ──
+function ouvrir(id) { document.getElementById(id).classList.add('open'); }
+function fermer(id) { document.getElementById(id).classList.remove('open'); }
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') document.querySelectorAll('.cl-modal.open').forEach(function (m) { m.classList.remove('open'); });
+});
+
+// Créer (sans argument) ou modifier (bouton avec data-*) un centre
+function ouvrirCentre(btn) {
+  if (!document.getElementById('form-centre')) return;
+  var f = document.getElementById('form-centre');
+  var d = btn ? btn.dataset : {};
+  f.action = btn ? d.url : f.dataset.urlCreer;
+  ['nom', 'telephone', 'email', 'ville', 'adresse'].forEach(function (k) {
+    document.getElementById('c-' + k).value = d[k] || '';
+  });
+  document.getElementById('c-actif').checked = btn ? d.actif === '1' : true;
+  document.getElementById('centre-titre').textContent = btn ? '✏️ Modifier « ' + d.nom + ' »' : '🏢 Nouveau centre';
+  document.getElementById('centre-submit').textContent = btn ? '💾 Enregistrer' : '➕ Créer le centre';
+  ouvrir('modal-centre');
+  setTimeout(function () { document.getElementById('c-nom').focus(); }, 50);
+}
+
+// Photo en grand
+function voirPhoto(src, legende) {
+  document.getElementById('photo-grande').src = src;
+  document.getElementById('photo-legende').textContent = legende;
+  ouvrir('modal-photo');
 }
 </script>
 {% endblock %}

@@ -1,0 +1,78 @@
+{% comment %}
+Usage :
+  {% include "_pagination.html" with page_obj=page_obj filters=filters %}
+{% endcomment %}
+
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="pagination" style="display:flex;justify-content:center;align-items:center;gap:6px;margin:20px 0;flex-wrap:wrap;">
+
+  {% if page_obj.has_previous %}
+    <a href="?{% for k, v in filters.items %}{% if v %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+       class="btn btn-outline btn-sm">←</a>
+  {% endif %}
+
+  {% for num in page_obj.paginator.page_range %}
+    {% if num == page_obj.number %}
+      <span class="btn btn-primary btn-sm">{{ num }}</span>
+    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+      <a href="?{% for k, v in filters.items %}{% if v %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ num }}"
+         class="btn btn-outline btn-sm">{{ num }}</a>
+    {% endif %}
+  {% endfor %}
+
+  {% if page_obj.has_next %}
+    <a href="?{% for k, v in filters.items %}{% if v %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+       class="btn btn-outline btn-sm">→</a>
+  {% endif %}
+
+</div>
+{% endif %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

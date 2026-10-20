@@ -1,5 +1,7 @@
 
 from django.urls import path
+
+from apps.accounts.views.ateliers import detail_atelier
 from . import views
 from . import admin_views_conducteurs_nettoyage as views2
 from .views_user_stats import detail_utilisateur
@@ -13,6 +15,9 @@ urlpatterns = [
     path('admin-garage/bons-sortie/',  views.liste_bons_sortie,         name='liste_bons_admin'),
     path('Ordre-reparation/admin/',                            views.liste_or,           name='liste_or_admin'),
     path('<uuid:or_id>/details_or/',               views.detail_or_admin,            name='detail_or_admin'),
+        # ── Ordres de réparation ─────────────────────────────────────
+        path('or/<uuid:or_id>/cloture/',                views.cloture_or,                  name='cloture_or_admin'),
+        path('or/<uuid:or_id>/reouverture/',            views.reouverture_or,              name='reouverture_or_admin'),
         
     
 
@@ -33,7 +38,10 @@ urlpatterns = [
 
      # Ateliers
     path('ateliers/',                              views.admin_ateliers,                name='admin_ateliers'),
- 
+
+    path('ateliers/suivi/<uuid:atelier_id>/',                             views.detail_atelier,                name='admin_atelier_detail'),
+
+
     path('dashboard/',                     views.admin_dashboard,             name='admin_dashboard'),
     path('utilisateurs/',                  views.liste_utilisateurs,          name='liste_utilisateurs'),
     path('utilisateurs/creer/',            views.creer_utilisateur,           name='creer_utilisateur'),
@@ -56,6 +64,13 @@ urlpatterns = [
     path('clients/creer-vehicule/',             views.admin_creer_client, name='creer_client_admin'),
     path('clients/<uuid:client_id>/',              views.admin_detail_client,       name='admin_detail_client'),
     path('clients/<uuid:client_id>/modifier/',     views.admin_modifier_client,     name='admin_modifier_client'),
+
+    path('clients/<uuid:client_id>/creer/',     views.admin_creer_centre,     name='admin_creer_centre'),
+    path('clients/<uuid:centre_id>/modifier/',     views.admin_modifier_centre,     name='admin_modifier_centre'),
+    path('clients/<uuid:centre_id>/supp/',     views.admin_supprimer_centre,     name='admin_supprimer_centre'),
+    
+
+    
     # Conducteurs
     path('conducteurs/',                              views2.admin_conducteurs,             name='admin_conducteurs'),
     path('conducteurs/<uuid:cond_id>/supprimer/',     views2.admin_supprimer_conducteur,    name='admin_supprimer_conducteur'),

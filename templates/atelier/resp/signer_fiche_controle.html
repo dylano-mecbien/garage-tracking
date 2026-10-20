@@ -17,6 +17,30 @@
 <style>
 .sig-canvas{border:1.5px dashed var(--border);border-radius:8px;background:#fff;width:100%;height:160px;touch-action:none;cursor:crosshair;}
 .resume td{padding:6px 0;font-size:13px;}
+
+/* ══ Champ verrouillé (non modifiable, non sélectionnable) ══ */
+.form-input-readonly {
+  background: #e2e8f0 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+  font-weight: 600 !important;
+
+  pointer-events: none !important;    /* plus cliquable */
+  user-select: none !important;        /* plus sélectionnable */
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  caret-color: transparent !important; /* plus de curseur clignotant */
+  outline: none !important;
+  cursor: default !important;
+}
+
+/* Thème sombre (si vous en avez un) */
+[data-theme="dark"] .form-input-readonly {
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+
 </style>
 {% endblock %}
 
@@ -83,11 +107,25 @@
     <form method="post" id="sig-form">
       {% csrf_token %}
 
+
+
       <div class="form-group">
-        <label class="form-label">Nom du client *</label>
-        <input type="text" name="nom_client" class="form-input"
-               value="{{ nom_defaut }}" required>
-      </div>
+  <label class="form-label">
+    Nom du conducteur *
+  </label>
+
+  {# Champ visuel non modifiable #}
+  <input type="text"
+         id="nom-client-display"
+         class="form-input form-input-readonly"
+         value="{{ nom_defaut }}"
+         readonly
+         tabindex="-1">
+
+  {# Champ réel envoyé au POST #}
+  <input type="hidden" name="nom_client" value="{{ nom_defaut }}">
+</div>
+
 
       <div class="form-group">
         <label class="form-label">Signature *</label>

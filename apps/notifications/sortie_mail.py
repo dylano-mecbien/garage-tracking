@@ -23,12 +23,37 @@ def get_destinataires_actifs(bon=None):
     emails = list(
         DestinataireEmail.objects
         .filter(actif=True)
-        .values_list('email', flat=True)
+        .values_list('email', flat=True) 
     )
 
     if bon is not None and bon.valide_par_id:
         # valide_par stocke l'id du Client
-        client = Client.objects.filter(id=bon.valide_par_id).first()
+        client = Client.objects.filter(id=bon.vehicule.client).first()
+        if client and client.email and client.email.strip():
+            email = client.email.strip() 
+            if email not in emails:
+                emails.append(email)
+
+    return emails
+
+
+
+def get_destinataires_actifs(bon=None):
+    """
+    Retourne les emails des destinataires actifs.
+    Si un bon est fourni, ajoute l'email du client propriétaire du véhicule.
+    """
+
+    emails = list(
+        DestinataireEmail.objects
+        .filter(actif=True)
+        .values_list('email', flat=True) 
+    )
+
+    if bon is not None:
+        # Le client est déjà un objet via la FK
+        client = getattr(bon.vehicule, 'client', None) if bon.vehicule else None
+
         if client and client.email and client.email.strip():
             email = client.email.strip()
             if email not in emails:

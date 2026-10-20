@@ -226,6 +226,8 @@ class BonSortie(models.Model):
         related_name='bons_crees'
     )
 
+
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

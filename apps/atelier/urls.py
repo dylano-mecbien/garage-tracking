@@ -2,6 +2,8 @@ from django.urls import path
 
 from apps.atelier import views_fiches, views_lecture
 from . import views
+from . import views_controle_sortie as vcs
+
 
 urlpatterns = [
     # ── Responsable atelier ──────────────────────────────────
@@ -18,7 +20,6 @@ urlpatterns = [
     path('tache/<uuid:tache_id>/cloture-directe/', views.cloture_directe_tache, name='cloture_directe_tache'),
 
     path('or/<uuid:or_id>/cloture/',     views.cloture_or_atelier,     name='cloture_or_atelier'),
-    path('or/<uuid:or_id>/reouverture/', views.reouverture_or_atelier, name='reouverture_or_atelier'),
 
     path('techniciens/',                 views.liste_techniciens,  name='liste_techniciens'),
     path('techniciens/<uuid:tech_id>/',  views.detail_technicien,  name='detail_technicien'),
@@ -29,7 +30,11 @@ urlpatterns = [
     path('technicien/tache/<uuid:tache_id>/',          views.detail_tache,            name='detail_tache'),
     path('technicien/tache/<uuid:tache_id>/demarrer/', views.demarrer_tache,          name='demarrer_tache'),
     path('technicien/tache/<uuid:tache_id>/cr/',       views.soumettre_compte_rendu,  name='soumettre_compte_rendu'),
+    path('tache/<uuid:tache_id>/refuser/', views.refuser_tache, name='refuser_tache'),
+path('atelier/<uuid:atelier_id>/', views.detail_atelier, name='detail_atelier'),
 
+
+ 
     # Visualisation (lecture seule)
     path('reception/<uuid:rec_id>/fiche-controle/voir/',
          views_lecture.voir_fiche_controle, name='voir_fiche_controle'),
@@ -51,6 +56,23 @@ urlpatterns = [
     # OR reçu par l'atelier → tâches
     path('or/<uuid:or_id>/taches/creer/', views.creer_tache, name='creer_tache'),
     path('tache/<uuid:tache_id>/valider/',    views.valider_tache_chef,    name='valider_tache_chef'),
+
+
+   path('reception/<uuid:rec_id>/sortie/', vcs.controle_sortie_saisie,
+         name='controle_sortie_saisie'),
+    path('reception/<uuid:rec_id>/sortie/verification/', vcs.controle_sortie_verification,
+         name='controle_sortie_verification'),
+    path('reception/<uuid:rec_id>/sortie/client/', vcs.controle_sortie_client,
+         name='controle_sortie_client'),
+    path('reception/<uuid:rec_id>/sortie/abandonner/', vcs.controle_sortie_abandonner,
+         name='controle_sortie_abandonner'),
+
+
+
+    path('reception/<uuid:rec_id>/sortie/recocher/', vcs.controle_sortie_recocher,
+         name='controle_sortie_recocher'),
+
+
 
 
 ]

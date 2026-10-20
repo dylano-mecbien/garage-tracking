@@ -159,7 +159,7 @@ def _reponse_pdf(request, pdf, nom_fichier):
     return resp
 
 
-@receptionniste_required
+
 def pdf_fiche_technique(request, fiche_id):
     fiche = get_object_or_404(FicheTechnique.objects.select_related('entree', 'cree_par'), id=fiche_id)
     try:
@@ -172,7 +172,7 @@ def pdf_fiche_technique(request, fiche_id):
         return redirect('detail_fiche_technique', fiche_id=fiche_id)   # ← adapte le nom d'URL
 
 
-@receptionniste_required
+
 def pdf_fiche_controle(request, fiche_id):
     fiche = get_object_or_404(FicheControle.objects.select_related('entree', 'inspecte_par'), id=fiche_id)
     try:

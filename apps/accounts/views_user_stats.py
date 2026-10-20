@@ -212,10 +212,10 @@ def detail_utilisateur(request, user_id):
                     ateliers=atelier, statut='CLOTURE', date_cloture__range=(debut_dt, fin_dt)
                 ).count()
                 stats['nb_taches_validees_par_moi'] = Tache.objects.filter(
-                    ordre_reparation__atelier=atelier, valide_par=user,
+                    atelier=atelier, valide_par=user,
                     date_validation__range=(debut_dt, fin_dt)
                 ).count()
-
+ 
     return render(request, 'admin_custom/utilisateurs/detail.html', {
         'u': user, 'role': role, 'stats': stats,
         'debut': debut, 'fin': fin,

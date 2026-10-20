@@ -5,7 +5,19 @@ import uuid
 from django.db import models
 import re
 from django.db import models, transaction
+from django.core.exceptions import ValidationError
 
+
+
+class ClientQuerySet(models.QuerySet):
+    def principaux(self):
+        """Entreprises et particuliers (sans les centres) : pour la liste des clients."""
+        return self.filter(parent__isnull=True)
+ 
+    def centres(self):
+        return self.filter(parent__isnull=False)
+
+    
 
 class Marque(models.Model):
     nom = models.CharField(max_length=100, unique=True)
@@ -62,6 +74,10 @@ class Client(ContactBase):
     TYPE_CLIENT = [('PARTICULIER', 'Particulier'), ('ENTREPRISE', 'Entreprise')]
     type_client = models.CharField(max_length=15, choices=TYPE_CLIENT, default='PARTICULIER')
     nom_correspondant = models.CharField(max_length=100, blank=True)
+    parent = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.CASCADE,
+        related_name='centres', verbose_name="Entreprise mère",
+    )
     ville = models.CharField(max_length=100, blank=True)
     ninea = models.CharField(max_length=50, blank=True, verbose_name="NINEA / RC")
     numero_client = models.CharField(max_length=20, unique=True, blank=True)
@@ -71,6 +87,7 @@ class Client(ContactBase):
         db_table = 'clients'
         verbose_name = "Client"
         ordering = ['nom']
+
 
 
     def save(self, *args, **kwargs):
@@ -103,6 +120,44 @@ class Client(ContactBase):
             super().save(*args, **kwargs)
 
 
+    def tous_vehicules(self):
+        """Véhicules du client + de ses centres (utilise les prefetch si présents)."""
+        vs = list(self.vehicules.all())
+        for centre in self.centres.all():
+            vs.extend(centre.vehicules.all())
+        return vs
+
+    @property
+    def est_centre(self):
+        return self.parent_id is not None
+ 
+    @property
+    def peut_avoir_centres(self):
+        return self.type_client == 'ENTREPRISE' and self.parent_id is None
+ 
+    @property
+    def entreprise(self):
+        """L'entreprise de rattachement (lui-même si ce n'est pas un centre)."""
+        return self.parent if self.parent_id else self
+    
+    def clean(self):
+        super().clean()
+        if self.parent_id:
+            if self.parent_id == self.pk:
+                raise ValidationError({'parent': "Un client ne peut pas être son propre centre."})
+            if self.parent.parent_id:
+                raise ValidationError({'parent': "Un centre ne peut pas avoir de sous-centre."})
+            if self.parent.type_client != 'ENTREPRISE':
+                raise ValidationError({'parent': "Seule une entreprise peut avoir des centres."})
+
+ 
+    def __str__(self):
+        # ⚠️ garde ton __str__ actuel pour les clients, ajoute juste le cas centre :
+        nom = f"{self.prenom} {self.nom}".strip() if self.type_client == 'PARTICULIER' else self.nom
+        if self.parent_id:
+            return f"{self.parent.nom} — {nom}"
+        return nom
+    
 class Conducteur(ContactBase):
     cni = models.CharField(max_length=50, blank=True, verbose_name="N° CNI")
     permis = models.CharField(max_length=50, blank=True, verbose_name="N° Permis")
@@ -125,40 +180,7 @@ class Conducteur(ContactBase):
 
 
 
-class Centre(models.Model):
-    """Site / agence rattaché à un client (particulier ou entreprise)."""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    client = models.ForeignKey(
-        Client,
-        on_delete=models.CASCADE,
-        related_name='centres',
-        verbose_name="Client",
-    )
-    nom = models.CharField(max_length=150, verbose_name="Nom du centre")
-    code = models.CharField(
-        max_length=30,
-        blank=True,
-        verbose_name="Code centre",
-        help_text="Ex. CTR-001 (optionnel)",
-    )
-    adresse = models.TextField(blank=True)
-    ville = models.CharField(max_length=100, blank=True)
-    telephone = models.CharField(max_length=30, blank=True)
-    email = models.EmailField(blank=True)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        db_table = 'centres'
-        verbose_name = "Centre"
-        verbose_name_plural = "Centres"
-        ordering = ['nom']
-        # Un même nom unique par client (optionnel)
-        unique_together = [('client', 'nom')]
-
-    def __str__(self):
-        return f"{self.nom} ({self.client})"
 
 class Vehicule(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

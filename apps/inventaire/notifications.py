@@ -5,10 +5,14 @@ from django.core.mail import EmailMultiAlternatives
 from django.urls import reverse
 from django.utils.html import escape
 
+from apps.accounts.models import User
+from apps.notifications.models import DestinataireEmail
+
 from . import adapters
 from .models import TypeMouvement
 
 log = logging.getLogger(__name__)
+
 
 
 def destinataires_admin():
@@ -18,17 +22,45 @@ def destinataires_admin():
         return sorted(set(fixes))
     emails = set()
     try:
-        from apps.accounts.models import User
         emails |= set(User.objects.filter(role='ADMIN', is_active=True).exclude(email='').values_list('email', flat=True))
     except Exception:
         pass
     try:
-        from apps.notifications.models import DestinataireEmail
         emails |= set(DestinataireEmail.objects.filter(actif=True).values_list('email', flat=True))
     except Exception:
         pass
     return sorted(emails)
 
+
+def destinataires_admin():
+    """
+    Retourne les emails des DestinataireEmail actifs dont l'email
+    correspond à un User ayant le rôle ADMIN actif.
+    """
+    fixes = getattr(settings, 'INVENTAIRE_EMAILS', None)
+    if fixes:
+        return sorted({e.strip() for e in fixes if e and e.strip()})
+
+    # ── 1) Emails des Users ADMIN actifs ──
+    emails_admin = set(
+        User.objects
+        .filter(role='ADMIN', is_active=True)
+        .exclude(email__isnull=True)
+        .exclude(email='')
+        .values_list('email', flat=True)
+    )
+
+    # ── 2) Intersection avec les DestinataireEmail actifs ──
+    emails = (
+        DestinataireEmail.objects
+        .filter(actif=True)
+        .exclude(email__isnull=True)
+        .exclude(email='')
+        .filter(email__in=emails_admin)          # ← ne garde que ceux qui sont Admins
+        .values_list('email', flat=True)
+    )
+
+    return sorted({e.strip() for e in emails if e and e.strip()})
 
 def envoyer_inventaire_a_valider(inv):
     """Retourne (ok, nb_destinataires, erreur). Un échec n'empêche jamais la validation de l'inventaire."""

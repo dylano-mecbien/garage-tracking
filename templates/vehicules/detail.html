@@ -92,7 +92,7 @@
       <tbody>
         {% for o in historique_or %}
         <tr>
-          <td><a href="{% url 'detail_or' o.id %}"><strong>{{ o.numero }}</strong></a></td>
+          <td><a href="{% url 'detail_or_rec' o.id %}"><strong>{{ o.numero }}</strong></a></td>
           <td>{% if o.type_or == 'RETOUR' %}<span class="badge badge-danger">Retour</span>{% else %}<span class="badge badge-info">Normal</span>{% endif %}</td>
           <td>
             {% if o.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
@@ -102,7 +102,7 @@
           <td>{{ o.atelier.nom }}</td>
           <td>{% if o.duree_totale_minutes %}{{ o.duree_heures }}{% else %}—{% endif %}</td>
           <td class="text-small text-muted">{{ o.date_creation|date:"d/m/Y" }}</td>
-          <td><a href="{% url 'detail_or' o.id %}" class="btn btn-info btn-sm">👁</a></td>
+          <td><a href="{% url 'detail_or_rec' o.id %}" class="btn btn-info btn-sm">👁</a></td>
         </tr>
         {% endfor %}
       </tbody>

@@ -15,6 +15,7 @@
 .hero{background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;border-radius:var(--radius);padding:18px 22px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;}
 .task-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;}
 .task-card.a-faire{border-left:4px solid var(--border);}
+.task-card.reprendre{border-left:4px solid var(--danger);background:rgba(239,68,68,.04);}
 .task-card.terminee{border-left:4px solid var(--success);opacity:.85;}
 </style>
 {% endblock %}
@@ -30,6 +31,12 @@
       <div style="font-size:24px;font-weight:800;">{{ stats.en_cours }}</div>
       <div style="font-size:11px;opacity:.8;">En cours</div>
     </div>
+    {% if stats.a_reprendre %}
+    <div style="text-align:center;">
+      <div style="font-size:24px;font-weight:800;">{{ stats.a_reprendre }}</div>
+      <div style="font-size:11px;opacity:.8;">À reprendre</div>
+    </div>
+    {% endif %}
     <div style="text-align:center;">
       <div style="font-size:24px;font-weight:800;">{{ stats.a_faire }}</div>
       <div style="font-size:11px;opacity:.8;">À faire</div>
@@ -54,6 +61,27 @@
   </div>
   <a href="{% url 'detail_tache' tache_en_cours.id %}" class="btn btn-warning">✅ Terminer</a>
 </div>
+{% endif %}
+
+{% if taches_a_reprendre %}
+<h3 style="font-size:13px;color:var(--danger);text-transform:uppercase;margin-bottom:10px;">
+  ↩️ À reprendre ({{ taches_a_reprendre|length }})
+</h3>
+{% for t in taches_a_reprendre %}
+<a href="{% url 'detail_tache' t.id %}" class="task-card reprendre" style="display:block;text-decoration:none;color:inherit;">
+  <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+    <div class="font-bold">{{ t.libelle }}</div>
+    {% if t.est_refusee %}<span class="badge badge-danger">Refusée</span>
+    {% else %}<span class="badge badge-warning">OR réouvert</span>{% endif %}
+  </div>
+  <div class="text-small text-muted">
+    🚗 {{ t.ordre_reparation.vehicule.immatriculation }} · 🔧 {{ t.ordre_reparation.numero }}
+    · {{ t.date_retour|date:"d/m/Y H:i" }}
+  </div>
+  {% if t.motif_retour %}<div class="text-small" style="margin-top:4px;"><b>Motif :</b> {{ t.motif_retour|truncatechars:120 }}</div>{% endif %}
+</a>
+{% endfor %}
+<div style="height:12px;"></div>
 {% endif %}
 
 <div class="grid-2">

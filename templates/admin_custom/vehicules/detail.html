@@ -11,7 +11,8 @@
 <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
 <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
 <li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
-
+<li><a href="{% url 'inventaire_admin_liste' %}"><span class="icon">📋</span> Inventaire</a></li>
+  <li><a href="{% url 'liste_or_admin' %} " ><span class="icon">🔧</span> Ordres de réparation</a></li>
 <div class="sidebar-section">Bases</div>
 <ul class="sidebar-nav">
 <li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
@@ -232,7 +233,7 @@
       <tbody>
         {% for o in or_list %}
         <tr>
-          <td><a href="{% url 'detail_or' o.id %}"><strong>{{ o.numero }}</strong></a></td>
+          <td><a href="{% url 'detail_or_admin' o.id %}"><strong>{{ o.numero }}</strong></a></td>
           <td>
             {% if o.type_or == 'RETOUR' %}
             <span class="badge badge-danger">🔄 Retour</span>
@@ -254,7 +255,7 @@
           </td>
           <td class="text-small text-muted">{{ o.date_creation|date:"d/m/Y" }}</td>
           <td>
-            <a href="{% url 'detail_or' o.id %}" class="btn btn-info btn-sm">👁 Voir</a>
+            <a href="{% url 'detail_or_admin' o.id %}" class="btn btn-info btn-sm">👁 Voir</a>
           </td>
         </tr>
         {% endfor %}

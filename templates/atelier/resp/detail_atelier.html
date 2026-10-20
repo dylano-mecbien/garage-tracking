@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}{{ atelier.nom }}{% endblock %}
+{% block page_title %}🏭 {{ atelier.nom }}{% endblock %}
+
+{% block sidebar_nav %}
+{% if est_admin %}
+<div class="sidebar-section">Administration</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_or_admin' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_utilisateurs' %}"><span class="icon">👥</span> Utilisateurs</a></li>
+  <li><a href="{% url 'admin_ateliers' %}" class="active"><span class="icon">🏭</span> Ateliers</a></li>
+</ul>
+{% else %}
+<div class="sidebar-section">Atelier</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'dashboard_atelier' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+  <li><a href="{% url 'liste_receptions_atelier' %}"><span class="icon">📋</span> Historique des Réceptions</a></li>
+  <li><a href="{% url 'liste_or_atelier' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_techniciens' %}"><span class="icon">👷</span> Techniciens</a></li>
+  <li><a href="{% url 'detail_atelier' atelier.id %}" class="active"><span class="icon">🏭</span> Mon atelier</a></li>
+</ul>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.hero{background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;border-radius:var(--radius);padding:18px 22px;margin-bottom:18px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.hero-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;opacity:.85;margin-top:6px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:18px;}
+.kpi{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center;text-decoration:none;color:inherit;}
+a.kpi:hover{border-color:var(--primary-light);}
+.kpi-val{font-size:24px;font-weight:800;}
+.kpi-lbl{font-size:11px;color:var(--text-muted);margin-top:4px;}
+.section-titre{font-size:13px;color:var(--text-muted);text-transform:uppercase;margin:6px 0 10px;font-weight:700;}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.tbl th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--text-muted);padding:8px;border-bottom:1.5px solid var(--border);}
+.tbl td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top;}
+.tbl td.num,.tbl th.num{text-align:right;white-space:nowrap;}
+.st{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;}
+.st.OUVERT{background:#e0e7ff;color:#3730a3;}
+.st.EN_COURS{background:#fef3c7;color:#92400e;}
+.st.REOUVERT{background:#fee2e2;color:#991b1b;}
+.st.CLOTURE{background:#dcfce7;color:#166534;}
+.tache-line{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.tache-line:last-child{border-bottom:none;}
+.reouv{border-left:4px solid var(--danger);padding:10px 14px;margin-bottom:10px;background:var(--surface);border-radius:8px;border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+.table-wrap{overflow-x:auto;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ atelier.nom }}</h1>
+    <div class="breadcrumb">{% if est_admin %}<a href="{% url 'admin_ateliers' %}">Ateliers</a> › {% endif %}{{ atelier.code }}</div>
+  </div>
+  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+</div>
+
+<!-- ═══ Infos atelier ═══ -->
+<div class="hero">
+  <div>
+    <div style="font-size:20px;font-weight:800;">{{ atelier.nom }} <span style="opacity:.7;font-size:14px;">({{ atelier.code }})</span></div>
+    <div class="hero-meta">
+      {% if atelier.specialite %}<span>🛠️ {{ atelier.specialite }}</span>{% endif %}
+      {% if atelier.localisation %}<span>📍 {{ atelier.localisation }}</span>{% endif %}
+      {% if atelier.telephone %}<span>📞 {{ atelier.telephone }}</span>{% endif %}
+      <span>👤 Responsable : {{ atelier.responsable.get_full_name|default:"—" }}</span>
+      <span>{% if atelier.is_active %}✅ Actif{% else %}⏸ Inactif{% endif %}</span>
+      <span>Créé le {{ atelier.created_at|date:"d/m/Y" }}</span>
+    </div>
+    {% if atelier.description %}<div style="margin-top:8px;font-size:13px;opacity:.9;white-space:pre-line;">{{ atelier.description }}</div>{% endif %}
+  </div>
+  <div style="display:flex;gap:18px;align-items:center;">
+    <div style="text-align:center;"><div style="font-size:24px;font-weight:800;">{{ techniciens|length }}</div><div style="font-size:11px;opacity:.8;">Techniciens</div></div>
+    <div style="text-align:center;"><div style="font-size:24px;font-weight:800;">{{ compteurs_or.total }}</div><div style="font-size:11px;opacity:.8;">OR</div></div>
+  </div>
+</div>
+
+<!-- ═══ OR ═══ -->
+<div class="section-titre">Ordres de réparation</div>
+<div class="kpi-grid">
+  <a class="kpi" href="?"><div class="kpi-val">{{ compteurs_or.total }}</div><div class="kpi-lbl">Total</div></a>
+  <a class="kpi" href="?statut=OUVERT"><div class="kpi-val">{{ compteurs_or.ouverts }}</div><div class="kpi-lbl">Ouverts</div></a>
+  <a class="kpi" href="?statut=EN_COURS"><div class="kpi-val" style="color:var(--warning);">{{ compteurs_or.en_cours }}</div><div class="kpi-lbl">En cours</div></a>
+  <a class="kpi" href="?statut=REOUVERT"><div class="kpi-val" style="color:var(--danger);">{{ compteurs_or.reouverts }}</div><div class="kpi-lbl">Réouverts</div></a>
+  <a class="kpi" href="?statut=CLOTURE"><div class="kpi-val" style="color:var(--success);">{{ compteurs_or.clotures }}</div><div class="kpi-lbl">Clôturés</div></a>
+</div>
+
+<!-- ═══ Tâches & temps ═══ -->
+<div class="section-titre">Tâches et temps</div>
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-val">{{ compteurs_taches.total }}</div><div class="kpi-lbl">Tâches</div></div>
+  <div class="kpi"><div class="kpi-val">{{ compteurs_taches.a_faire }}</div><div class="kpi-lbl">À faire</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--warning);">{{ compteurs_taches.en_cours }}</div><div class="kpi-lbl">En cours</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--info);">{{ compteurs_taches.a_valider }}</div><div class="kpi-lbl">À valider</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--success);">{{ compteurs_taches.validees }}</div><div class="kpi-lbl">Validées</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--danger);">{{ compteurs_taches.nb_refus|default:0 }}</div><div class="kpi-lbl">Refus ({{ compteurs_taches.refusees }} tâche{{ compteurs_taches.refusees|pluralize }})</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--danger);">{{ compteurs_taches.reouvertes }}</div><div class="kpi-lbl">Tâches réouvertes</div></div>
+  <div class="kpi"><div class="kpi-val">{{ temps.estime }}</div><div class="kpi-lbl">Temps prévu</div></div>
+  <div class="kpi"><div class="kpi-val">{{ temps.reel }}</div><div class="kpi-lbl">Temps réel</div></div>
+  <div class="kpi"><div class="kpi-val" {% if temps.en_depassement %}style="color:var(--danger);"{% endif %}>{{ temps.ecart }}</div><div class="kpi-lbl">Écart</div></div>
+</div>
+
+<div class="grid-2" style="margin-bottom:18px;">
+  <div class="card">
+    <div class="card-header"><div class="card-title">⏳ À valider ({{ taches_a_valider|length }})</div></div>
+    {% for t in taches_a_valider %}
+    <div class="tache-line">
+      <div style="flex:1;">
+        <div class="font-bold">{{ t.libelle }}</div>
+        <div class="text-muted">🔧 {{ t.ordre_reparation.numero }} · 🚗 {{ t.ordre_reparation.vehicule.immatriculation }} · 👷 {% for u in t.techniciens.all %}{{ u.get_full_name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</div>
+      </div>
+      <span class="text-small text-muted">{{ t.date_fin|date:"d/m H:i" }}</span>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:16px;color:var(--text-muted);">Rien à valider</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">↩️ À reprendre ({{ taches_a_reprendre|length }})</div></div>
+    {% for t in taches_a_reprendre %}
+    <div class="tache-line">
+      <div style="flex:1;">
+        <div class="font-bold">{{ t.libelle }}
+          {% if t.est_refusee %}<span class="badge badge-danger">Refusée</span>{% else %}<span class="badge badge-warning">OR réouvert</span>{% endif %}
+        </div>
+        <div class="text-muted">🔧 {{ t.ordre_reparation.numero }} · 👷 {% for u in t.techniciens.all %}{{ u.get_full_name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</div>
+        {% if t.motif_retour %}<div class="text-small" style="color:var(--danger);">{{ t.motif_retour|truncatechars:100 }}</div>{% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:16px;color:var(--text-muted);">Aucune tâche à reprendre</div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ═══ Techniciens ═══ -->
+<div class="card" style="margin-bottom:18px;">
+  <div class="card-header"><div class="card-title">👷 Techniciens ({{ techniciens|length }})</div></div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>Technicien</th><th class="num">Tâches</th><th class="num">Validées</th><th class="num">En cours</th><th class="num">À faire</th><th class="num">Refus</th><th class="num">Réouv.</th><th class="num">Temps</th></tr></thead>
+    <tbody>
+    {% for tech in techniciens %}
+    <tr>
+      <td>{% if not est_admin %}<a href="{% url 'detail_technicien' tech.id %}">{% endif %}<b>{{ tech.get_full_name }}</b>{% if not est_admin %}</a>{% endif %}<br><span class="text-small text-muted">{{ tech.email }}</span></td>
+      <td class="num">{{ tech.nb_total }}</td>
+      <td class="num" style="color:var(--success);">{{ tech.nb_validees }}</td>
+      <td class="num" style="color:var(--warning);">{{ tech.nb_en_cours }}</td>
+      <td class="num">{{ tech.nb_a_faire }}</td>
+      <td class="num" {% if tech.nb_refus %}style="color:var(--danger);font-weight:700;"{% endif %}>{{ tech.nb_refus }}</td>
+      <td class="num" {% if tech.nb_reouv %}style="color:var(--danger);font-weight:700;"{% endif %}>{{ tech.nb_reouv }}</td>
+      <td class="num">{{ tech.temps_label }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="8" style="text-align:center;padding:16px;color:var(--text-muted);">Aucun technicien rattaché</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- ═══ Liste des OR ═══ -->
+<div class="card" style="margin-bottom:18px;">
+  <div class="card-header"><div class="card-title">🔧 Ordres de réparation{% if statut %} — {{ statut }}{% endif %} ({{ ors|length }}{% if ors|length == 100 %}+{% endif %})</div></div>
+  <form method="get" class="filters">
+    <input type="text" name="q" value="{{ q }}" class="form-input" placeholder="N° OR, immatriculation, client..." style="max-width:280px;">
+    <select name="statut" class="form-input" style="max-width:180px;" onchange="this.form.submit()">
+      <option value="">Tous les statuts</option>
+      {% for val, lbl in statuts_or %}<option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline btn-sm">🔍 Filtrer</button>
+  </form>
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>N° OR</th><th>Véhicule / client</th><th>Statut</th><th class="num">Prévu</th><th class="num">Réel</th><th class="num">Réouv.</th><th>Créé</th><th>Clôturé</th></tr></thead>
+    <tbody>
+    {% for o in ors %}
+    <tr>
+      <td>{% if not est_admin %}<a href="{% url 'detail_or_atelier' o.id %}">{% endif %}<b>{{ o.numero }}</b>{% if not est_admin %}</a>{% endif %}</td>
+      <td>🚗 {{ o.vehicule.immatriculation }}<br><span class="text-small text-muted">{{ o.vehicule.client.nom|default:"" }}</span></td>
+      <td><span class="st {{ o.statut }}">{{ o.get_statut_display }}</span></td>
+      <td class="num">{{ o.duree_prevue_label }}</td>
+      <td class="num" {% if o.en_retard_duree %}style="color:var(--danger);font-weight:700;"{% endif %}>{{ o.duree_reelle_label }}</td>
+      <td class="num">{% if o.nb_reouv %}<b style="color:var(--danger);">{{ o.nb_reouv }}</b>{% else %}0{% endif %}</td>
+      <td class="text-small">{{ o.date_creation|date:"d/m/Y" }}</td>
+      <td class="text-small">{{ o.date_cloture|date:"d/m/Y"|default:"—" }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="8" style="text-align:center;padding:16px;color:var(--text-muted);">Aucun OR</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- ═══ Réouvertures ═══ -->
+<div class="card">
+  <div class="card-header"><div class="card-title">🔓 Réouvertures ({{ reouvertures|length }})</div></div>
+  {% for r in reouvertures %}
+  <div class="reouv">
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+      <div><b>{{ r.ordre_reparation.numero }}</b> · 🚗 {{ r.ordre_reparation.vehicule.immatriculation }}</div>
+      <div class="text-small text-muted">{{ r.date_reouverture|date:"d/m/Y H:i" }} · par {{ r.reouvert_par.get_full_name|default:"—" }}</div>
+    </div>
+    <div class="text-small text-muted" style="margin-top:2px;">
+      📥 Réception : {{ r.reception.numero|default:"—" }} · ⏱️ durée prévue {{ r.duree_prevue_label }}
+    </div>
+    <div style="font-size:13px;margin-top:6px;white-space:pre-line;"><b>Raison :</b> {{ r.raison }}</div>
+    <div class="text-small" style="margin-top:6px;">
+      <b>Tâches à refaire :</b>
+      {% for t in r.taches.all %}
+        {{ t.libelle }} ({% for u in t.techniciens.all %}{{ u.get_full_name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %} · {{ t.get_statut_display }}){% if not forloop.last %} ·{% endif %}
+      {% empty %}—{% endfor %}
+    </div>
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:16px;color:var(--text-muted);">Aucune réouverture</div>
+  {% endfor %}
+</div>
+{% endblock %}

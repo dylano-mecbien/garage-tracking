@@ -9,7 +9,7 @@
   <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
   <li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
   <li><a href="{% url 'inventaire_admin_liste' %}"><span class="icon">📋</span> Inventaire</a></li>
-  <li><a href="{% url 'liste_or_admin' %} " ><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_or_admin' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
   <li class="has-submenu">
     <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
     <ul class="submenu">
@@ -36,10 +36,19 @@
 .tl-dot.done{background:var(--success);border-color:var(--success);color:#fff;}
 .tl-dot.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 4px rgba(230,126,34,.2);}
 .tl-dot.wait{background:var(--surface2);color:var(--text-muted);}
+.tl-dot.reo{background:var(--danger);border-color:var(--danger);color:#fff;}
+
+/* OR réouverts sur cette réception */
+tr.or-reouvert td{background:rgba(239,68,68,.05);}
+tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
+.reo-hist{border-left:3px solid var(--warning);padding:8px 12px;margin-bottom:8px;background:var(--surface2);border-radius:6px;font-size:13px;}
+.reo-duree-badge{background:var(--primary);color:#fff;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.chip{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:2px 10px;font-size:12px;font-weight:600;}
 </style>
 {% endblock %}
 {% block content %}
-<div class="page-header"> 
+<div class="page-header">
   <div>
     <h1>{{ rec.numero }}</h1>
     <div class="breadcrumb"><a href="{% url 'liste_receptions_admin' %}">Réception</a> › {{ rec.vehicule.immatriculation }}</div>
@@ -47,10 +56,16 @@
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
     <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
     <a href="{% url 'detail_vehicule_admin' rec.vehicule.id %}" class="btn btn-info">👁 Détails véhicule</a>
-    {% if rec.statut == 'PRESENT_ATELIER' or rec.statut == 'FICHE_TECHNIQUE'%}
+    {% if rec.statut == 'PRESENT_ATELIER' or rec.statut == 'FICHE_TECHNIQUE' %}
     <a href="{% url 'creer_or_depuis_fiche_technique' rec.id %}" class="btn btn-primary">🔧 Créer OR</a>
     {% endif %}
-    <a href="{% url 'creer_sortie_lien_admin' rec.entree.id %}" class="btn btn-success">📄 Bon de sortie</a>
+
+
+
+     {% if not rec.entree.bon_sortie %}
+  <a href="{% url 'creer_sortie_lien_admin' rec.entree.id %}" class="btn btn-success">📄 Bon de sortie</a>
+{% endif %}
+
   </div>
 </div>
 
@@ -64,6 +79,19 @@
     <div class="progress-fill" style="width:{{ rec.progression_pct }}%;border-radius:7px;{% if rec.progression_pct == 100 %}background:var(--success);{% endif %}"></div>
   </div>
 </div>
+
+
+
+{% if nb_or_reouverts %}
+<div class="card mb-2" style="border-left:4px solid var(--danger);padding:12px 16px;">
+  🔓 <b>{{ nb_or_reouverts }} OR réouvert{{ nb_or_reouverts|pluralize }}</b> sur cette réception :
+  {% for o in or_list %}
+    {% if not o.est_origine %}
+      <a href="{% url 'detail_or_admin' o.id %}"><b>{{ o.numero }}</b></a>{% if not forloop.last %}, {% endif %}
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
 
 <div class="grid-2">
   <!-- Infos véhicule -->
@@ -79,8 +107,7 @@
       <tr><td class="text-muted">Tél.</td><td>{{ rec.vehicule.client.telephone }}</td></tr>
       <tr><td class="text-muted">Email</td><td>{{ rec.vehicule.client.email|default:"—" }}</td></tr>
       <tr><td class="text-muted">Entrée guérite</td><td>{{ rec.entree.date_entree|date:"d/m/Y H:i" }}</td></tr>
-            <tr><td class="text-muted">Observation de la reception</td><td>{{ rec.observations }}</td></tr>
-
+      <tr><td class="text-muted">Observations réception</td><td>{{ rec.observations|default:"—" }}</td></tr>
     </table>
   </div>
 
@@ -98,48 +125,70 @@
         </div>
       </div>
 
-       {# 2. Fiche d'entrée (rapport réception) #}
-      <div class="tl-item">
-        <div class="tl-dot {% if client_a_signe %}done{% else %}active{% endif %}">
-          {% if client_a_signe %}✓{% else %}✍{% endif %}
-        </div>
-        <div>
-          <div class="font-bold text-small">Fiche de réception</div>
-          {% if client_a_signe %}
-            <div class="text-small text-muted">
-              {{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}
-            </div>
+ 
+{# 2. Fiche de réception #}
+
+        <div class="tl-item">
+<div class="tl-dot {% if client_a_signe %}done{% else %}active{% endif %}">
+  {% if client_a_signe %}✓{% else %}✍{% endif %}
+  </div>
+
+  <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+    <div>
+      <div class="font-bold text-small">Fiche de réception</div>
+        {% if client_a_signe %}
+            <div class="text-small text-muted">{{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}</div>
           {% else %}
             <div class="text-small" style="color:var(--accent);">À compléter</div>
           {% endif %}
-        </div>
-      </div>
+    </div>
+
+    {% if client_a_signe %}
+      <a href="{% url 'voir_fiche_controle' rec.id %}"
+         class="btn btn-primary btn-sm"
+         style="flex-shrink:0;">
+        Consulter
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+
+   
 
       {# 3. Fiche de contrôle #}
- 
-       <div class="tl-item">
-        <div class="tl-dot {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' %}done{% elif a_fiche_controle %}active{% else %}wait{% endif %}">
-          {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI'%}✓{% else %}📋{% endif %}
+    <div class="tl-item">
+  <div class="tl-dot {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' %}done{% elif a_fiche_controle %}active{% else %}wait{% endif %}">
+    {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' %}✓{% else %}📋{% endif %}
+  </div>
+
+  <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+    <div>
+      <div class="font-bold text-small">Fiche de contrôle</div>
+      {% if fiche_technique %}
+        <div class="text-small text-muted">
+          {{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}
         </div>
-        <div>
-          <div class="font-bold text-small">Fiche de contrôle</div>
-          {% if fiche_technique %}
-            <div class="text-small text-muted">{{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}</div>
-          {% elif a_fiche_controle %}
-              {% if rec.statut != 'REPARATION_EN_COURS' %}
+      {% elif a_fiche_controle and rec.statut != 'REPARATION_EN_COURS' %}
+        <div class="text-small" style="color:var(--accent);">En attente</div>
+      {% elif not a_fiche_controle %}
+        <div class="text-small text-muted">—</div>
+      {% endif %}
+    </div>
 
-            <div class="text-small" style="color:var(--accent);">En attente</div>
+    {% if fiche_technique %}
+      <a href="{% url 'voir_fiche_technique' rec.id %}"
+         class="btn btn-primary btn-sm"
+         style="flex-shrink:0;">
+        Consulter
+      </a>
+    {% endif %}
+  </div>
+</div>
 
-            {% endif %}
-          {% else %}
-            <div class="text-small text-muted">—</div>
-          {% endif %}
-        </div>
-      </div>
-
-      {# 4. Travaux — tests explicites #}
+      {# 4. Travaux #}
       <div class="tl-item">
-        {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' %}
+        {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' %}
           <div class="tl-dot done">✓</div>
         {% elif rec.statut == 'REPARATION_EN_COURS' %}
           <div class="tl-dot active">🔧</div>
@@ -149,16 +198,27 @@
         <div>
           <div class="font-bold text-small">Travaux</div>
           <div class="text-small text-muted">
-            {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' %}Terminés ✅
-            {% elif  rec.statut == 'REPARATION_EN_COURS' %}En cours...
+            {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' %}Terminés ✅
+            {% elif rec.statut == 'REPARATION_EN_COURS' %}En cours...
             {% else %}En attente{% endif %}
           </div>
         </div>
       </div>
 
+      {# 4 bis. Réouvertures sur cette réception #}
+      {% for r in reouvertures_ici %}
+      <div class="tl-item">
+        <div class="tl-dot reo">🔓</div>
+        <div>
+          <div class="font-bold text-small">Réouverture {{ r.ordre_reparation.numero }}</div>
+          <div class="text-small text-muted">{{ r.date_reouverture|date:"d/m/Y H:i" }} · {{ r.taches.all|length }} tâche{{ r.taches.all|length|pluralize }} · {{ r.duree_prevue_label }}</div>
+        </div>
+      </div>
+      {% endfor %}
+
       {# 5. Bon de sortie #}
       <div class="tl-item">
-        {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' %}
+        {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' %}
           <div class="tl-dot done">✓</div>
         {% elif rec.statut == 'TRAVAUX_TERMINES' %}
           <div class="tl-dot active">📄</div>
@@ -198,14 +258,35 @@
   </div>
 </div>
 
-
 <!-- Ateliers -->
-
+{% with transferts=rec.transferts.all %}
+{% if transferts %}
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">🏭 Ateliers assignés ({{ transferts|length }})</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;">
+    {% for t in transferts %}
+    <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;border:1px solid var(--border);">
+      <div class="font-bold">🏭 {{ t.atelier.nom }}</div>
+      <div class="text-small text-muted">{{ t.date_transfert|date:"d/m/Y H:i" }}</div>
+      <div class="text-small">{{ t.motif|truncatechars:80 }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endwith %}
 
 <!-- Fiche contrôle -->
 {% if a_fiche_controle %}
 <div class="card mt-2" style="border-left:4px solid var(--success);">
-  <div class="card-header"><div class="card-title">📋 Fiche de réception (remplie par l'atelier)</div><span class="badge badge-success">✅ Présent atelier</span></div>
+  <div class="card-header">
+    <div class="card-title">📋 Fiche de réception (remplie par l'atelier)</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span class="badge badge-success">✅ Présent atelier</span>
+    </div>
+  </div>
   <div class="grid-2">
     <table>
       <tr><td class="text-muted">État général</td><td>{{ fiche_controle.get_etat_general_display }}</td></tr>
@@ -214,58 +295,13 @@
       <tr><td class="text-muted">Inspecteur</td><td>{{ fiche_controle.inspecte_par }}</td></tr>
       <tr><td class="text-muted">Date inspection</td><td>{{ fiche_controle.date_inspection|date:"d/m/Y H:i" }}</td></tr>
     </table>
-    <div>{% if fiche_controle.defauts_observes %}<div class="form-label">Défauts observés</div><div style="background:var(--surface2);padding:8px;border-radius:6px;font-size:13px;">{{ fiche_controle.defauts_observes }}</div>{% endif %}</div>
+    <div>{% if fiche_controle.defauts_observes %}<div class="form-label">Défauts observés</div><div style="background:var(--surface2);padding:8px;border-radius:6px;font-size:13px;white-space:pre-line;">{{ fiche_controle.defauts_observes }}</div>{% endif %}</div>
   </div>
 </div>
 {% endif %}
 
-<!-- OR -->
-<div class="card mt-2">
-  <div class="card-header">
-    <div class="card-title">🔧 Ordres de réparation ({{ or_list|length }})</div>
-    {% if rec.statut == 'FICHE_TECHNIQUE' or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'PRESENT_ATELIER' %}
-    <a href="{% url 'creer_or_depuis_fiche_technique' rec.id %}" class="btn btn-primary btn-sm">+ Créer OR</a>
-    {% endif %}
-
-  </div>
-  {% if or_list %}
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>N° OR</th><th>Type</th><th>Atelier</th><th>Statut</th><th>Tâches</th><th>Actions</th></tr></thead>
-      <tbody>
-        {% for o in or_list %}
-        <tr>
-          <td><a href="{% url 'detail_or_admin' o.id %}"><strong>{{ o.numero }}</strong></a></td>
-          <td>{% if o.type_or == 'RETOUR' %}<span class="badge badge-danger">Retour</span>{% else %}<span class="badge badge-info">Normal</span>{% endif %}</td>
-          <td>{{ o.atelier.nom }}</td>
-          <td>
-            {% if o.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
-            {% elif o.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
-            {% elif o.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
-            {% elif o.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>{% endif %}
-          </td>
-          <td class="text-center">{{ o.taches.count }}</td>
-          <td>
-            <div style="display:flex;gap:4px;">
-              <a href="{% url 'detail_or_admin' o.id %}" class="btn btn-info btn-sm">👁</a>
-              {% if o.statut != 'CLOTURE' %}
-              <form method="post" action="{% url 'detail_or_admin' o.id %}" onsubmit="return confirm('Clôturer ?')">
-                {% csrf_token %}<button class="btn btn-success btn-sm">✅</button>
-              </form>
-              {% else %}
-              <button onclick="reouvrirOR('{{ o.id }}')" class="btn btn-warning btn-sm">🔓</button>
-              {% endif %}
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="text-center text-muted" style="padding:20px;">Aucun OR </div>
-  {% endif %}
-</div>
+<!-- OR (origine + réouverts sur cette réception) — l'admin consulte, la réception agit -->
+{% if rec.statut == 'FICHE_TECHNIQUE' or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'PRESENT_ATELIER' %}{% include "reception/_or_reception.html" with url_or="detail_or_admin" peut_creer=True %}{% else %}{% include "reception/_or_reception.html" with url_or="detail_or_admin" %}{% endif %}
 
 <!-- Bon de sortie -->
 {% if bon_sortie %}
@@ -276,9 +312,9 @@
   </div>
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
     <div>
-      <div class="text-small">Montant: <strong>{{ bon_sortie.montant_facture|floatformat:0 }} FCFA</strong></div>
-      <div class="text-small">Payé: {{ bon_sortie.montant_paye|floatformat:0 }} FCFA</div>
-      {% if bon_sortie.solde_restant > 0 %}<div class="text-small text-danger">Reste: {{ bon_sortie.solde_restant|floatformat:0 }} FCFA</div>{% endif %}
+      <div class="text-small">Montant : <strong>{{ bon_sortie.montant_facture|floatformat:0 }} FCFA</strong></div>
+      <div class="text-small">Payé : {{ bon_sortie.montant_paye|floatformat:0 }} FCFA</div>
+      {% if bon_sortie.solde_restant > 0 %}<div class="text-small text-danger">Reste : {{ bon_sortie.solde_restant|floatformat:0 }} FCFA</div>{% endif %}
     </div>
     <div style="display:flex;gap:6px;">
       <a href="{% url 'detail_bon_sortie_rec' bon_sortie.id %}" class="btn btn-info btn-sm">👁 Voir</a>
@@ -287,23 +323,4 @@
   </div>
 </div>
 {% endif %}
-
-<!-- Formulaire réouverture OR (modal inline) -->
-<form id="form-reouverture" method="post" style="display:none;">
-  {% csrf_token %}
-  <input type="text" name="raison" id="raison-input">
-</form>
-{% endblock %}
-{% block extra_js %}
-<script>
-function reouvrirOR(orId){
-  const raison = prompt('Raison de la réouverture :');
-  if(!raison) return;
-  const form = document.getElementById('form-reouverture');
-  form.action = '/reception/or/' + orId + '/reouverture/';
-  document.getElementById('raison-input').value = raison;
-  form.style.display = 'block';
-  form.submit();
-}
-</script>
 {% endblock %}

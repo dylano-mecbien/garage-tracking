@@ -343,11 +343,7 @@
     </table>
   </div>
 
-  {% if vehicules|length >= 100 %}
-  <div style="text-align:center;padding:14px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted);">
-    Affichage limité à 100 — utilisez les filtres pour affiner
-  </div>
-  {% endif %}
+{% include "_pagination.html" with page_obj=page_obj filters=filters %}
 </div>
 {% endblock %}
 

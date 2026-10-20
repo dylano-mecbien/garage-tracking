@@ -23,7 +23,7 @@
 </ul>
 {% endblock %}
 
-{% block extra_css %}
+{% block extra_css %} 
 <style>
 .filter-bar{background:var(--surface);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;box-shadow:var(--shadow);}
 .filter-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto auto;gap:10px;align-items:flex-end;}
@@ -326,11 +326,9 @@
     </table>
   </div>
 
-  {% if vehicules|length >= 100 %}
-  <div style="text-align:center;padding:14px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted);">
-    Affichage limité à 100 — utilisez les filtres pour affiner
-  </div>
-  {% endif %}
+
+
+{% include "_pagination.html" with page_obj=page_obj filters=filters %}
 </div>
 {% endblock %}
 

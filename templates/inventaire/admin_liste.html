@@ -18,7 +18,7 @@ tr.attente td{background:rgba(59,130,246,.07);}</style>
 </form>
 <div class="card"><table><thead><tr><th>Date</th><th>Statut</th><th>Validé par la guérite</th><th>Entrées</th><th>Sorties</th><th>Décision</th><th></th></tr></thead><tbody>
 {% for i in inventaires %}<tr class="{% if i.statut == 'SOUMIS' %}attente{% endif %}">
-  <td>{{ i.date|date:"d/m/Y" }}</td><td><span class="bdg {{ i.statut }}">{{ i.get_statut_display }}</span></td>
+  <td>{{ i.date_creation|date:"d/m/Y H:i" }}</td><td><span class="bdg {{ i.statut }}">{{ i.get_statut_display }}</span></td>
   <td>{{ i.soumis_par.get_full_name|default:"—" }}</td><td>{{ i.nb_entrees }}</td><td>{{ i.nb_sorties }}</td>
   <td class="text-small text-muted">{% if i.decide_par %}{{ i.decide_par.get_full_name }} — {{ i.date_decision|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
   <td><a href="{% url 'inventaire_admin_detail' i.id %}" class="btn {% if i.statut == 'SOUMIS' %}btn-primary{% else %}btn-outline{% endif %} btn-sm">{% if i.statut == 'SOUMIS' %}Examiner{% else %}Détail{% endif %}</a></td></tr>

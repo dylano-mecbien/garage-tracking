@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Contrôle de sortie — {{ rec.vehicule.immatriculation }}{% endblock %}
+{% block page_title %}🚪 Contrôle de sortie{% endblock %}
+
+{% block sidebar_nav %}
+<div class="sidebar-section">Atelier</div>
+<ul class="sidebar-nav">
+  <li><a href="{% url 'index' %}"><span class="icon">📊</span> Tableau de bord</a></li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.hero{background:var(--surface);border:1.5px solid var(--border);border-left:5px solid var(--primary);border-radius:var(--radius);
+  padding:16px 20px;margin-bottom:14px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;}
+.hero .imm{font-size:22px;font-weight:800;}
+.resume{border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;font-weight:600;}
+.resume.diff{background:#fffbeb;border:1.5px solid #fcd34d;color:#92400e;}
+.resume.same{background:#ecfdf5;border:1.5px solid #6ee7b7;color:#065f46;}
+.sign{background:var(--surface);border:2px solid var(--primary);border-radius:var(--radius);padding:16px 18px;margin:18px 0 30px;}
+.sign h3{margin:0 0 10px;font-size:16px;}
+.sig-canvas{border:1.5px dashed var(--border);border-radius:8px;background:#fff;width:100%;height:160px;touch-action:none;cursor:crosshair;}
+.lu{display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-size:14px;}
+.lu input{width:20px;height:20px;accent-color:var(--primary);margin-top:1px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>État du véhicule : avant / maintenant</h1>
+    <div class="breadcrumb">{{ rec.numero }} — {{ rec.vehicule.immatriculation }}</div>
+  </div>
+  <a href="{% url 'controle_sortie_verification' rec.id %}" class="btn btn-outline btn-sm">← Retour technicien</a>
+</div>
+
+<div class="hero">
+  <div>
+    <div class="imm">🚗 {{ rec.vehicule.immatriculation }}</div>
+    <div>{{ rec.vehicule.marque }} {{ rec.vehicule.modele }}</div>
+    <div class="text-small text-muted">{{ rec.vehicule.client }}</div>
+  </div>
+  <div class="text-small text-muted" style="text-align:right;">
+    Entrée le {{ fiche.entree_le|date:"d/m/Y"|default:"—" }}<br>
+    Contrôle de sortie validé par <b>{{ temp.technicien.get_full_name|default:temp.technicien|default:"—" }}</b>
+    le {{ temp.date_validation|date:"d/m/Y à H:i" }}
+  </div>
+</div>
+
+{% if nb_diff %}
+<div class="resume diff">⚠️ {{ nb_diff }} élément{{ nb_diff|pluralize }} {{ nb_diff|pluralize:"a,ont" }} changé depuis l'entrée du véhicule. Chaque changement est expliqué par le technicien.</div>
+{% else %}
+<div class="resume same">✅ Aucun changement : le véhicule est dans le même état qu'à son entrée.</div>
+{% endif %}
+
+{% include "atelier/controle_sortie/_comparatif.html" %}
+
+<form method="post" id="sign-form" class="sign">
+  {% csrf_token %}
+  <h3>✍️ Signature du client</h3>
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+  <label class="form-label" for="nom_client">Nom du client</label>
+  <input type="text" name="nom_client" id="nom_client" class="form-input" value="{{ nom_defaut }}" required>
+
+  <label class="lu">
+    <input type="checkbox" name="lu" value="1" required>
+    <span>J'ai pris connaissance de l'état de mon véhicule à l'entrée et à la sortie, ainsi que des explications données pour chaque différence.</span>
+  </label>
+
+  <canvas id="sig" class="sig-canvas"></canvas>
+  <input type="hidden" name="signature" id="signature">
+  <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+    <button type="button" class="btn btn-outline btn-sm" onclick="effacer()">🗑 Effacer la signature</button>
+    <button type="submit" class="btn btn-success" id="sign-btn" style="padding:11px 32px;font-size:15px;margin-left:auto;">
+      ✅ Signer et valider la sortie
+    </button>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const c=document.getElementById('sig'), input=document.getElementById('signature');
+  c.width=c.offsetWidth; c.height=160;
+  const ctx=c.getContext('2d'); ctx.strokeStyle='#1e293b'; ctx.lineWidth=2.2; ctx.lineCap='round';
+  let draw=false, vide=true;
+  const pos=e=>{const r=c.getBoundingClientRect(), sc=c.width/r.width, t=e.touches?e.touches[0]:e;
+    return {x:(t.clientX-r.left)*sc, y:(t.clientY-r.top)*sc};};
+  const start=e=>{e.preventDefault();draw=true;const p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);};
+  const move=e=>{if(!draw)return;e.preventDefault();const p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();vide=false;};
+  const end=()=>{if(!draw)return;draw=false;if(!vide)input.value=c.toDataURL('image/png');};
+  c.addEventListener('mousedown',start); c.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
+  c.addEventListener('touchstart',start,{passive:false}); c.addEventListener('touchmove',move,{passive:false}); c.addEventListener('touchend',end);
+  window.effacer=()=>{ctx.clearRect(0,0,c.width,c.height);input.value='';vide=true;};
+  document.getElementById('sign-form').addEventListener('submit',e=>{
+    if(!input.value){e.preventDefault();alert('La signature du client est obligatoire.');return;}
+    const b=document.getElementById('sign-btn'); b.disabled=true; b.textContent='⏳ Enregistrement...';
+  });
+})();
+</script>
+{% endblock %}

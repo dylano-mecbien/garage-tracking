@@ -10,6 +10,8 @@
 <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
 <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
 <li><a href="{% url 'admin_nettoyage' %}" ><span class="icon">🧹</span> Nettoyage</a></li>
+<li><a href="{% url 'inventaire_admin_liste' %}"><span class="icon">📋</span> Inventaire</a></li>
+  <li><a href="{% url 'liste_or_admin' %} " ><span class="icon">🔧</span> Ordres de réparation</a></li>
 
 <li class="has-submenu">
 <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
@@ -60,7 +62,7 @@
         {% endif %}
     </div>
     {% if reception %}
-    <a href="{% url 'index' %}" class="btn btn-outline">
+    <a href="javascript:history.back()" class="btn btn-outline">
         ← Retour
     </a>
     {% endif %}

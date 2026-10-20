@@ -25,6 +25,7 @@
 .tc.EN_COURS{border-left-color:var(--warning);}
 .tc.TERMINEE{border-left-color:var(--info);background:rgba(59,130,246,.05);}
 .tc.VALIDEE {border-left-color:var(--success);}
+.tc.REFUSEE {border-left-color:var(--danger);background:rgba(239,68,68,.05);}
 
 /* ══ Chips ══ */
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
@@ -37,16 +38,17 @@
 .st.TERMINEE{background:#dbeafe;color:#1e40af;}
 .st.VALIDEE {background:#d1fae5;color:#065f46;}
 
+/* ══ Badge retour ══ */
+.retour-badge{display:inline-flex;align-items:center;gap:4px;border-radius:10px;padding:2px 10px;font-size:11px;font-weight:700;}
+.retour-badge.REFUS   {background:#fee2e2;color:#991b1b;}
+.retour-badge.REOUVERT{background:#fef3c7;color:#92400e;}
+
+/* ══ Retour info ══ */
+.retour-info{background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;}
+.retour-info .lbl{font-weight:700;color:#92400e;text-transform:uppercase;font-size:10px;letter-spacing:.4px;}
+
 /* ══ Grille durées ══ */
-.duree-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
-  gap:10px;
-  margin-top:10px;
-  padding:10px;
-  background:var(--surface2);
-  border-radius:8px;
-}
+.duree-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:10px;padding:10px;background:var(--surface2);border-radius:8px;}
 .duree-box{text-align:center;}
 .duree-box .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);}
 .duree-box .val{font-size:15px;font-weight:800;color:var(--primary);margin-top:2px;}
@@ -55,14 +57,7 @@
 .duree-box .sub{font-size:10px;color:var(--text-muted);margin-top:1px;}
 
 /* ══ Dates ══ */
-.dates-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap:12px;
-  font-size:11px;
-  color:var(--text-muted);
-  margin-top:8px;
-}
+.dates-row{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--text-muted);margin-top:8px;}
 .dates-row .d{display:inline-flex;align-items:center;gap:4px;}
 .dates-row .d b{color:var(--text);font-weight:600;}
 
@@ -114,8 +109,22 @@
   <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
 </div>
 
+{% if or_verrouille %}
+<div style="background:rgba(34,197,94,.08);border:1.5px solid var(--success);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;">
+  🔒 <b>OR clôturé</b> le {{ or.date_cloture|date:"d/m/Y H:i" }} : plus aucune tâche ne peut être créée ou modifiée.
+  Seule une réouverture par la réception peut le débloquer.
+</div>
+{% endif %}
+
+{% if reception_actuelle and reception_actuelle.id != or.reception_id %}
+<div class="text-small text-muted" style="margin-bottom:12px;">
+  📥 Réouvert sur la réception <b>{{ reception_actuelle.numero }}</b>
+  (réception d'origine : {{ or.reception.numero }})
+</div>
+{% endif %}
+
 <!-- ══════════════════════════════════════════════════════════════
-     HERO — Informations de l'OR
+     HERO
      ══════════════════════════════════════════════════════════════ -->
 <div class="hero">
   <div style="font-size:18px;font-weight:800;">
@@ -143,7 +152,7 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════
-     DURÉES GLOBALES DE L'OR
+     DURÉES GLOBALES
      ══════════════════════════════════════════════════════════════ -->
 <div class="card mb-2">
   <div class="card-header"><div class="card-title">⏱️ Durées de l'OR</div></div>
@@ -194,7 +203,7 @@
     </div>
   </div>
 
-  <!-- ═══ Tâches de l'atelier ═══ -->
+  <!-- ═══ Tâches ═══ -->
   <div>
     <div class="card mb-2">
       <div class="card-header">
@@ -202,8 +211,10 @@
           ⚙️ Tâches de {{ atelier.nom }}
           ({{ nb_validees }}/{{ taches|length }} validée{{ nb_validees|pluralize }})
         </div>
+        {% if not or_verrouille %}
         <button type="button" class="btn btn-primary btn-sm"
                 onclick="openModal('modal-nouvelle')">➕ Nouvelle tâche</button>
+        {% endif %}
       </div>
 
       {% if nb_a_valider %}
@@ -217,7 +228,21 @@
 
         {# ── Titre + statut ── #}
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
-          <strong>{{ t.libelle }}</strong>
+          <div style="flex:1;">
+            <strong>{{ t.libelle }}</strong>
+
+            {# ── Badges retour ── #}
+            {% if t.nb_refus > 0 %}
+            <span class="retour-badge REFUS" style="margin-left:6px;">
+              ↩️ Refusée {{ t.nb_refus }}×
+            </span>
+            {% endif %}
+            {% if t.nb_reouvertures > 0 %}
+            <span class="retour-badge REOUVERT" style="margin-left:4px;">
+              🔓 Réouverte {{ t.nb_reouvertures }}×
+            </span>
+            {% endif %}
+          </div>
           <span class="st {{ t.statut }}">{{ t.get_statut_display }}</span>
         </div>
 
@@ -229,7 +254,20 @@
           {% if t.description %}{{ t.description }}{% endif %}
         </div>
 
-     
+        {# ── Motif du dernier refus / réouverture ── #}
+        {% if t.motif_retour %}
+        <div class="retour-info">
+          <div class="lbl">
+            {% if t.type_retour == 'REFUS' %}↩️ Motif du refus
+            {% elif t.type_retour == 'REOUVERTURE' %}🔓 Motif de réouverture
+            {% else %}📝 Motif du retour{% endif %}
+            {% if t.date_retour %}— {{ t.date_retour|date:"d/m/Y H:i" }}{% endif %}
+          </div>
+          <div style="white-space:pre-line;margin-top:4px;">{{ t.motif_retour }}</div>
+        </div>
+        {% endif %}
+
+        {# ── Grille durées ── #}
         <div class="duree-grid" style="grid-template-columns:repeat(3,1fr);">
           <div class="duree-box">
             <div class="lbl">Prévue</div>
@@ -249,20 +287,12 @@
           </div>
         </div>
 
-      
+        {# ── Dates ── #}
         <div class="dates-row">
-          {% if t.date_assignation %}
-          <span class="d">📤 Assignée <b>{{ t.date_assignation|date:"d/m H:i" }}</b></span>
-          {% endif %}
-          {% if t.date_debut %}
-          <span class="d">▶️ Démarrée <b>{{ t.date_debut|date:"d/m H:i" }}</b></span>
-          {% endif %}
-          {% if t.date_fin %}
-          <span class="d">⏹ Terminée <b>{{ t.date_fin|date:"d/m H:i" }}</b></span>
-          {% endif %}
-          {% if t.date_validation %}
-          <span class="d">✅ Validée <b>{{ t.date_validation|date:"d/m H:i" }}</b></span>
-          {% endif %}
+          {% if t.date_assignation %}<span class="d">📤 Assignée <b>{{ t.date_assignation|date:"d/m H:i" }}</b></span>{% endif %}
+          {% if t.date_debut %}<span class="d">▶️ Démarrée <b>{{ t.date_debut|date:"d/m H:i" }}</b></span>{% endif %}
+          {% if t.date_fin %}<span class="d">⏹ Terminée <b>{{ t.date_fin|date:"d/m H:i" }}</b></span>{% endif %}
+          {% if t.date_validation %}<span class="d">✅ Validée <b>{{ t.date_validation|date:"d/m H:i" }}</b></span>{% endif %}
         </div>
 
         {# ── Techniciens ── #}
@@ -276,21 +306,43 @@
 
         {# ── Actions ── #}
         <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;">
-          {% if t.statut == 'TERMINEE' %}
-          <button type="button" class="btn btn-success btn-sm"
-                  onclick="openModal('cr-{{ t.id }}')">
-            📄 Voir le compte rendu et valider
-          </button>
+
+          {% if t.statut == 'A_FAIRE' %}
+            <button type="button" class="btn btn-outline btn-sm"
+                    onclick="ouvrirModifTache('{{ t.id }}')">✏️ Modifier</button>
+
+            {% if t.est_supprimable %}
+            <form method="post" action="{% url 'supprimer_tache' t.id %}" style="display:inline;"
+                  onsubmit="return confirm('Supprimer la tâche « {{ t.libelle|escapejs }} » ?');">
+              {% csrf_token %}
+              <button class="btn btn-danger btn-sm">🗑️ Supprimer</button>
+            </form>
+            {% endif %}
+
+          {% elif t.statut == 'TERMINEE' %}
+            {# ── Valider ── #}
+            <button type="button" class="btn btn-success btn-sm"
+                    onclick="openModal('cr-{{ t.id }}')">
+              📄 Voir le compte rendu et valider
+            </button>
+
+            {# ── Refuser ── #}
+            <button type="button" class="btn btn-warning btn-sm"
+                    onclick="ouvrirRefus('{{ t.id }}', '{{ t.libelle|escapejs }}')">
+              ↩️ Refuser
+            </button>
+
           {% elif t.statut == 'VALIDEE' %}
-          <button type="button" class="btn btn-outline btn-sm"
-                  onclick="openModal('cr-{{ t.id }}')">
-            📄 Voir le compte rendu
-          </button>
-          {% else %}
-          <button type="button" class="btn btn-outline btn-sm"
-                  onclick="openModal('cl-{{ t.id }}')">
-            🔒 Clôturer à la place du technicien
-          </button>
+            <button type="button" class="btn btn-outline btn-sm"
+                    onclick="openModal('cr-{{ t.id }}')">
+              📄 Voir le compte rendu
+            </button>
+
+          {% elif t.statut == 'EN_COURS' or t.statut == 'A_FAIRE' %}
+            <button type="button" class="btn btn-outline btn-sm"
+                    onclick="openModal('cl-{{ t.id }}')">
+              🔒 Clôturer à la place du technicien
+            </button>
           {% endif %}
         </div>
 
@@ -316,13 +368,11 @@
     </div>
     <form method="post" action="{% url 'creer_tache' or.id %}">
       {% csrf_token %}
-
       <div class="form-group">
         <label class="form-label">Tâche *</label>
         <input type="text" name="libelle" id="nt-libelle" class="form-input" required
                placeholder="Ex : Remplacer les plaquettes avant">
       </div>
-
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Durée prévue</label>
@@ -345,7 +395,6 @@
           </select>
         </div>
       </div>
-
       <div class="form-group">
         <label class="form-label">Technicien(s)</label>
         <div class="tech-ac-wrap">
@@ -359,12 +408,10 @@
           Tapez pour filtrer, cliquez pour ajouter.
         </div>
       </div>
-
       <div class="form-group">
         <label class="form-label">Instructions</label>
         <textarea name="description" class="form-textarea" rows="2"></textarea>
       </div>
-
       <div style="display:flex;gap:10px;">
         <button type="submit" class="btn btn-primary" style="flex:1;padding:10px;">
           ✅ Créer la tâche
@@ -377,12 +424,12 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════
-     POP-UPS : compte rendu / clôture directe (par tâche)
+     POP-UPS par tâche : CR / Clôture directe / Refus
      ══════════════════════════════════════════════════════════════ -->
 {% for t in taches %}
-{% if t.statut == 'TERMINEE' or t.statut == 'VALIDEE' %}
 
-<!-- ═══ Compte rendu ═══ -->
+{# ═══ Compte rendu (VALIDEE ou TERMINEE) ═══ #}
+{% if t.statut == 'TERMINEE' or t.statut == 'VALIDEE' %}
 <div class="modal-ov" id="cr-{{ t.id }}">
   <div class="modal-box">
     <div class="modal-head">
@@ -391,7 +438,6 @@
               onclick="closeModal('cr-{{ t.id }}')">✕</button>
     </div>
 
-    {# ── Récap durées + dates ── #}
     <div class="duree-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;">
       <div class="duree-box">
         <div class="lbl">Prévue</div>
@@ -409,7 +455,6 @@
       </div>
     </div>
 
-    {# ── Dates ── #}
     <div class="dates-row" style="margin-bottom:12px;">
       {% if t.date_assignation %}<span class="d">📤 Assignée <b>{{ t.date_assignation|date:"d/m/Y H:i" }}</b></span>{% endif %}
       {% if t.date_debut %}<span class="d">▶️ Démarrée <b>{{ t.date_debut|date:"d/m/Y H:i" }}</b></span>{% endif %}
@@ -417,7 +462,6 @@
       {% if t.date_validation %}<span class="d">✅ Validée <b>{{ t.date_validation|date:"d/m/Y H:i" }}</b></span>{% endif %}
     </div>
 
-    {# ── Liste des comptes rendus ── #}
     {% for cr in t.comptes_rendus.all %}
     <div class="cr">
       <div class="cr-head">
@@ -432,17 +476,14 @@
         </div>
         <span class="cr-duree">{{ cr.duree_label }}</span>
       </div>
-
       {% if cr.description %}
       <div class="l">Travaux effectués</div>
       <div style="white-space:pre-line;">{{ cr.description }}</div>
       {% endif %}
-
       {% if cr.pieces_utilisees %}
       <div class="l">Pièces utilisées</div>
       <div style="white-space:pre-line;">{{ cr.pieces_utilisees }}</div>
       {% endif %}
-
       {% if cr.observations %}
       <div class="l">Observations</div>
       <div style="white-space:pre-line;">{{ cr.observations }}</div>
@@ -452,7 +493,6 @@
     <div class="text-muted">Aucun compte rendu.</div>
     {% endfor %}
 
-    {# ── Validation ── #}
     {% if t.statut == 'TERMINEE' %}
     <form method="post" action="{% url 'valider_tache_chef' t.id %}" style="margin-top:14px;">
       {% csrf_token %}
@@ -482,9 +522,10 @@
   </div>
 </div>
 
-{% else %}
+{% endif %}
 
-<!-- ═══ Clôture directe ═══ -->
+{# ═══ Clôture directe (A_FAIRE / EN_COURS) ═══ #}
+{% if t.statut == 'A_FAIRE' or t.statut == 'EN_COURS' %}
 <div class="modal-ov" id="cl-{{ t.id }}">
   <div class="modal-box">
     <div class="modal-head">
@@ -497,7 +538,6 @@
     </div>
     <form method="post" action="{% url 'cloture_directe_tache' t.id %}">
       {% csrf_token %}
-
       <div class="form-group">
         <label class="form-label">Intervenant *</label>
         {% with tech=t.techniciens.first %}
@@ -516,7 +556,6 @@
           {% endif %}
         {% endwith %}
       </div>
-
       <div class="form-group">
         <label class="form-label">Durée réelle *</label>
         <div class="duree-row">
@@ -528,17 +567,14 @@
           <span>min</span>
         </div>
       </div>
-
       <div class="form-group">
         <label class="form-label">Travaux effectués *</label>
         <textarea name="description" class="form-textarea" rows="3" required></textarea>
       </div>
-
       <div class="form-group">
         <label class="form-label">Pièces utilisées</label>
         <textarea name="pieces_utilisees" class="form-textarea" rows="2"></textarea>
       </div>
-
       <div style="display:flex;gap:10px;">
         <button type="submit" class="btn btn-warning" style="flex:1;padding:10px;">
           🔒 Clôturer
@@ -549,9 +585,40 @@
     </form>
   </div>
 </div>
-
 {% endif %}
+
+{# ═══ Refus (TERMINEE uniquement) ═══ #}
+{% if t.statut == 'TERMINEE' %}
+<div class="modal-ov" id="refus-{{ t.id }}">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-head">
+      <strong>↩️ Refuser la tâche</strong>
+      <button type="button" class="btn btn-outline btn-sm"
+              onclick="closeModal('refus-{{ t.id }}')">✕</button>
+    </div>
+    <p class="text-small text-muted" style="margin-bottom:12px;">
+      <strong>{{ t.libelle }}</strong> — La tâche repasse « En cours » chez le technicien
+      avec ce motif. Ses comptes rendus sont conservés.
+    </p>
+    <form method="post" action="{% url 'refuser_tache' t.id %}">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label"><b>Motif du refus *</b></label>
+        <textarea name="motif_refus" class="form-textarea" rows="3" required
+                  placeholder="Ex : fuite toujours présente au niveau du joint..."></textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+        <button type="button" class="btn btn-outline"
+                onclick="closeModal('refus-{{ t.id }}')">Annuler</button>
+        <button class="btn btn-warning">↩️ Refuser la tâche</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 {% endfor %}
+
 {% endblock %}
 
 {% block extra_js %}
@@ -567,19 +634,27 @@ function openModal(id){
 function closeModal(id){
   document.getElementById(id)?.classList.remove('open');
 }
+
 document.querySelectorAll('.modal-ov').forEach(m =>
   m.addEventListener('mousedown', e => { if (e.target === m) closeModal(m.id); })
 );
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape')
     document.querySelectorAll('.modal-ov.open').forEach(m => closeModal(m.id));
 });
 
 // ══════════════════════════════════════════════════════════════
-//  Autocomplete techniciens — pop-up « Nouvelle tâche »
+//  Ouvrir le pop-up de refus
+// ══════════════════════════════════════════════════════════════
+function ouvrirRefus(tacheId, libelle) {
+  openModal('refus-' + tacheId);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Autocomplete techniciens
 // ══════════════════════════════════════════════════════════════
 (function initTechAutocomplete() {
-
   const TECHS = [
     {% for u in techniciens %}
     {
@@ -600,11 +675,10 @@ document.addEventListener('keydown', e => {
   if (!input || !drop || !chipsBox || !hiddenBox) return;
 
   const selected = new Set();
-  let   highlighted = -1;
+  let highlighted = -1;
 
   const normalize = s => (s || '').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
   const findTech = id => TECHS.find(t => t.id === id);
 
   function filter(query) {
@@ -620,23 +694,18 @@ document.addEventListener('keydown', e => {
   function renderDrop(results) {
     highlighted = -1;
     drop.innerHTML = '';
-
     if (!results.length) {
       drop.innerHTML = '<div class="tech-ac-empty">Aucun technicien trouvé</div>';
       drop.classList.add('open');
       return;
     }
-
     results.forEach((t, i) => {
       const div = document.createElement('div');
       div.className = 'tech-ac-item';
-      div.dataset.id  = t.id;
+      div.dataset.id = t.id;
       div.dataset.idx = i;
       div.textContent = t.label;
-      div.addEventListener('mousedown', e => {
-        e.preventDefault();
-        addTech(t.id);
-      });
+      div.addEventListener('mousedown', e => { e.preventDefault(); addTech(t.id); });
       drop.appendChild(div);
     });
     drop.classList.add('open');
@@ -651,29 +720,20 @@ document.addEventListener('keydown', e => {
   function addTech(id) {
     if (selected.has(id)) return;
     selected.add(id);
-
     const t = findTech(id);
     if (!t) return;
-
-    // Chip visuel
     const chip = document.createElement('span');
     chip.className = 'tech-chip';
     chip.dataset.id = id;
-    chip.innerHTML = `
-      ${t.label}
-      <button type="button" data-id="${id}" title="Retirer">×</button>
-    `;
+    chip.innerHTML = `${t.label}<button type="button" data-id="${id}" title="Retirer">×</button>`;
     chip.querySelector('button').addEventListener('click', () => removeTech(id));
     chipsBox.appendChild(chip);
-
-    // Input hidden
     const hidden = document.createElement('input');
     hidden.type  = 'hidden';
     hidden.name  = 'techniciens';
     hidden.value = id;
     hidden.dataset.for = id;
     hiddenBox.appendChild(hidden);
-
     input.value = '';
     closeDrop();
     input.focus();
@@ -686,32 +746,26 @@ document.addEventListener('keydown', e => {
   }
 
   input.addEventListener('input', () => renderDrop(filter(input.value)));
-
   input.addEventListener('focus', () => {
     if (!input.value.trim() && !selected.size) renderDrop(filter(''));
   });
-
   input.addEventListener('keydown', e => {
     const items = drop.querySelectorAll('.tech-ac-item');
-
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (!items.length) return;
       highlighted = (highlighted + 1) % items.length;
       items.forEach((el, i) => el.classList.toggle('highlight', i === highlighted));
-    }
-    else if (e.key === 'ArrowUp') {
+    } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (!items.length) return;
       highlighted = (highlighted - 1 + items.length) % items.length;
       items.forEach((el, i) => el.classList.toggle('highlight', i === highlighted));
-    }
-    else if (e.key === 'Enter') {
+    } else if (e.key === 'Enter') {
       e.preventDefault();
       if (highlighted >= 0 && items[highlighted]) addTech(items[highlighted].dataset.id);
       else if (items[0]) addTech(items[0].dataset.id);
-    }
-    else if (e.key === 'Escape') closeDrop();
+    } else if (e.key === 'Escape') closeDrop();
     else if (e.key === 'Backspace' && !input.value && selected.size) {
       removeTech([...selected].pop());
     }
@@ -720,7 +774,6 @@ document.addEventListener('keydown', e => {
   document.addEventListener('mousedown', e => {
     if (!input.parentElement.contains(e.target)) closeDrop();
   });
-
 })();
 </script>
 {% endblock %}

@@ -96,308 +96,6 @@ CREATE INDEX IF NOT EXISTS idx_receptions_statut          ON receptions(statut);
 CREATE INDEX IF NOT EXISTS idx_receptions_created_at      ON receptions(created_at DESC);
 
 
-CREATE TABLE IF NOT EXISTS fiches_techniques (
-    -- ── Clé primaire + liaison ──
-    id                                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    numero_fiche                        VARCHAR(20)  NOT NULL DEFAULT '',
-    entree_id                           UUID         NOT NULL UNIQUE
-                                        REFERENCES enregistrements_entree(id) ON DELETE RESTRICT,
-
-    -- ── En-tête ──
-    entree_le                           DATE,
-    sortie_le                           DATE,
-    nom_client                          VARCHAR(100) NOT NULL DEFAULT '',
-    immatriculation                     VARCHAR(20)  NOT NULL DEFAULT '',
-    vehicule                            VARCHAR(100) NOT NULL DEFAULT '',
-    kilometrage                         INTEGER      NOT NULL DEFAULT 0,
-    preconisation_courroie_distribution DATE,
-    rendre_pieces                       VARCHAR(3)   NOT NULL DEFAULT '',
-    ecrou_antivol                       VARCHAR(3)   NOT NULL DEFAULT '',
-    alarme                              VARCHAR(3)   NOT NULL DEFAULT '',
-
-    -- ── Véhicule au sol ──
-    eclairage_av_veilleuses             VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_av_croisement             VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_av_route                  VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_av_antibrouillard         VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_av_clignotants            VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_ar_feux_position          VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_ar_stop                   VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_ar_clignotants            VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_ar_recul                  VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_ar_antibrouillard         VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_ar_feu_plaque             VARCHAR(10) NOT NULL DEFAULT '',
-    eclairage_ar_3eme_feu_stop          VARCHAR(10) NOT NULL DEFAULT '',
-    controle_hauteur_phare              VARCHAR(10) NOT NULL DEFAULT '',
-    voyant_tableau_bord                 VARCHAR(10) NOT NULL DEFAULT '',
-    code_defaut                         VARCHAR(10) NOT NULL DEFAULT '',
-    bougies_faisceau                    VARCHAR(10) NOT NULL DEFAULT '',
-    sonde_lamda                         VARCHAR(10) NOT NULL DEFAULT '',
-    course_pedale_frein                 VARCHAR(10) NOT NULL DEFAULT '',
-    course_frein_main                   VARCHAR(10) NOT NULL DEFAULT '',
-    liquide_frein_temperature           NUMERIC(5,1),
-    liquide_frein_etat                  VARCHAR(10) NOT NULL DEFAULT '',
-    maitre_cylindre_fuite               VARCHAR(10) NOT NULL DEFAULT '',
-    climatisation_temperature_soufflage NUMERIC(5,1),
-    climatisation_filtre_habitacle      VARCHAR(10) NOT NULL DEFAULT '',
-    niveau_huile_prise_en_charge        VARCHAR(10) NOT NULL DEFAULT '',
-    balais_essuie_glace_av              VARCHAR(10) NOT NULL DEFAULT '',
-    balais_essuie_glace_ar              VARCHAR(10) NOT NULL DEFAULT '',
-    pare_brise_impact                   VARCHAR(3)  NOT NULL DEFAULT '',
-    pare_brise_fissure                  VARCHAR(3)  NOT NULL DEFAULT '',
-    pare_brise_fissure_appeler_le       VARCHAR(20) NOT NULL DEFAULT '',
-    jauge_carburant                     VARCHAR(15) NOT NULL DEFAULT '',
-    plaques_immatriculation_av          VARCHAR(10) NOT NULL DEFAULT '',
-    plaques_immatriculation_ar          VARCHAR(10) NOT NULL DEFAULT '',
-    batterie                            VARCHAR(10) NOT NULL DEFAULT '',
-    alternateur_demarreur               VARCHAR(10) NOT NULL DEFAULT '',
-    liquide_refroidissement             VARCHAR(10) NOT NULL DEFAULT '',
-
-    -- ── Véhicule mi-hauteur ──
-    pneu_av_g_profondeur                NUMERIC(4,1),
-    pneu_av_d_profondeur                NUMERIC(4,1),
-    pneu_ar_g_profondeur                NUMERIC(4,1),
-    pneu_ar_d_profondeur                NUMERIC(4,1),
-    pneu_roue_secours_profondeur        NUMERIC(4,1),
-    pneu_av_g_usure                     VARCHAR(10) NOT NULL DEFAULT '',
-    pneu_av_d_usure                     VARCHAR(10) NOT NULL DEFAULT '',
-    pneu_ar_g_usure                     VARCHAR(10) NOT NULL DEFAULT '',
-    pneu_ar_d_usure                     VARCHAR(10) NOT NULL DEFAULT '',
-    geometrie_necessaire                VARCHAR(3)  NOT NULL DEFAULT '',
-
-    susp_amortisseurs_av_g              VARCHAR(10) NOT NULL DEFAULT '',
-    susp_amortisseurs_av_d              VARCHAR(10) NOT NULL DEFAULT '',
-    susp_amortisseurs_ar_g              VARCHAR(10) NOT NULL DEFAULT '',
-    susp_amortisseurs_ar_d              VARCHAR(10) NOT NULL DEFAULT '',
-    susp_coupelles_av_g                 VARCHAR(10) NOT NULL DEFAULT '',
-    susp_coupelles_av_d                 VARCHAR(10) NOT NULL DEFAULT '',
-    susp_coupelles_ar_g                 VARCHAR(10) NOT NULL DEFAULT '',
-    susp_coupelles_ar_d                 VARCHAR(10) NOT NULL DEFAULT '',
-    susp_ressorts_av_g                  VARCHAR(10) NOT NULL DEFAULT '',
-    susp_ressorts_av_d                  VARCHAR(10) NOT NULL DEFAULT '',
-    susp_ressorts_ar_g                  VARCHAR(10) NOT NULL DEFAULT '',
-    susp_ressorts_ar_d                  VARCHAR(10) NOT NULL DEFAULT '',
-    susp_kit_protection_av_g            VARCHAR(10) NOT NULL DEFAULT '',
-    susp_kit_protection_av_d            VARCHAR(10) NOT NULL DEFAULT '',
-    susp_kit_protection_ar_g            VARCHAR(10) NOT NULL DEFAULT '',
-    susp_kit_protection_ar_d            VARCHAR(10) NOT NULL DEFAULT '',
-    susp_butees_av_g                    VARCHAR(10) NOT NULL DEFAULT '',
-    susp_butees_av_d                    VARCHAR(10) NOT NULL DEFAULT '',
-    susp_butees_ar_g                    VARCHAR(10) NOT NULL DEFAULT '',
-    susp_butees_ar_d                    VARCHAR(10) NOT NULL DEFAULT '',
-    susp_biellettes_av_g                VARCHAR(10) NOT NULL DEFAULT '',
-    susp_biellettes_av_d                VARCHAR(10) NOT NULL DEFAULT '',
-    susp_biellettes_ar_g                VARCHAR(10) NOT NULL DEFAULT '',
-    susp_biellettes_ar_d                VARCHAR(10) NOT NULL DEFAULT '',
-
-    frein_flexibles_av_g                VARCHAR(10) NOT NULL DEFAULT '',
-    frein_flexibles_av_d                VARCHAR(10) NOT NULL DEFAULT '',
-    frein_flexibles_ar_g                VARCHAR(10) NOT NULL DEFAULT '',
-    frein_flexibles_ar_d                VARCHAR(10) NOT NULL DEFAULT '',
-    frein_disques_av_g                  VARCHAR(10) NOT NULL DEFAULT '',
-    frein_disques_av_d                  VARCHAR(10) NOT NULL DEFAULT '',
-    frein_disques_ar_g                  VARCHAR(10) NOT NULL DEFAULT '',
-    frein_disques_ar_d                  VARCHAR(10) NOT NULL DEFAULT '',
-    frein_disques_epaisseur_mm          NUMERIC(4,1),
-    frein_plaquettes_av_g               VARCHAR(10) NOT NULL DEFAULT '',
-    frein_plaquettes_av_d               VARCHAR(10) NOT NULL DEFAULT '',
-    frein_plaquettes_ar_g               VARCHAR(10) NOT NULL DEFAULT '',
-    frein_plaquettes_ar_d               VARCHAR(10) NOT NULL DEFAULT '',
-    frein_kit_frein_ar_g                VARCHAR(10) NOT NULL DEFAULT '',
-    frein_kit_frein_ar_d                VARCHAR(10) NOT NULL DEFAULT '',
-    frein_tambours_ar_g                 VARCHAR(10) NOT NULL DEFAULT '',
-    frein_tambours_ar_d                 VARCHAR(10) NOT NULL DEFAULT '',
-    frein_tambours_diametre_mm          NUMERIC(4,1),
-
-    train_flexibles_av_g                VARCHAR(10) NOT NULL DEFAULT '',
-    train_flexibles_av_d                VARCHAR(10) NOT NULL DEFAULT '',
-    train_flexibles_ar_g                VARCHAR(10) NOT NULL DEFAULT '',
-    train_flexibles_ar_d                VARCHAR(10) NOT NULL DEFAULT '',
-    train_disques_av_g                  VARCHAR(10) NOT NULL DEFAULT '',
-    train_disques_av_d                  VARCHAR(10) NOT NULL DEFAULT '',
-    train_disques_ar_g                  VARCHAR(10) NOT NULL DEFAULT '',
-    train_disques_ar_d                  VARCHAR(10) NOT NULL DEFAULT '',
-    train_plaquettes_av_g               VARCHAR(10) NOT NULL DEFAULT '',
-    train_plaquettes_av_d               VARCHAR(10) NOT NULL DEFAULT '',
-    train_plaquettes_ar_g               VARCHAR(10) NOT NULL DEFAULT '',
-    train_plaquettes_ar_d               VARCHAR(10) NOT NULL DEFAULT '',
-    train_kit_frein_av_g                VARCHAR(10) NOT NULL DEFAULT '',
-    train_kit_frein_av_d                VARCHAR(10) NOT NULL DEFAULT '',
-    train_tambours_av_g                 VARCHAR(10) NOT NULL DEFAULT '',
-    train_tambours_av_d                 VARCHAR(10) NOT NULL DEFAULT '',
-    train_tambours_ar_g                 VARCHAR(10) NOT NULL DEFAULT '',
-    train_tambours_ar_d                 VARCHAR(10) NOT NULL DEFAULT '',
-
-    -- ── Véhicule levé ──
-    echap_catalyseur_filtre_particules  VARCHAR(10) NOT NULL DEFAULT '',
-    echap_partie_avant                  VARCHAR(10) NOT NULL DEFAULT '',
-    echap_partie_intermediaire          VARCHAR(10) NOT NULL DEFAULT '',
-    echap_partie_arriere                VARCHAR(10) NOT NULL DEFAULT '',
-    echap_fixations                     VARCHAR(10) NOT NULL DEFAULT '',
-    transmission_soufflets_g            VARCHAR(10) NOT NULL DEFAULT '',
-    transmission_soufflets_d            VARCHAR(10) NOT NULL DEFAULT '',
-    transmission_cardans_g              VARCHAR(10) NOT NULL DEFAULT '',
-    transmission_cardans_d              VARCHAR(10) NOT NULL DEFAULT '',
-    frein_canalisation                  VARCHAR(10) NOT NULL DEFAULT '',
-    frein_cable_frein_main              VARCHAR(10) NOT NULL DEFAULT '',
-    frein_repartiteur_fuite             VARCHAR(10) NOT NULL DEFAULT '',
-    fuite_moteur                        VARCHAR(3)  NOT NULL DEFAULT '',
-
-    -- ── Post-contrôles ──
-    niveau_huile_apres_intervention     VARCHAR(10) NOT NULL DEFAULT '',
-    ok_lave_glace                       BOOLEAN NOT NULL DEFAULT FALSE,
-    ok_liquide_refroidissement          BOOLEAN NOT NULL DEFAULT FALSE,
-    ok_kit_securite                     BOOLEAN NOT NULL DEFAULT FALSE,
-    ok_boite_ampoules                   BOOLEAN NOT NULL DEFAULT FALSE,
-    ok_etiquette_vidange                BOOLEAN NOT NULL DEFAULT FALSE,
-    ok_etiquette_monte_pneumatique      BOOLEAN NOT NULL DEFAULT FALSE,
-    ok_remise_a_zero_maintenance        BOOLEAN NOT NULL DEFAULT FALSE,
-
-    -- ── Diagnostic & synthèse ──
-    diagnostic                          TEXT          NOT NULL DEFAULT '',
-    pieces_recommandees                 TEXT          NOT NULL DEFAULT '',
-    main_oeuvre_estimee                 NUMERIC(10,2) NOT NULL DEFAULT 0,
-    pieces_estimees                     NUMERIC(10,2) NOT NULL DEFAULT 0,
-    temps_estime_heures                 NUMERIC(6,2)  NOT NULL DEFAULT 0,
-    commentaires                        TEXT          NOT NULL DEFAULT '',
-    observations                        TEXT          NOT NULL DEFAULT '',
-
-    -- ── Signatures ──
-    nom_controleur                      VARCHAR(100) NOT NULL DEFAULT '',
-    signature_controleur                TEXT         NOT NULL DEFAULT '',
-    nom_client_signataire               VARCHAR(100) NOT NULL DEFAULT '',
-    signature_client                    TEXT         NOT NULL DEFAULT '',
-
-    -- ── Meta ──
-    cree_par_id                         UUID REFERENCES accounts_users(id) ON DELETE SET NULL,
-    date_creation                       TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-
--- ── Index ──
-CREATE INDEX IF NOT EXISTS idx_ft_entree    ON fiches_techniques(entree_id);
-CREATE INDEX IF NOT EXISTS idx_ft_cree_par  ON fiches_techniques(cree_par_id);
-CREATE INDEX IF NOT EXISTS idx_ft_date      ON fiches_techniques(date_creation DESC);
-CREATE INDEX IF NOT EXISTS idx_ft_immat     ON fiches_techniques(immatriculation);
-
-CREATE INDEX idx_fiches_techniques_entre       ON fiches_techniques(entree_id);
-CREATE INDEX idx_fiches_techniques_date        ON fiches_techniques(date_creation DESC);
-CREATE INDEX idx_fiches_techniques_cree_par    ON fiches_techniques(cree_par_id);
-
-
-
-
-
-CREATE TABLE fiches_controle (
-    -- ── Clé primaire & liaison ──
-    id                                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entree_id                                   UUID NOT NULL UNIQUE
-                                                REFERENCES enregistrements_entree(id) ON DELETE RESTRICT,
-
-    -- ── En-tête ──
-    travail_a_effectuer                         TEXT NOT NULL DEFAULT '',
-    entree_le                                   DATE,
-    sortir_le                                   DATE,
-    immatriculation                             VARCHAR(20) NOT NULL DEFAULT '',
-    marque                                      VARCHAR(50) NOT NULL DEFAULT '',
-    modele                                      VARCHAR(50) NOT NULL DEFAULT '',
-    kilometrage                                 INTEGER NOT NULL DEFAULT 0,
-    telephone                                   VARCHAR(20) NOT NULL DEFAULT '',
-
-    -- ── Colonne 1 ──
-    alarme_fonctionne                           VARCHAR(10) NOT NULL DEFAULT '',
-    verrouillage_portes                         VARCHAR(10) NOT NULL DEFAULT '',
-    telecommande_ouverture                      VARCHAR(10) NOT NULL DEFAULT '',
-    trappe_carburant                            VARCHAR(10) NOT NULL DEFAULT '',
-    tirette_capot                               VARCHAR(10) NOT NULL DEFAULT '',
-    climatisation_fonctionne                    VARCHAR(10) NOT NULL DEFAULT '',
-    climatisation_fait_froid                    VARCHAR(10) NOT NULL DEFAULT '',
-    voyant_moteur_tableau_bord                  BOOLEAN,
-    autoradio_s_allume                          VARCHAR(10) NOT NULL DEFAULT '',
-    son_dans_baffles                            VARCHAR(10) NOT NULL DEFAULT '',
-    dossier_vehicule_complet                    BOOLEAN,
-    horloge_a_heure                             VARCHAR(10) NOT NULL DEFAULT '',
-
-    triangles_securite_presents                 BOOLEAN,
-    triangles_securite_nombre                   SMALLINT CHECK (triangles_securite_nombre IS NULL OR triangles_securite_nombre >= 0),
-    cales_metalliques_presentes                 BOOLEAN,
-    cales_metalliques_nombre                    SMALLINT CHECK (cales_metalliques_nombre IS NULL OR cales_metalliques_nombre >= 0),
-
-    gilet_securite_present                      BOOLEAN,
-    extincteur_present                          BOOLEAN,
-    boite_pharmacie_presente                    BOOLEAN,
-    bouton_eclairage_plafonnier                 BOOLEAN,
-    roue_secours_gonflee                        BOOLEAN,
-
-    cric_present                                BOOLEAN NOT NULL DEFAULT FALSE,
-    manivelle_presente                          BOOLEAN NOT NULL DEFAULT FALSE,
-    cle_roue_presente                           BOOLEAN NOT NULL DEFAULT FALSE,
-
-    joints_portieres_propres                    VARCHAR(10) NOT NULL DEFAULT '',
-    enjoliveurs_roues_presents                  VARCHAR(10) NOT NULL DEFAULT '',
-    plaques_immatriculation_avant_arriere       VARCHAR(10) NOT NULL DEFAULT '',
-    tares_avant_arriere_presentes               VARCHAR(10) NOT NULL DEFAULT '',
-    garde_boues_presents_bien_montes            VARCHAR(10) NOT NULL DEFAULT '',
-    agrafes_presentes                           VARCHAR(10) NOT NULL DEFAULT '',
-
-    -- ── Colonne 2 ──
-    bavettes_et_goujons_roues_presents          BOOLEAN,
-    pare_brise_etat                             VARCHAR(10) NOT NULL DEFAULT '',
-    pression_pneus_bonne                        VARCHAR(10) NOT NULL DEFAULT '',
-    balais_essuie_glace_avant_arriere           VARCHAR(10) NOT NULL DEFAULT '',
-    gicleur_lave_glace_bocal_reserve            VARCHAR(10) NOT NULL DEFAULT '',
-    miroirs_retroviseurs_etat                   VARCHAR(10) NOT NULL DEFAULT '',
-    retroviseurs_se_rabattent                   VARCHAR(10) NOT NULL DEFAULT '',
-    phares_avant_etat                           VARCHAR(10) NOT NULL DEFAULT '',
-    camera_recul_fonctionne                     VARCHAR(10) NOT NULL DEFAULT '',
-    klaxon_fonctionne                           VARCHAR(10) NOT NULL DEFAULT '',
-    clignotants_avant_arriere_fonctionnent      VARCHAR(10) NOT NULL DEFAULT '',
-    capteurs_position_avant_arriere_bipent      VARCHAR(10) NOT NULL DEFAULT '',
-    antibrouillards_feux_jour_bon_etat          VARCHAR(10) NOT NULL DEFAULT '',
-    feux_arriere_etat                           VARCHAR(10) NOT NULL DEFAULT '',
-    systeme_demarrage_fonctionne                VARCHAR(10) NOT NULL DEFAULT '',
-    voyant_ceintures_securite_s_allume          VARCHAR(10) NOT NULL DEFAULT '',
-
-    -- ── Colonne 3 ──
-    sieges_propres_bon_etat                     BOOLEAN,
-    tapis_sol_5_presents                        BOOLEAN,
-    vitres_avant_se_baissent                    BOOLEAN,
-    vitres_arriere_se_baissent                  BOOLEAN,
-    telecommande_vitres_fonctionne              BOOLEAN,
-    autocollants_pare_brise_presents            BOOLEAN,
-    voiles_peinture_sur_vitres                  BOOLEAN,
-
-    jauge_carburant                             VARCHAR(15) NOT NULL DEFAULT '',
-
-    -- ── Schéma carrosserie ──
-    type_vehicule                               VARCHAR(20) NOT NULL DEFAULT '',
-    points_degats_carrosserie                   JSONB NOT NULL DEFAULT '[]'::jsonb,
-
-    -- ── Synthèse ──
-    etat_general                                VARCHAR(20) NOT NULL DEFAULT 'BON',
-    commentaires                                TEXT NOT NULL DEFAULT '',
-    defauts_observes                            TEXT NOT NULL DEFAULT '',
-
-    -- ── Signatures ──
-    nom_receptionniste                          VARCHAR(100) NOT NULL DEFAULT '',
-    signature_receptionniste                    TEXT NOT NULL DEFAULT '',
-    nom_client_avant                            VARCHAR(100) NOT NULL DEFAULT '',
-    signature_client_avant                      TEXT NOT NULL DEFAULT '',
-    nom_client_apres                            VARCHAR(100) NOT NULL DEFAULT '',
-    signature_client_apres                      TEXT NOT NULL DEFAULT '',
-    nom_technicien                              VARCHAR(100) NOT NULL DEFAULT '',
-    signature_technicien                        TEXT NOT NULL DEFAULT '',
-    nom_controleur                              VARCHAR(100) NOT NULL DEFAULT '',
-    signature_controleur                        TEXT NOT NULL DEFAULT '',
-
-    inspecte_par_id                             UUID REFERENCES accounts_users(id) ON DELETE SET NULL,
-    date_inspection                             TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_fiches_controle_entree        ON fiches_controle(entree_id);
-CREATE INDEX idx_fiches_controle_date          ON fiches_controle(date_inspection DESC);
-CREATE INDEX idx_fiches_controle_inspecte_par  ON fiches_controle(inspecte_par_id);
-
 
 
 
@@ -687,4 +385,110 @@ CREATE TABLE IF NOT EXISTS inv_mouvement_temp (
 CREATE INDEX IF NOT EXISTS idx_inv_mvt_inventaire ON inv_mouvement_temp(inventaire_id);
 CREATE INDEX IF NOT EXISTS idx_inv_mvt_vehicule   ON inv_mouvement_temp(vehicule_id);
 CREATE INDEX IF NOT EXISTS idx_inv_mvt_type       ON inv_mouvement_temp(type);
+
+
+
+CREATE TABLE IF NOT EXISTS reouvertures_or (
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    ordre_reparation_id   UUID NOT NULL
+                          REFERENCES ordres_reparation(id) ON DELETE CASCADE,
+
+    duree_prevue_minutes  INTEGER NOT NULL DEFAULT 0
+                          CHECK (duree_prevue_minutes >= 0),
+
+    raison                TEXT NOT NULL DEFAULT '',
+
+    reouvert_par_id       UUID
+                          REFERENCES accounts_users(id) ON DELETE SET NULL,
+
+    date_reouverture      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_reo_or            ON reouvertures_or(ordre_reparation_id);
+CREATE INDEX IF NOT EXISTS idx_reo_user          ON reouvertures_or(reouvert_par_id);
+CREATE INDEX IF NOT EXISTS idx_reo_date          ON reouvertures_or(date_reouverture DESC);
+
+
+CREATE TABLE IF NOT EXISTS reouvertures_or_taches (
+    id                BIGSERIAL PRIMARY KEY,
+
+    reouvertureor_id  UUID NOT NULL
+                      REFERENCES reouvertures_or(id) ON DELETE CASCADE,
+
+    tache_id          UUID NOT NULL
+                      REFERENCES taches_atelier(id) ON DELETE CASCADE,
+
+    CONSTRAINT reouvertures_or_taches_unique
+        UNIQUE (reouvertureor_id, tache_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reo_taches_reo    ON reouvertures_or_taches(reouvertureor_id);
+CREATE INDEX IF NOT EXISTS idx_reo_taches_tache  ON reouvertures_or_taches(tache_id);
+
+
+ALTER TABLE IF EXISTS public.clients
+    ADD COLUMN IF NOT EXISTS parent_id uuid;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'clients_parent_id_fk'
+    ) THEN
+        ALTER TABLE public.clients
+            ADD CONSTRAINT clients_parent_id_fk
+            FOREIGN KEY (parent_id)
+            REFERENCES public.clients(id)
+            ON DELETE CASCADE;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_clients_parent_id ON public.clients(parent_id);
+
+
+ALTER TABLE taches_atelier
+    ADD COLUMN IF NOT EXISTS type_retour     VARCHAR(12) NOT NULL DEFAULT 'AUCUN',
+    ADD COLUMN IF NOT EXISTS motif_retour    TEXT        NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS date_retour     TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS nb_refus        INTEGER     NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS nb_reouvertures INTEGER     NOT NULL DEFAULT 0;
+
+
+
+
+-- 1) Ajouter la colonne (nullable)
+ALTER TABLE reouvertures_or
+    ADD COLUMN IF NOT EXISTS reception_id UUID;
+
+-- 2) Ajouter la contrainte FK
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'reouvertures_or_reception_fk'
+    ) THEN
+        ALTER TABLE reouvertures_or
+            ADD CONSTRAINT reouvertures_or_reception_fk
+            FOREIGN KEY (reception_id)
+            REFERENCES receptions(id)
+            ON DELETE SET NULL;
+    END IF;
+END $$;
+
+-- 3) Index pour accélérer reception.reouvertures_or.all()
+CREATE INDEX IF NOT EXISTS idx_reo_reception
+    ON reouvertures_or(reception_id);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

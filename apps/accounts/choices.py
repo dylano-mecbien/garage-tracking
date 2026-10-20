@@ -43,7 +43,14 @@ class PrioriteTache(models.TextChoices):
     URGENTE = 'URGENTE', 'Urgente'
 
 
-
+ 
+class TypeRetour(models.TextChoices):
+    """Pourquoi une tâche revient chez le technicien."""
+    AUCUN       = '',            'Aucun'
+    REFUS       = 'REFUS',       'Refusée par le responsable'
+    REOUVERTURE = 'REOUVERTURE', "Réouverture de l'OR"
+ 
+ 
 
 
 class StatutOR(models.TextChoices):

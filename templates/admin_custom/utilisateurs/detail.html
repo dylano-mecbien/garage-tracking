@@ -9,6 +9,8 @@
   <li><a href="{% url 'destinataires_email' %}"><span class="icon">📧</span> Destinataires email</a></li>
   <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
   <li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
+  <li><a href="{% url 'inventaire_admin_liste' %}"><span class="icon">📋</span> Inventaire</a></li>
+  <li><a href="{% url 'liste_or_admin' %} " ><span class="icon">🔧</span> Ordres de réparation</a></li>
   <li class="sidebar-section">Bases</li>
   <li><a href="{% url 'liste_utilisateurs' %}" class="active"><span class="icon">👥</span> Utilisateurs</a></li>
   <li><a href="{% url 'admin_clients' %}"><span class="icon">👥</span> Clients</a></li>
@@ -84,13 +86,16 @@
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
     <a href="{% url 'editer_utilisateur' u.id %}" class="btn btn-outline">✏️ Modifier</a>
-    <form method="post" action="{% url 'detail_utilisateur' u.id %}"
+
+    <form method="post" action="{% url 'reset_password_utilisateur' u.id %}"
           onsubmit="return confirm('Réinitialiser le mot de passe ?')"
           style="display:inline;">
       {% csrf_token %}
       <input type="hidden" name="new_password" value="garage2026">
       <button type="submit" class="btn btn-outline">🔑 Reset MDP</button>
+      
     </form>
+
     <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">← Retour</a>
   </div>
 </div>

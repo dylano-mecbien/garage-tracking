@@ -36,7 +36,7 @@
 .filter-grid { display:grid; grid-template-columns:2fr 1fr 1fr auto auto; gap:10px; align-items:flex-end; }
 @media(max-width:900px){ .filter-grid{ grid-template-columns:1fr 1fr; } }
 
-.type-tabs {
+.type-tabs { 
   display: flex;
   gap: 4px;
   background: #e2e8f0;
@@ -279,17 +279,19 @@
           <td class="text-small text-muted">{{ c.ville|default:"—" }}</td>
 
           <!-- Véhicules -->
-          <td>
-            {% if c.vehicules.count %}
-            <button onclick="toggleVeh('{{ c.id }}')"
-                    class="btn btn-outline btn-sm"
-                    style="font-size:12px;">
-              🚗 {{ c.vehicules.count }} véhicule{{ c.vehicules.count|pluralize }}
-            </button>
-            {% else %}
-            <span class="text-small text-muted">Aucun</span>
-            {% endif %}
-          </td>
+         
+
+             <td>
+  {% if c.nb_vehicules_total %}
+  <button onclick="toggleVeh('{{ c.id }}')"
+          class="btn btn-outline btn-sm"
+          style="font-size:12px;">
+    🚗 {{ c.nb_vehicules_total }} véhicule{{ c.nb_vehicules_total|pluralize }}
+  </button>
+  {% else %}
+  <span class="text-small text-muted">Aucun</span>
+  {% endif %}
+</td>
 
           <!-- Passages totaux -->
           <td class="text-center">
@@ -353,11 +355,7 @@
     </table>
   </div>
 
-  {% if clients|length >= 100 %}
-  <div style="text-align:center;padding:14px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted);">
-    Affichage limité à 100 résultats — utilisez les filtres
-  </div>
-  {% endif %}
+{% include "_pagination.html" with page_obj=page_obj filters=filters %}
 </div>
 {% endblock %}
 

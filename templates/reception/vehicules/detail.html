@@ -225,7 +225,7 @@
       <tbody>
         {% for o in or_list %}
         <tr>
-          <td><a href="{% url 'detail_or' o.id %}"><strong>{{ o.numero }}</strong></a></td>
+          <td><a href="{% url 'detail_or_rec' o.id %}"><strong>{{ o.numero }}</strong></a></td>
           <td>
             {% if o.type_or == 'RETOUR' %}
             <span class="badge badge-danger">🔄 Retour</span>
@@ -247,7 +247,7 @@
           </td>
           <td class="text-small text-muted">{{ o.date_creation|date:"d/m/Y" }}</td>
           <td>
-            <a href="{% url 'detail_or' o.id %}" class="btn btn-info btn-sm">👁 Voir</a>
+            <a href="{% url 'detail_or_rec' o.id %}" class="btn btn-info btn-sm">👁 Voir</a>
           </td>
         </tr>
         {% endfor %}

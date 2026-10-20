@@ -52,6 +52,7 @@
 /* ══ Chips ══ */
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
 .chip{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:2px 10px;font-size:12px;font-weight:600;}
+.chip.retour{background:#fee2e2;border-color:#fca5a5;color:#991b1b;}
 
 /* ══ Statuts ══ */
 .st{display:inline-block;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap;}
@@ -103,6 +104,68 @@
 .modal-box{background:var(--surface);border-radius:var(--radius);padding:22px;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;}
 .modal-head strong{font-size:16px;}
+
+/* ══ Réouverture : modale ══ */
+.modal-box.reo{max-width:680px;padding:0;display:flex;flex-direction:column;}
+.reo-head{padding:18px 22px;background:linear-gradient(135deg,#b45309,#f59e0b);color:#fff;
+  border-radius:var(--radius) var(--radius) 0 0;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.reo-head .t{font-size:17px;font-weight:800;}
+.reo-head .s{font-size:12px;opacity:.9;margin-top:3px;}
+.reo-head .x{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:15px;flex-shrink:0;}
+.reo-body{padding:18px 22px;overflow-y:auto;}
+.reo-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;background:var(--surface);
+  border-radius:0 0 var(--radius) var(--radius);position:sticky;bottom:0;}
+
+.reo-step{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;margin:0 0 8px;}
+.reo-step .n{width:22px;height:22px;border-radius:50%;background:var(--warning);color:#fff;font-size:12px;
+  display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+.reo-section{margin-bottom:18px;}
+
+.reo-info{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.4);border-radius:8px;
+  padding:10px 14px;font-size:12.5px;margin-bottom:16px;line-height:1.55;}
+.reo-info ul{margin:4px 0 0 18px;padding:0;}
+
+.reo-motifs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.reo-motifs button{background:var(--surface2);border:1px solid var(--border);border-radius:14px;
+  padding:3px 10px;font-size:12px;cursor:pointer;color:var(--text);}
+.reo-motifs button:hover{border-color:var(--warning);}
+
+.reo-tools{display:flex;justify-content:space-between;align-items:center;margin:0 0 6px;font-size:12px;}
+.reo-tools a{cursor:pointer;color:var(--primary);font-weight:600;}
+.reo-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;
+  border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--surface2);}
+.reo-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;
+  background:var(--surface);border:1.5px solid var(--border);cursor:pointer;font-size:13px;transition:border-color .15s,background .15s;}
+.reo-item:hover{border-color:var(--warning);}
+.reo-item.checked{border-color:var(--warning);background:rgba(245,158,11,.07);}
+.reo-item input{width:17px;height:17px;flex-shrink:0;margin-top:2px;accent-color:#d97706;}
+.reo-item .lib{flex:1;min-width:0;}
+.reo-item .meta{font-size:11.5px;color:var(--text-muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 10px;}
+.reo-item .d{text-align:right;font-size:12px;white-space:nowrap;}
+.reo-item .d b{display:block;font-size:13px;color:var(--primary);}
+
+.reo-duree{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.reo-duree input{width:78px;text-align:center;}
+.reo-duree .u{font-weight:600;color:var(--text-muted);}
+.reo-suggest{font-size:12px;color:var(--text-muted);margin-top:6px;}
+.reo-suggest a{cursor:pointer;color:var(--primary);font-weight:600;}
+
+.reo-recap{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:var(--surface2);
+  border-radius:8px;padding:10px;text-align:center;margin-top:10px;}
+.reo-recap .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);}
+.reo-recap .val{font-size:15px;font-weight:800;margin-top:2px;}
+
+.reo-err{display:none;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:8px;
+  padding:8px 12px;font-size:13px;margin-bottom:12px;}
+.reo-err.show{display:block;}
+
+.reo-hist{border-left:3px solid var(--warning);padding:8px 12px;margin-bottom:8px;
+  background:var(--surface2);border-radius:6px;font-size:13px;}
+
+@media (max-width:560px){
+  .reo-recap{grid-template-columns:1fr;}
+  .reo-item .d{display:none;}
+}
 </style>
 {% endblock %}
 
@@ -137,6 +200,9 @@
         {% if or.date_cloture %}
         <span>✅ Clôturé le {{ or.date_cloture|date:"d/m/Y H:i" }}</span>
         {% endif %}
+        {% if or.statut == 'REOUVERT' %}
+        <span>🔓 Réouvert</span>
+        {% endif %}
         {% if or.urgence != 'NORMAL' %}
         <span>⚠️ {{ or.get_urgence_display }}</span>
         {% endif %}
@@ -144,16 +210,26 @@
       <div style="font-size:12px;opacity:.75;margin-top:6px;">
         🏭 Ateliers :
         {% for a in or.ateliers.all %}{{ a.nom }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+        · 📥 Réception : {{ or.reception.numero }}
+        {% with ra=or.reception_actuelle %}
+          {% if ra and ra.id != or.reception_id %} → réouvert sur <b>{{ ra.numero }}</b>{% endif %}
+        {% endwith %}
       </div>
     </div>
 
-    {% if or.statut != 'CLOTURE' %}
-    <form method="post" action="{% url 'cloture_or_rec' or.id %}"
-          onsubmit="return confirm('Clôturer cet OR ?');" style="flex-shrink:0;">
-      {% csrf_token %}
-      <button class="btn btn-success btn-sm">✅ Clôturer</button>
-    </form>
-    {% endif %}
+    {# ── Actions ── #}
+    <div style="display:flex;gap:6px;flex-shrink:0;">
+      {% if or.statut != 'CLOTURE' %}
+      <form method="post" action="{% url 'cloture_or_rec' or.id %}"
+            onsubmit="return confirm('Clôturer cet OR ?');">
+        {% csrf_token %}
+        <button class="btn btn-success btn-sm">✅ Clôturer</button>
+      </form>
+      {% else %}
+      <button type="button" class="btn btn-warning btn-sm"
+              onclick="openModal('modal-reouverture')">🔓 Réouvrir</button>
+      {% endif %}
+    </div>
   </div>
 </div>
 
@@ -166,7 +242,7 @@
     <div class="duree-box">
       <div class="lbl">Prévue</div>
       <div class="val">{{ or.duree_prevue_label }}</div>
-      <div class="sub">main d'œuvre</div>
+      <div class="sub">tâches + réouvertures</div>
     </div>
     <div class="duree-box">
       <div class="lbl">Réelle</div>
@@ -190,7 +266,7 @@
   </div>
 
   {% if or.duree_fin_prevu %}
-    {% widthratio or.duree_reelle_totale or.duree_fin_prevu 100 as pct %}
+    {% widthratio or.duree_reelle or.duree_fin_prevu 100 as pct %}
     <div class="prog-bar" style="height:8px;margin-top:10px;">
       <div class="prog-fill {% if pct >= 100 %}danger{% endif %}"
            style="width:{% if pct > 100 %}100{% else %}{{ pct }}{% endif %}%;"></div>
@@ -200,6 +276,33 @@
     </div>
   {% endif %}
 </div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     HISTORIQUE DES RÉOUVERTURES
+     ══════════════════════════════════════════════════════════════ -->
+{% with reos=or.reouvertures.all %}
+{% if reos %}
+<div class="card mb-2">
+  <div class="card-header"><div class="card-title">🔓 Réouvertures ({{ reos|length }})</div></div>
+  {% for r in reos %}
+  <div class="reo-hist">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+      <b>{{ r.date_reouverture|date:"d/m/Y H:i" }}
+        — {{ r.reouvert_par.full_name|default:r.reouvert_par.email|default:"—" }}</b>
+      <span class="cr-duree">⏱️ {{ r.duree_prevue_label }}</span>
+    </div>
+    {% if r.reception %}
+    <div class="text-small text-muted" style="margin-top:2px;">📥 Réception {{ r.reception.numero }}</div>
+    {% endif %}
+    <div style="margin-top:4px;white-space:pre-line;">{{ r.raison }}</div>
+    <div class="chips">
+      {% for t in r.taches.all %}<span class="chip">🔁 {{ t.libelle }}</span>{% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
 
 <div class="grid-2">
   <!-- ═══ Travaux demandés ═══ -->
@@ -232,6 +335,9 @@
             {% endif %}
             {% if t.priorite != 'NORMALE' %}
               <span class="chip" style="margin-left:4px;">{{ t.get_priorite_display }}</span>
+            {% endif %}
+            {% if t.est_a_reprendre %}
+              <span class="chip retour" style="margin-left:4px;">{% if t.est_refusee %}↩️ Refusée{% else %}🔁 À refaire{% endif %}</span>
             {% endif %}
           </div>
           <span class="st {{ t.statut }}">{{ t.get_statut_display }}</span>
@@ -300,7 +406,15 @@
       <span class="st {{ t.statut }}">{{ t.get_statut_display }}</span>
       {% if t.atelier %}<span class="chip">🏭 {{ t.atelier.nom }}</span>{% endif %}
       {% if t.priorite != 'NORMALE' %}<span class="chip">{{ t.get_priorite_display }}</span>{% endif %}
+      {% if t.nb_reouvertures %}<span class="chip retour">🔁 {{ t.nb_reouvertures }} réouverture{{ t.nb_reouvertures|pluralize }}</span>{% endif %}
+      {% if t.nb_refus %}<span class="chip retour">↩️ {{ t.nb_refus }} refus</span>{% endif %}
     </div>
+
+    {% if t.est_a_reprendre and t.motif_retour %}
+    <div class="reo-info" style="margin-bottom:12px;">
+      <b>{% if t.est_refusee %}Motif du refus{% else %}Raison de la réouverture{% endif %} :</b> {{ t.motif_retour }}
+    </div>
+    {% endif %}
 
     {# ── Grille durées ── #}
     <div class="duree-grid" style="grid-template-columns:repeat(3,1fr);">
@@ -399,12 +513,132 @@
   </div>
 </div>
 {% endfor %}
+
+<!-- ══════════════════════════════════════════════════════════════
+     POP-UP : Réouverture de l'OR
+     ══════════════════════════════════════════════════════════════ -->
+{% if or.statut == 'CLOTURE' %}
+<div class="modal-ov" id="modal-reouverture">
+  <div class="modal-box reo" onclick="event.stopPropagation()" role="dialog" aria-labelledby="reo-titre">
+
+    <div class="reo-head">
+      <div>
+        <div class="t" id="reo-titre">🔓 Réouvrir l'OR {{ or.numero }}</div>
+        <div class="s">
+          🚗 {{ or.vehicule.immatriculation }} · clôturé le {{ or.date_cloture|date:"d/m/Y H:i" }}
+          · durée prévue actuelle {{ or.duree_prevue_label }}
+        </div>
+      </div>
+      <button type="button" class="x" onclick="closeModal('modal-reouverture')" aria-label="Fermer">✕</button>
+    </div>
+
+    <form method="post" action="{% url 'reouverture_or_rec' or.id %}" id="form-reouverture"
+          style="display:flex;flex-direction:column;min-height:0;" novalidate>
+      {% csrf_token %}
+      <div class="reo-body">
+
+        <div class="reo-info">
+          <b>Ce qui va se passer :</b>
+          <ul>
+            <li>l'OR repasse « Réouvert » et sera rattaché à la réception
+              <b>{% firstof reception_reouverture.numero or.reception.numero %}</b> ;</li>
+            <li>les tâches cochées reviennent « À faire » chez leurs techniciens, marquées « À refaire » avec la raison ci-dessous ;</li>
+            <li>la durée saisie s'ajoute à la durée prévue de l'OR.</li>
+          </ul>
+        </div>
+
+        <div class="reo-err" id="reo-err"></div>
+
+        {# ── 1. Raison ── #}
+        <div class="reo-section">
+          <div class="reo-step"><span class="n">1</span> Raison de la réouverture *</div>
+          <textarea name="raison" id="reo-raison" class="form-textarea" rows="3" required
+                    placeholder="Ex. : bruit persistant signalé par le client au retour du véhicule…"></textarea>
+          <div class="reo-motifs">
+            <button type="button" data-motif="Le client signale que le problème persiste.">Problème persistant</button>
+            <button type="button" data-motif="Nouveau bruit apparu après l'intervention.">Nouveau bruit</button>
+            <button type="button" data-motif="Fuite constatée après l'intervention.">Fuite</button>
+            <button type="button" data-motif="Voyant toujours allumé au tableau de bord.">Voyant allumé</button>
+            <button type="button" data-motif="Travail jugé non conforme au contrôle qualité.">Non conforme</button>
+          </div>
+        </div>
+
+        {# ── 2. Tâches ── #}
+        <div class="reo-section">
+          <div class="reo-step"><span class="n">2</span> Tâches à refaire *</div>
+          <div class="reo-tools">
+            <span class="text-muted"><b id="reo-count">0</b> / {{ taches|length }} sélectionnée(s)</span>
+            <span>
+              <a onclick="reoToutCocher(true)">Tout cocher</a> ·
+              <a onclick="reoToutCocher(false)">Aucune</a>
+            </span>
+          </div>
+          <div class="reo-list">
+            {% for t in taches %}
+            <label class="reo-item">
+              <input type="checkbox" name="taches" value="{{ t.id }}" class="reo-cb"
+                     data-duree="{{ t.duree_estimee_minutes|default:0 }}">
+              <span class="lib">
+                <b>{{ t.libelle }}</b>
+                <span class="meta">
+                  {% if t.atelier %}<span>🏭 {{ t.atelier.nom }}</span>{% endif %}
+                  <span>👷 {% for u in t.techniciens.all %}{{ u.full_name|default:u.email }}{% if not forloop.last %}, {% endif %}{% empty %}aucun{% endfor %}</span>
+                  {% if t.nb_reouvertures %}<span style="color:var(--danger);">🔁 déjà réouverte {{ t.nb_reouvertures }} fois</span>{% endif %}
+                </span>
+              </span>
+              <span class="d">
+                <b>{{ t.duree_estimee_label }}</b>
+                <span class="text-muted">réel {{ t.duree_technicien_label }}</span>
+              </span>
+            </label>
+            {% empty %}
+            <div class="text-small text-muted" style="padding:10px;">Aucune tâche sur cet OR.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# ── 3. Durée ── #}
+        <div class="reo-section" style="margin-bottom:4px;">
+          <div class="reo-step"><span class="n">3</span> Durée prévue pour la réouverture *</div>
+          <div class="reo-duree">
+            <input type="number" name="duree_heures" id="reo-h" class="form-input" min="0" max="99" value="0">
+            <span class="u">h</span>
+            <input type="number" name="duree_minutes" id="reo-m" class="form-input" min="0" max="59" step="5" value="0">
+            <span class="u">min</span>
+          </div>
+          <div class="reo-suggest" id="reo-suggest" style="display:none;">
+            Somme des tâches cochées : <b id="reo-somme">—</b> ·
+            <a onclick="reoAppliquerSomme()">utiliser cette durée</a>
+          </div>
+
+          <div class="reo-recap">
+            <div><div class="lbl">Prévue actuelle</div><div class="val">{{ or.duree_prevue_label }}</div></div>
+            <div><div class="lbl">+ Réouverture</div><div class="val" id="reo-ajout" style="color:var(--warning);">—</div></div>
+            <div><div class="lbl">Nouvelle prévue</div><div class="val" id="reo-total" style="color:var(--primary);">{{ or.duree_prevue_label }}</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reo-foot">
+        <button type="button" class="btn btn-outline" style="flex:1;"
+                onclick="closeModal('modal-reouverture')">Annuler</button>
+        <button type="submit" class="btn btn-warning" style="flex:2;" id="reo-submit">🔓 Réouvrir l'OR</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// ══════════════════════════════════════════════════════════════
+//  MODALES
+// ══════════════════════════════════════════════════════════════
 function openModal(id) {
   document.getElementById(id)?.classList.add('open');
+  if (id === 'modal-reouverture') setTimeout(() => document.getElementById('reo-raison')?.focus(), 50);
 }
 function closeModal(id) {
   document.getElementById(id)?.classList.remove('open');
@@ -419,5 +653,108 @@ document.addEventListener('keydown', e => {
     document.querySelectorAll('.modal-ov.open').forEach(m => closeModal(m.id));
   }
 });
+
+// ══════════════════════════════════════════════════════════════
+//  RÉOUVERTURE
+// ══════════════════════════════════════════════════════════════
+(function () {
+  const form = document.getElementById('form-reouverture');
+  if (!form) return;
+
+  const DUREE_ACTUELLE = {{ or.duree_fin_prevu|default:0 }};
+  const cbs    = form.querySelectorAll('.reo-cb');
+  const inH    = document.getElementById('reo-h');
+  const inM    = document.getElementById('reo-m');
+  const raison = document.getElementById('reo-raison');
+  const errBox = document.getElementById('reo-err');
+  let dureeModifiee = false;   // l'utilisateur a saisi lui-même une durée
+
+  function fmt(min) {
+    min = Math.max(0, Math.round(min));
+    if (!min) return '—';
+    const h = Math.floor(min / 60), m = min % 60;
+    if (h && m) return `${h}h${String(m).padStart(2, '0')}`;
+    return h ? `${h}h` : `${m} min`;
+  }
+  function sommeCochee() {
+    let s = 0;
+    cbs.forEach(cb => { if (cb.checked) s += parseInt(cb.dataset.duree || 0, 10); });
+    return s;
+  }
+  function dureeSaisie() {
+    return (parseInt(inH.value || 0, 10) || 0) * 60 + (parseInt(inM.value || 0, 10) || 0);
+  }
+  function setDuree(min) {
+    inH.value = Math.floor(min / 60);
+    inM.value = min % 60;
+  }
+
+  function maj() {
+    let n = 0;
+    cbs.forEach(cb => {
+      cb.closest('.reo-item').classList.toggle('checked', cb.checked);
+      if (cb.checked) n++;
+    });
+    document.getElementById('reo-count').textContent = n;
+
+    // Durée proposée = somme des durées prévues des tâches cochées
+    const somme = sommeCochee();
+    document.getElementById('reo-somme').textContent = fmt(somme);
+    document.getElementById('reo-suggest').style.display = (n && dureeModifiee) ? '' : 'none';
+    if (!dureeModifiee) setDuree(somme);
+
+    const ajout = dureeSaisie();
+    document.getElementById('reo-ajout').textContent = ajout ? '+ ' + fmt(ajout) : '—';
+    document.getElementById('reo-total').textContent = fmt(DUREE_ACTUELLE + ajout);
+    errBox.classList.remove('show');
+  }
+
+  window.reoToutCocher = etat => { cbs.forEach(cb => cb.checked = etat); maj(); };
+  window.reoAppliquerSomme = () => { dureeModifiee = false; maj(); };
+
+  cbs.forEach(cb => cb.addEventListener('change', maj));
+  [inH, inM].forEach(inp => inp.addEventListener('input', () => {
+    dureeModifiee = true;
+    // 75 min → 1h15
+    const m = parseInt(inM.value || 0, 10);
+    if (m >= 60) { inH.value = (parseInt(inH.value || 0, 10) || 0) + Math.floor(m / 60); inM.value = m % 60; }
+    maj();
+  }));
+  raison.addEventListener('input', () => errBox.classList.remove('show'));
+
+  // Motifs rapides : ajoutés à la raison
+  form.querySelectorAll('[data-motif]').forEach(b => b.addEventListener('click', () => {
+    const txt = b.dataset.motif;
+    raison.value = raison.value.trim() ? raison.value.trim() + '\n' + txt : txt;
+    raison.focus();
+    errBox.classList.remove('show');
+  }));
+
+  function erreur(msg, champ) {
+    errBox.textContent = '⚠️ ' + msg;
+    errBox.classList.add('show');
+    errBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    champ?.focus();
+  }
+
+  form.addEventListener('submit', e => {
+    const nb = form.querySelectorAll('.reo-cb:checked').length;
+    if (!raison.value.trim()) { e.preventDefault(); return erreur('Indiquez la raison de la réouverture.', raison); }
+    if (!nb)                  { e.preventDefault(); return erreur('Sélectionnez au moins une tâche à refaire.'); }
+    if (dureeSaisie() <= 0)   { e.preventDefault(); return erreur('Indiquez une durée supérieure à 0.', inH); }
+    if (!confirm(`Réouvrir l'OR avec ${nb} tâche(s) à refaire et ${fmt(dureeSaisie())} prévue(s) ?`)) {
+      e.preventDefault(); return;
+    }
+    // Évite le double envoi
+    const btn = document.getElementById('reo-submit');
+    btn.disabled = true;
+    btn.textContent = '⏳ Réouverture…';
+  });
+
+  maj();
+
+  // Arrivée depuis le détail réception (bouton 🔓) : ouvrir le modal directement
+  if (new URLSearchParams(location.search).get('reouvrir') === '1') openModal('modal-reouverture');
+})();
 </script>
 {% endblock %}

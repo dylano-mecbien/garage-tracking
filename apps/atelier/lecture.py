@@ -1,16 +1,26 @@
 """
 apps/atelier/lecture.py — mise en forme LECTURE SEULE des deux fiches.
 
-Les sections sont exactement les 3 pages de la saisie (forms.CONTROLE_ETAPES / TECHNIQUE_ETAPES) ;
-les libellés et valeurs sont lus depuis les modèles (aucun champ retapé à la main).
+Fiche de contrôle : une section par catégorie (dont « Habitacle »), libellés et couleurs de controle.py.
+Fiche technique   : une section par page de saisie (forms.TECHNIQUE_ETAPES).
 """
 import datetime
 from decimal import Decimal
+
 from django.db import models
-from .forms import pretty_label
+
+from . import controle
+from .forms import pretty_label, CONTROLE_ENTETE
 
 CLASSES = {'BON': 'good', 'INTACT': 'good', 'DEFAUT': 'bad', 'CASSE': 'bad', 'FISSURE': 'warn'}
 MAUVAIS = ('DEFAUT', 'CASSE', 'FISSURE')
+
+# Sections de lecture de la fiche de contrôle
+CONTROLE_SECTIONS = (
+    [("En-tête", CONTROLE_ENTETE + ['travail_a_effectuer'])]
+    + [(titre, champs + ['commentaires']) if titre == "Synthèse" else (titre, champs)
+       for titre, champs in controle.CATEGORIES]
+)
 
 
 def _label(field):
@@ -44,22 +54,31 @@ def _valeur(obj, field):
 def construire(obj, etapes):
     """→ (sections, defauts) ; section = {'title', 'items'} ; item = {'label','value','css','kind'}."""
     modele = obj._meta.model
+    est_controle = 'points_degats_carrosserie' in {f.name for f in modele._meta.fields}
     sections, defauts = [], []
     for titre, champs in etapes:
         items = []
         for nom in champs:
-            f = modele._meta.get_field(nom)
             if nom.startswith('signature_'):
                 continue                                   # rendues à part (bloc Signatures)
+            f = modele._meta.get_field(nom)
             if nom == 'points_degats_carrosserie':
                 nb = len(getattr(obj, nom) or [])
-                items.append({'label': "Schéma carrosserie", 'value': f"{nb} point(s) marqué(s)" if nb else "Aucun dégât marqué",
+                items.append({'label': "Schéma carrosserie",
+                              'value': f"{nb} point(s) marqué(s)" if nb else "Aucun dégât marqué",
                               'css': 'bad' if nb else '', 'kind': 'damage'})
                 continue
-            valeur, css = _valeur(obj, f)
-            item = {'label': _label(f), 'value': valeur, 'css': css, 'kind': 'text'}
+            if est_controle and nom in controle.CHAMPS_COMPARES:
+                brut = getattr(obj, nom)
+                item = {'label': controle.libelle(nom), 'value': controle.afficher(nom, brut),
+                        'css': controle.qualite(nom, brut), 'kind': 'text'}
+                mauvais = item['css'] == 'bad'
+            else:
+                valeur, css = _valeur(obj, f)
+                item = {'label': controle.LIBELLES.get(nom) or _label(f), 'value': valeur, 'css': css, 'kind': 'text'}
+                mauvais = getattr(obj, nom) in MAUVAIS
             items.append(item)
-            if getattr(obj, nom) in MAUVAIS:
-                defauts.append({'section': titre, 'label': item['label'], 'value': valeur, 'css': css})
+            if mauvais:
+                defauts.append({'section': titre, 'label': item['label'], 'value': item['value'], 'css': item['css']})
         sections.append({'title': titre, 'items': items})
     return sections, defauts

@@ -148,6 +148,8 @@
       </tbody>
     </table>
   </div>
+
+{% include "_pagination.html" with page_obj=page_obj filters=filters %}
 </div>
 {% endblock %}
 {% block extra_js %}

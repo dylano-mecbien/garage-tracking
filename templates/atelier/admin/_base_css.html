@@ -1,0 +1,12 @@
+<style>
+.bdg{display:inline-block;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap;}
+.bdg.OUVERT{background:#dbeafe;color:#1e40af;} .bdg.REOUVERT{background:#fef3c7;color:#92400e;} .bdg.CLOTURE{background:#d1fae5;color:#065f46;}
+.bdg.A_FAIRE{background:#e5e7eb;color:#374151;} .bdg.EN_COURS{background:#fef3c7;color:#92400e;}
+.bdg.TERMINEE{background:#dbeafe;color:#1e40af;} .bdg.VALIDEE{background:#d1fae5;color:#065f46;}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
+.kpi{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+.kpi .v{font-size:24px;font-weight:800;} .kpi .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);}
+.late{color:#b91c1c;font-weight:700;}
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:16px;}
+.modal-ov.open{display:flex;} .modal-box{background:var(--surface);border-radius:var(--radius);padding:22px;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;}
+</style>

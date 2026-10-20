@@ -57,5 +57,8 @@
       {% endfor %}
     </tbody>
   </table>
+
+  {% include "_pagination.html" with page_obj=page_obj filters=filters %}
+  
 </div>
 {% endblock %}

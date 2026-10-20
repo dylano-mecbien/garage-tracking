@@ -1,0 +1,115 @@
+{% comment %}
+══════════════════════════════════════════════════════════════════
+   OR de la réception : OR d'origine + OR réouverts sur cette réception.
+   Utilisation :
+     {% include "reception/_or_reception.html" with url_or="detail_or_rec" peut_agir=True %}
+     {% include "reception/_or_reception.html" with url_or="detail_or_admin" %}
+   Contexte attendu (vue) : or_list, nb_or_origine, nb_or_reouverts, reouvertures_ici
+══════════════════════════════════════════════════════════════════
+{% endcomment %}
+
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">
+      🔧 Ordres de réparation ({{ or_list|length }})
+      {% if nb_or_reouverts %}
+      <span class="text-small text-muted" style="font-weight:500;">
+        · {{ nb_or_origine }} d'origine · <span style="color:var(--danger);">{{ nb_or_reouverts }} réouvert{{ nb_or_reouverts|pluralize }} ici</span>
+      </span>
+      {% endif %}
+    </div>
+    {% if peut_creer %}
+    <a href="{% url 'creer_or_depuis_fiche_technique' rec.id %}" class="btn btn-primary btn-sm">+ Créer OR</a>
+    {% endif %}
+  </div>
+
+  {% if or_list %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>N° OR</th><th>Lien</th><th>Ateliers</th><th>Statut</th><th class="text-center">Tâches</th><th>Durée</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for o in or_list %}
+        <tr {% if not o.est_origine %}class="or-reouvert"{% endif %}>
+          <td>
+            <a href="{% url url_or o.id %}"><strong>{{ o.numero }}</strong></a>
+            <div class="text-small text-muted">{{ o.date_creation|date:"d/m/Y" }}</div>
+          </td>
+          <td>
+            {% if o.est_origine %}
+              <span class="badge badge-info">Origine</span>
+              {% if o.nb_reouv %}<div class="text-small text-muted">🔁 {{ o.nb_reouv }} réouverture{{ o.nb_reouv|pluralize }}</div>{% endif %}
+            {% else %}
+              <span class="badge badge-danger">🔓 Réouvert ici</span>
+              <div class="text-small text-muted">
+                le {{ o.derniere_reouverture_ici.date_reouverture|date:"d/m/Y" }}
+                · origine {{ o.reception.numero }}
+              </div>
+            {% endif %}
+          </td>
+          <td>{% for a in o.ateliers.all %}{{ a.nom }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
+          <td>
+            {% if o.statut == 'OUVERT' %}<span class="badge badge-ouvert">Ouvert</span>
+            {% elif o.statut == 'EN_COURS' %}<span class="badge badge-en-cours">En cours</span>
+            {% elif o.statut == 'CLOTURE' %}<span class="badge badge-cloture">Clôturé</span>
+            {% elif o.statut == 'REOUVERT' %}<span class="badge badge-reouvert">Réouvert</span>{% endif %}
+          </td>
+          <td class="text-center">{{ o.nb_taches }}</td>
+          <td class="text-small" style="white-space:nowrap;">
+            {{ o.duree_reelle_label }} / {{ o.duree_prevue_label }}
+          </td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <a href="{% url url_or o.id %}" class="btn btn-info btn-sm" title="Voir">👁</a>
+              {% if peut_agir %}
+                {% if o.statut != 'CLOTURE' %}
+                <form method="post" action="{% url 'cloture_or_rec' o.id %}" onsubmit="return confirm('Clôturer l\'OR {{ o.numero }} ?')">
+                  {% csrf_token %}<button class="btn btn-success btn-sm" title="Clôturer">✅</button>
+                </form>
+                {% else %}
+                {# Ouvre directement le modal de réouverture sur la page de l'OR #}
+                <a href="{% url 'detail_or_rec' o.id %}?reouvrir=1" class="btn btn-warning btn-sm" title="Réouvrir">🔓</a>
+                {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center text-muted" style="padding:20px;">Aucun OR</div>
+  {% endif %}
+</div>
+
+{# ── Réouvertures faites sur cette réception ── #}
+{% if reouvertures_ici %}
+<div class="card mt-2" style="border-left:4px solid var(--danger);">
+  <div class="card-header">
+    <div class="card-title">🔓 Réouvertures sur cette réception ({{ reouvertures_ici|length }})</div>
+  </div>
+  {% for r in reouvertures_ici %}
+  <div class="reo-hist">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+      <div>
+        <a href="{% url url_or r.ordre_reparation.id %}"><b>{{ r.ordre_reparation.numero }}</b></a>
+        <span class="text-muted"> · {{ r.date_reouverture|date:"d/m/Y H:i" }}
+          · par {{ r.reouvert_par.full_name|default:r.reouvert_par.email|default:"—" }}</span>
+      </div>
+      <span class="reo-duree-badge">⏱️ {{ r.duree_prevue_label }}</span>
+    </div>
+    <div style="margin-top:4px;white-space:pre-line;">{{ r.raison }}</div>
+    <div class="chips">
+      {% for t in r.taches.all %}
+      <span class="chip">🔁 {{ t.libelle }}
+        <span class="text-muted">· {% for u in t.techniciens.all %}{{ u.full_name|default:u.email }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+        · {{ t.get_statut_display }}</span>
+      </span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

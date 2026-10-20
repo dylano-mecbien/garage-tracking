@@ -5,9 +5,12 @@
 {% block extra_css %}
 <style>.bdg{display:inline-block;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;}
 .bdg.EN_COURS{background:#fef3c7;color:#92400e;}.bdg.SOUMIS{background:#dbeafe;color:#1e40af;}.bdg.VALIDE{background:#d1fae5;color:#065f46;}.bdg.REVOQUE{background:#fee2e2;color:#991b1b;}
+.bdg.RENVOYE{background:#ffedd5;color:#9a3412;}
 .pick{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;}
 .pick:last-child{border-bottom:none;} .pick input{width:18px;height:18px;accent-color:var(--primary);}
 .err{color:#b91c1c;font-size:12px;font-weight:600;}
+.rev-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.rev-item:last-child{border-bottom:none;}
 .modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:16px;}
 .modal-ov.open{display:flex;} .modal-box{background:var(--surface);border-radius:var(--radius);padding:22px;width:100%;max-width:460px;}</style>
 {% endblock %}
@@ -18,16 +21,45 @@
 
 <div class="card mb-2">
   <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;">
-    <div><span class="bdg {{ inv.statut }}">{{ inv.get_statut_display }}</span>
+    <div>
+      {% if inv.en_cours and inv.motif_revocation %}
+        <span class="bdg RENVOYE">↩️ Renvoyé à la guérite — en correction</span>
+      {% else %}
+        <span class="bdg {{ inv.statut }}">{{ inv.get_statut_display }}</span>
+      {% endif %}
+      {% if revocations %}<span class="text-small text-muted" style="margin-left:6px;">· renvoyé {{ revocations|length }} fois</span>{% endif %}
       <div class="text-small text-muted" style="margin-top:6px;">Validé par la guérite : {{ inv.soumis_par.get_full_name|default:"—" }}{% if inv.date_soumission %} le {{ inv.date_soumission|date:"d/m/Y H:i" }}{% endif %}
         · {{ etat.nb_present }} présent(s), {{ etat.nb_absent }} absent(s) sur {{ etat.nb_total }}</div>
-      {% if inv.decide_par %}<div class="text-small text-muted">Décision : {{ inv.decide_par.get_full_name }} le {{ inv.date_decision|date:"d/m/Y H:i" }}</div>{% endif %}
+      {% if inv.decide_par %}<div class="text-small text-muted">
+        {% if inv.en_cours %}Renvoyé par{% else %}Décision :{% endif %} {{ inv.decide_par.get_full_name }} le {{ inv.date_decision|date:"d/m/Y H:i" }}
+      </div>{% endif %}
     </div>
-    {% if peut_revoquer %}<button type="button" class="btn btn-outline" style="border-color:var(--danger);color:var(--danger);" onclick="document.getElementById('modal-rev').classList.add('open')">🚫 Révoquer l'inventaire</button>{% endif %}
+    {% if peut_revoquer %}<button type="button" class="btn btn-outline" style="border-color:var(--warning, #f59e0b);color:#b45309;" onclick="document.getElementById('modal-rev').classList.add('open')">↩️ Renvoyer pour correction</button>{% endif %}
   </div>
   {% if inv.observation %}<div style="margin-top:10px;background:#fef3c7;border-left:4px solid #f59e0b;padding:8px 12px;white-space:pre-line;"><b>Observation de la guérite :</b><br>{{ inv.observation }}</div>{% endif %}
-  {% if inv.statut == 'REVOQUE' %}<div style="margin-top:10px;background:#fef2f2;border-left:4px solid #ef4444;padding:8px 12px;"><b>Motif de la révocation :</b> {{ inv.motif_revocation }}</div>{% endif %}
+
+  {% if inv.en_cours and inv.motif_revocation %}
+  <div style="margin-top:10px;background:#fff7ed;border-left:4px solid #f97316;padding:8px 12px;">
+    <b>En attente de correction par la guérite.</b> Motif du renvoi : « {{ inv.motif_revocation }} »
+    <div class="text-small text-muted" style="margin-top:4px;">Tu pourras décider dès que la guérite aura renvoyé l'inventaire corrigé.</div>
+  </div>
+  {% elif inv.statut == 'REVOQUE' %}
+  <div style="margin-top:10px;background:#fef2f2;border-left:4px solid #ef4444;padding:8px 12px;"><b>Motif de la révocation :</b> {{ inv.motif_revocation }}</div>
+  {% endif %}
 </div>
+
+{% if revocations %}
+<div class="card mb-2">
+  <div class="card-header"><div class="card-title">↩️ Historique des renvois ({{ revocations|length }})</div></div>
+  {% for r in revocations %}
+  <div class="rev-item">
+    <b>{{ r.par }}</b> — {{ r.date|slice:":10" }} {{ r.date|slice:"11:16" }}
+    <span class="text-muted">· {{ r.nb_entrees }} entrée(s), {{ r.nb_sorties }} sortie(s) proposée(s)</span>
+    <div class="text-muted">« {{ r.motif }} »</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 
 {% if peut_decider %}
 <form method="post" action="{% url 'inventaire_admin_valider' inv.id %}">
@@ -57,6 +89,19 @@
     <button class="btn btn-success" style="padding:11px 26px;" onclick="return confirm('Enregistrer définitivement les mouvements cochés et clôturer cet inventaire ?')">✅ Valider la sélection</button>
   </div>
 </form>
+{% elif inv.en_cours %}
+<div class="grid-2" style="align-items:start;">
+  <div class="card" style="border-left:4px solid var(--success);">
+    <div class="card-title" style="margin-bottom:8px;">➡️ Entrées en cours de correction ({{ entrees|length }})</div>
+    {% for m in entrees %}<div class="text-small" style="padding:4px 0;"><b>{{ m.matricule }}</b> — {{ m.chauffeur }} · {{ m.motif_libelle }}</div>
+    {% empty %}<div class="text-small text-muted">Aucune.</div>{% endfor %}
+  </div>
+  <div class="card" style="border-left:4px solid var(--danger);">
+    <div class="card-title" style="margin-bottom:8px;">⬅️ Sorties en cours de correction ({{ sorties|length }})</div>
+    {% for m in sorties %}<div class="text-small" style="padding:4px 0;"><b>{{ m.matricule }}</b></div>
+    {% empty %}<div class="text-small text-muted">Aucune.</div>{% endfor %}
+  </div>
+</div>
 {% endif %}
 
 {% if rapport %}
@@ -74,17 +119,23 @@
 {% empty %}<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Aucune ligne</td></tr>{% endfor %}
 </tbody></table></div>
 
-<!-- Révocation -->
+<!-- Renvoi pour correction -->
 <div class="modal-ov" id="modal-rev"><div class="modal-box">
-  <div style="display:flex;justify-content:space-between;margin-bottom:12px;"><strong style="font-size:16px;">🚫 Révoquer l'inventaire</strong>
+  <div style="display:flex;justify-content:space-between;margin-bottom:12px;"><strong style="font-size:16px;">↩️ Renvoyer pour correction</strong>
     <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('modal-rev').classList.remove('open')">✕</button></div>
-  <div class="text-small text-muted" style="margin-bottom:10px;">Aucun mouvement ne sera appliqué ; la table temporaire est vidée.</div>
+  <div class="text-small text-muted" style="margin-bottom:10px;">
+    Aucun mouvement ne sera appliqué. L'inventaire redevient modifiable par la guérite, qui verra ton motif,
+    pourra corriger les véhicules et les entrées, puis te le renvoyer.
+  </div>
   <form method="post" action="{% url 'inventaire_admin_revoquer' inv.id %}">{% csrf_token %}
-    <div class="form-group"><label class="form-label">Motif *</label><textarea name="motif" class="form-textarea" rows="3" required></textarea></div>
-    <button class="btn btn-danger" style="width:100%;padding:10px;">🚫 Révoquer</button></form>
+    <div class="form-group"><label class="form-label">Motif / corrections attendues *</label>
+      <textarea name="motif" class="form-textarea" rows="3" required minlength="5"
+                placeholder="Ex : LT 977 LV est bien sur le parking, vérifie à nouveau…"></textarea></div>
+    <button class="btn btn-primary" style="width:100%;padding:10px;">↩️ Renvoyer à la guérite</button></form>
 </div></div>
 {% endblock %}
 {% block extra_js %}<script>
 function tout(t, v){ document.querySelectorAll('.cb-'+t).forEach(c=>c.checked=v); }
 document.getElementById('modal-rev').addEventListener('mousedown',e=>{if(e.target.id==='modal-rev')e.target.classList.remove('open');});
 </script>{% endblock %}
+</document_content>

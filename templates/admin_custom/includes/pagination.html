@@ -1,0 +1,40 @@
+{% comment %} Pagination réutilisable.
+   Usage : include "admin_custom/includes/pagination.html" with page=page_vehicules param="page" qs=qs_vehicules
+   - page  : objet Page
+   - param : nom du paramètre GET (page, page_mvt…)
+   - qs    : querystring à conserver, terminée par « & » (ou vide)
+{% endcomment %}
+{% if page.paginator.num_pages > 1 %}
+<nav class="pager">
+  <span class="pager-info">
+    {{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}
+  </span>
+  <div class="pager-links">
+    {% if page.has_previous %}
+      <a href="?{{ qs }}{{ param }}=1" title="Première page">«</a>
+      <a href="?{{ qs }}{{ param }}={{ page.previous_page_number }}">‹ Préc.</a>
+    {% else %}
+      <span class="off">«</span><span class="off">‹ Préc.</span>
+    {% endif %}
+
+    {% for n in page.paginator.page_range %}
+      {% if n == page.number %}
+        <span class="current">{{ n }}</span>
+      {% elif n > page.number|add:"-3" and n < page.number|add:"3" %}
+        <a href="?{{ qs }}{{ param }}={{ n }}">{{ n }}</a>
+      {% elif n == 1 or n == page.paginator.num_pages %}
+        <a href="?{{ qs }}{{ param }}={{ n }}">{{ n }}</a>
+      {% elif n == page.number|add:"-3" or n == page.number|add:"3" %}
+        <span class="dots">…</span>
+      {% endif %}
+    {% endfor %}
+
+    {% if page.has_next %}
+      <a href="?{{ qs }}{{ param }}={{ page.next_page_number }}">Suiv. ›</a>
+      <a href="?{{ qs }}{{ param }}={{ page.paginator.num_pages }}" title="Dernière page">»</a>
+    {% else %}
+      <span class="off">Suiv. ›</span><span class="off">»</span>
+    {% endif %}
+  </div>
+</nav>
+{% endif %}

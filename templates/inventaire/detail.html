@@ -37,6 +37,8 @@
 .banner.SOUMIS{background:#eff6ff;border-color:#93c5fd;}
 .banner.VALIDE{background:#ecfdf5;border-color:#6ee7b7;}
 .banner.REVOQUE{background:#fef2f2;border-color:#fca5a5;}
+.banner.RENVOYE{background:#fff7ed;border-color:#fdba74;}
+.banner.RENVOYE .motif{margin-top:8px;background:#fff;border-left:4px solid #f97316;padding:8px 12px;border-radius:4px;white-space:pre-line;}
 
 /* ══ Modales ══ */
 .modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:16px;}
@@ -92,7 +94,18 @@
 {% csrf_token %}
 
 {# ══ Bandeau selon statut ══ #}
-{% if inv.statut == 'SOUMIS' %}
+{% if inv.en_cours and inv.motif_revocation %}
+<div class="banner RENVOYE">
+  ↩️ <b>Inventaire renvoyé pour correction par l'administrateur</b>
+  <div class="text-small text-muted">
+    {{ inv.decide_par.get_full_name|default:"Administrateur" }} · le {{ inv.date_decision|date:"d/m/Y à H:i" }}
+  </div>
+  <div class="motif"><b>Motif :</b> {{ inv.motif_revocation }}</div>
+  <div class="text-small" style="margin-top:8px;">
+    Corrige les véhicules (Présent / Absent) ou les entrées concernés, puis renvoie l'inventaire avec le bouton en bas à droite.
+  </div>
+</div>
+{% elif inv.statut == 'SOUMIS' %}
 <div class="banner SOUMIS">
   📨 <b>Inventaire validé — en attente de la décision de l'administrateur.</b>
   <div class="text-small text-muted">
@@ -103,12 +116,12 @@
 {% elif inv.statut == 'VALIDE' %}
 <div class="banner VALIDE">
   ✅ <b>Validé par l'administrateur</b>
-  ({{ inv.decide_par.full_name }}, {{ inv.date_decision|date:"d/m/Y H:i" }})
+  ({{ inv.decide_par.get_full_name|default:"—" }}, {{ inv.date_decision|date:"d/m/Y H:i" }})
   — les mouvements choisis sont enregistrés définitivement.
 </div>
 {% elif inv.statut == 'REVOQUE' %}
 <div class="banner REVOQUE">
-  🚫 <b>Inventaire révoqué</b> par {{ inv.decide_par.full_name }} :
+  🚫 <b>Inventaire révoqué</b> par {{ inv.decide_par.get_full_name|default:"—" }} :
   « {{ inv.motif_revocation }} »
 </div>
 {% endif %}
@@ -215,18 +228,24 @@
       </div>
     </div>
 
-    {# ── Validation ══ #}
+    {# ── Validation ── #}
     {% if inv.en_cours %}
-    <form method="post" action="{% url 'inventaire_soumettre' inv.id %}" id="form-valider" class="card">
+    <form method="post" action="{% url 'inventaire_soumettre' inv.id %}" id="form-valider" class="card"
+          data-renvoi="{% if inv.motif_revocation %}1{% else %}0{% endif %}">
       {% csrf_token %}
-      <div class="card-title" style="margin-bottom:8px;">✅ Valider l'inventaire</div>
+      <div class="card-title" style="margin-bottom:8px;">
+        {% if inv.motif_revocation %}↩️ Renvoyer l'inventaire corrigé{% else %}✅ Valider l'inventaire{% endif %}
+      </div>
       <div class="form-group">
-        <label class="form-label">Observation (facultatif)</label>
-        <textarea name="observation" class="form-textarea" rows="2"></textarea>
+        <label class="form-label">
+          {% if inv.motif_revocation %}Observation — explique tes corrections (facultatif){% else %}Observation (facultatif){% endif %}
+        </label>
+        <textarea name="observation" class="form-textarea" rows="2">{{ inv.observation }}</textarea>
       </div>
       <div id="msg-bloque" class="text-small text-muted" style="margin-bottom:8px;"></div>
       <button class="btn btn-success" id="btn-valider" style="width:100%;padding:11px;" disabled>
-        ✅ Valider l'inventaire — envoyer à l'administrateur
+        {% if inv.motif_revocation %}↩️ Renvoyer l'inventaire corrigé à l'administrateur
+        {% else %}✅ Valider l'inventaire — envoyer à l'administrateur{% endif %}
       </button>
     </form>
     {% elif inv.observation %}
@@ -504,7 +523,11 @@ document.getElementById('form-entree').addEventListener('submit', async e => {
 const formValider = document.getElementById('form-valider');
 if (formValider) {
   formValider.addEventListener('submit', e => {
-    if (!confirm("Valider l'inventaire et l'envoyer à l'administrateur ?")) {
+    const renvoi = formValider.dataset.renvoi === '1';
+    const question = renvoi
+      ? "Renvoyer l'inventaire corrigé à l'administrateur ?"
+      : "Valider l'inventaire et l'envoyer à l'administrateur ?";
+    if (!confirm(question)) {
       e.preventDefault();
     }
   });

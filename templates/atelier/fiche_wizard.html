@@ -82,6 +82,12 @@ textarea.fi-locked {
     cursor: default;
     opacity: .85;
 }
+.cat-h{grid-column:1/-1;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--primary);border-bottom:2px solid var(--primary);padding:10px 0 4px;margin-top:4px;}
+.cat-h:first-child{padding-top:0;margin-top:0;}
+.km-box{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.km{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:10px 16px;min-width:200px;}
+.km .k{font-size:12px;color:var(--text-muted);font-weight:600;} .km .n{font-size:20px;font-weight:800;}
 .fi.is-locked .fi-label::after {
     content: ' 🔒';
     font-size: 11px;
@@ -96,25 +102,18 @@ textarea.fi-locked {
     <h1>{{ titre }}</h1>
     <div class="breadcrumb">{{ rec.numero }} — {{ rec.vehicule.immatriculation }}</div>
   </div>
-  <a href="{% url 'detail_reception_atelier' rec.id %}" class="btn btn-outline">← Quitter</a>
+  <a href="{% url quitter_url_name|default:'detail_reception_atelier' rec.id %}" class="btn btn-outline">← Quitter</a>
 </div>
 
-<!-- Progression : 3 pages -->
+<!-- Progression -->
 <div class="steps">
-  <div class="st {% if step > 1 %}done{% elif step == 1 %}active{% endif %}">
-    <div class="st-dot">{% if step > 1 %}✓{% else %}1{% endif %}</div>
-    <span class="st-label">En-tête et sécurité</span>
-  </div>
-  <div class="st-line {% if step > 1 %}done{% endif %}"></div>
-  <div class="st {% if step > 2 %}done{% elif step == 2 %}active{% endif %}">
-    <div class="st-dot">{% if step > 2 %}✓{% else %}2{% endif %}</div>
-    <span class="st-label">Mécanique et intérieur</span>
-  </div>
-  <div class="st-line {% if step > 2 %}done{% endif %}"></div>
-  <div class="st {% if step == 3 %}active{% endif %}">
-    <div class="st-dot">3</div>
-    <span class="st-label">Synthèse et signature</span>
-  </div>
+  {% for e in etapes %}
+    {% if not forloop.first %}<div class="st-line {% if forloop.counter <= step %}done{% endif %}"></div>{% endif %}
+    <div class="st {% if forloop.counter < step %}done{% elif forloop.counter == step %}active{% endif %}">
+      <div class="st-dot">{% if forloop.counter < step %}✓{% else %}{{ forloop.counter }}{% endif %}</div>
+      <span class="st-label">{{ e }}</span>
+    </div>
+  {% endfor %}
 </div>
 
 <div class="card mb-2" style="border-left:4px solid var(--primary);">
@@ -127,6 +126,16 @@ textarea.fi-locked {
   </div>
 </div>
 
+{% if mode_sortie %}
+<div class="alert alert-info" style="margin-bottom:12px;">
+  {{ intro_sortie }}
+</div>
+<div class="km-box">
+  <div class="km"><div class="k">Kilométrage à l'entrée</div><div class="n">{{ km_entree|default:0 }} km</div></div>
+  <div class="km"><div class="k">Kilométrage à la sortie</div><div class="n">{% if form.instance.kilometrage_sortie is not None %}{{ form.instance.kilometrage_sortie }} km{% else %}à relever{% endif %}</div></div>
+</div>
+{% endif %}
+
 <h2 style="font-size:16px;margin-bottom:12px;">Page {{ step }}/{{ total }} — {{ step_title }}</h2>
 
 {% if form.non_field_errors %}<div class="alert alert-error">{{ form.non_field_errors }}</div>{% endif %}
@@ -136,6 +145,7 @@ textarea.fi-locked {
   {% csrf_token %}
   <div class="fiche-body">
     {% for f in fields %}
+    {% if f.categorie %}{% ifchanged f.categorie %}<div class="cat-h">{{ f.categorie }}</div>{% endifchanged %}{% endif %}
     <div class="fi {% if f.kind == 'textarea' or f.kind == 'damage' or f.kind == 'signature' %}wide{% endif %} {% if f.readonly %}is-locked{% endif %}">
       <label class="fi-label" for="{{ f.bf.id_for_label }}">{{ f.label }}</label>
 
@@ -181,7 +191,7 @@ textarea.fi-locked {
       <a href="{% url url_name rec.id step|add:'-1' %}" class="btn btn-outline" style="padding:11px 24px;">← Précédent</a>
     {% endif %}
     <button type="submit" class="btn {% if step == total %}btn-success{% else %}btn-primary{% endif %}" id="next-btn" style="padding:11px 32px;font-size:15px;">
-      {% if step == total %}✅ Terminer{% else %}Suivant →{% endif %}
+      {% if step == total %}{{ bouton_final|default:"✅ Terminer" }}{% else %}Suivant →{% endif %}
     </button>
   </div>
 </form>

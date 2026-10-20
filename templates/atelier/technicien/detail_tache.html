@@ -69,7 +69,7 @@
 /* ══ Grille durées ══ */
 .duree-grid{
   display:grid;
-  grid-template-columns:repeat(3,1fr);
+  grid-template-columns:repeat(2,1fr);
   gap:10px;
   margin-top:10px;
   padding:10px;
@@ -81,6 +81,12 @@
 .duree-box .val{font-size:15px;font-weight:800;color:var(--primary);margin-top:2px;}
 .duree-box .val.danger {color:var(--danger);}
 .duree-box .val.success{color:var(--success);}
+
+/* ══ Retour (refus / réouverture) ══ */
+.retour{border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;border:1.5px solid var(--danger);background:rgba(239,68,68,.07);}
+.retour.reouv{border-color:var(--warning);background:rgba(245,158,11,.08);}
+.retour-titre{font-weight:800;font-size:14px;}
+.retour-motif{margin-top:6px;font-size:13px;white-space:pre-line;}
 
 /* ══ Dates ══ */
 .dates-row{
@@ -130,6 +136,24 @@
   </div>
 </div>
 
+{# ══ Tâche revenue : refusée par le responsable ou OR réouvert ══ #}
+{% if tache.est_a_reprendre %}
+<div class="retour {% if tache.est_reouverte %}reouv{% endif %}">
+  <div class="retour-titre">
+    {% if tache.est_refusee %}↩️ Tâche refusée par le responsable — à reprendre
+    {% else %}🔓 OR réouvert — tâche à refaire{% endif %}
+  </div>
+  <div class="text-small text-muted">
+    le {{ tache.date_retour|date:"d/m/Y H:i" }}
+    {% if tache.nb_refus %} · refusée {{ tache.nb_refus }} fois{% endif %}
+    {% if tache.nb_reouvertures %} · réouverte {{ tache.nb_reouvertures }} fois{% endif %}
+  </div>
+  {% if tache.motif_retour %}
+  <div class="retour-motif"><b>Motif :</b> {{ tache.motif_retour }}</div>
+  {% endif %}
+</div>
+{% endif %}
+
 
 
 <div class="grid-2">
@@ -140,23 +164,15 @@
     <div class="info-bloc">
       <div class="info-lbl">Détails</div>
 
-      {# Grille durées : prévue / technicien / écart #}
+      {# Grille durées : prévue / technicien (l'écart n'est affiché que côté responsable) #}
       <div class="duree-grid">
         <div class="duree-box">
           <div class="lbl">Prévue</div>
           <div class="val">{{ tache.duree_estimee_label }}</div>
         </div>
         <div class="duree-box">
-          <div class="lbl">Technicien</div>
-          <div class="val {% if tache.en_retard %}danger{% endif %}">
-            {{ tache.duree_technicien_label }}
-          </div>
-        </div>
-        <div class="duree-box">
-          <div class="lbl">Écart</div>
-          <div class="val {% if tache.ecart_minutes and tache.ecart_minutes > 0 %}danger{% elif tache.ecart_minutes and tache.ecart_minutes < 0 %}success{% endif %}">
-            {{ tache.ecart_label }}
-          </div>
+          <div class="lbl">Mon temps</div>
+          <div class="val">{{ tache.duree_technicien_label }}</div>
         </div>
       </div>
 
