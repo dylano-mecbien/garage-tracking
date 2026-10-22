@@ -57,12 +57,6 @@ def liste_bons_sortie(request):
     })
 
 
-@receptionniste_required
-def detail_bon_sortie(request, bon_id):
-    bon = get_object_or_404(
-        BonSortie.objects.select_related('vehicule', 'vehicule__client', 'reception'), id=bon_id)
-    return render(request, 'reception/detail_bon_sortie.html', {'bon': bon})
-
 
 @guerite_required
 def detail_bon_sortie_guerite(request, bon_id):

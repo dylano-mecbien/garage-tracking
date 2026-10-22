@@ -3,7 +3,7 @@ Entrées / sorties, réceptions, ordres de réparation.
 """
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Q, Case, IntegerField, Sum, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -75,6 +75,22 @@ def modifier_motif_admin(request, entree_id):
     return redirect('detail_entree_admin', entree_id=entree.id)
 
 
+
+def _ordre_receptions(qs):
+    """Fiches (contrôle / technique) en premier, puis réparation, puis le reste."""
+    return qs.annotate(
+        priorite=Case(
+            When(statut=StatutReception.FICHE_CONTROLE, then=0),   # PRESENT_ATELIER
+            When(statut=StatutReception.FICHE_TECHNIQUE, then=1),
+            When(statut=StatutReception.RAPPORT_FAIT, then=2),
+            When(statut=StatutReception.REPARATION_EN_COURS, then=3),
+            When(statut=StatutReception.TRAVAUX_TERMINES, then=4),
+            When(statut=StatutReception.BON_SORTIE_FAIT, then=5),
+            default=9,
+            output_field=IntegerField(),
+        )
+    ).order_by('priorite', '-created_at')
+
 # ─── Réceptions ──────────────────────────────────────────────────────────
 @admin_required
 def liste_receptions(request):
@@ -82,7 +98,6 @@ def liste_receptions(request):
         Reception.objects
         .select_related('vehicule', 'vehicule__client', 'receptionniste', 'ordre_reparation')
         .prefetch_related('ordre_reparation__ateliers')
-        .order_by('-created_at')
     )
     statut = request.GET.get('statut', '')
     q = request.GET.get('q', '').strip()
@@ -96,6 +111,7 @@ def liste_receptions(request):
             | Q(vehicule__client__nom__icontains=q)
         )
 
+    qs = _ordre_receptions(qs)
     page_obj = paginate_queryset(request, qs, per_page=25)
     return render(request, 'admin_custom/mouvements/liste_receptions_admin.html', {
         'receptions': page_obj,
@@ -103,7 +119,6 @@ def liste_receptions(request):
         'statuts': StatutReception.choices,
         'statut_filter': statut,
     })
-
 
 
 # Vue admin (dans le fichier des vues admin)
@@ -114,14 +129,27 @@ def detail_reception(request, rec_id):
         .select_related('vehicule', 'vehicule__client', 'entree', 'receptionniste')
         .prefetch_related('transferts__atelier'),
         id=rec_id,
-    )
+    ) 
     entree = getattr(rec, 'entree', None)
     fiche = getattr(entree, 'fiche_controle', None)
- 
+
+    bon_sortie = None
+    if rec.entree_id:
+        bon_sortie = getattr(rec.entree, 'bon_sortie', None)
+
+    if bon_sortie is None:
+        qs = BonSortie.objects.filter(vehicule=rec.vehicule)
+    # si le champ existe :
+        if any(f.name == 'reception' for f in BonSortie._meta.fields):
+            qs_rec = qs.filter(reception=rec)
+            bon_sortie = qs_rec.order_by('-created_at').first() or qs.order_by('-created_at').first()
+        else:
+            bon_sortie = qs.order_by('-created_at').first()
+
     return render(request, 'admin_custom/mouvements/detail_rec_admin.html', {
         'rec': rec,
         **_contexte_or_reception(rec),
-        'bon_sortie': BonSortie.objects.filter(vehicule=rec.vehicule, reception=rec).first(),
+        'bon_sortie': bon_sortie,
         'fiche_technique': getattr(entree, 'fiche_technique', None),
         'fiche_controle': fiche,
         'a_fiche_controle': _signe(fiche, 'signature_technicien'),
@@ -186,8 +214,25 @@ def detail_or_admin(request, or_id):
 def cloture_or(request, or_id):
     o = get_object_or_404(OrdreReparation.objects.select_related('vehicule', 'reception'), id=or_id)
     if request.method != 'POST':
-        return redirect('detail_or_rec', or_id=or_id)
+        return redirect('detail_rec_admin', or_id=or_id)
 
+
+    date_str = request.POST.get('date_depot_devis', '').strip()
+    if not date_str:
+        messages.error(request, "La date de dépôt du devis est obligatoire.")
+        if o.reception_id:
+            return redirect('detail_rec_admin', rec_id=o.reception_id)
+        return redirect('detail_or_admin', or_id=o.id)
+
+    try:
+        from datetime import datetime
+        date_depot = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        messages.error(request, "Date de dépôt invalide.")
+        if o.reception_id:
+            return redirect('detail_rec_admin', rec_id=o.reception_id)
+        return redirect('detail_or_admin', or_id=o.id)
+    
     now = timezone.now()
     with transaction.atomic():  # AJOUTÉ : tout ou rien
         a_valider = list(o.taches.exclude(statut=StatutTache.VALIDEE))
@@ -209,7 +254,8 @@ def cloture_or(request, or_id):
 
         if o.reception:
             o.reception.statut = StatutVehicule.TRAVAUX_TERMINES
-            o.reception.save(update_fields=['statut'])
+            o.reception.date_depot_devis = date_depot
+            o.reception.save(update_fields=['statut', 'date_depot_devis'])
 
     if o.reception:
         _notifier('OR_CLOTURE', f"OR {o.numero} clôturé",
@@ -217,9 +263,13 @@ def cloture_or(request, or_id):
 
     log_action(request, ActionType.CHANGEMENT_STATUT, 'RECEPTION', o, {
         'statut': 'CLOTURE', 'nb_taches_auto_validees': len(a_valider),
+        'date_depot_devis': str(date_depot),
     })
-    messages.success(request, f"OR {o.numero} clôturé ({len(a_valider)} tâche(s) validée(s)).")
-
+    messages.success(
+        request,
+        f"OR {o.numero} clôturé ({len(a_valider)} tâche(s) validée(s)). "
+        f"Dépot devis : {date_depot.strftime('%d/%m/%Y')}.",
+    )
     # CORRIGÉ : avant, crash si l'OR n'avait pas de réception (rec_id=None)
     if o.reception_id:
         return redirect('detail_rec_admin', rec_id=o.reception_id)

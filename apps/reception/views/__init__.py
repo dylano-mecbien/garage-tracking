@@ -16,11 +16,11 @@ from .dashboard import dashboard, marquer_lues, notifs_json
 from .receptions import (
     choisir_ateliers, creer_rapport, creer_reception, detail_entree, detail_reception,
     detail_vehicule, historique_entrees, liste_receptions, liste_vehicules_presents,
-    modifier_motif_reception,
+    modifier_motif_reception,ref_devis,
 )
 from .ors import cloture_or, detail_or_rec, liste_or, reouverture_or
 from .bons import (
-    creer_bon_sortie, creer_bon_sortie_direct, creer_bon_sortie_divers, detail_bon_sortie,
+    creer_bon_sortie, creer_bon_sortie_direct, creer_bon_sortie_divers,
     detail_bon_sortie_guerite, export_bons_pdf, liste_bons_sortie, pdf_bon_sortie,
     pdf_bon_sortie_guerite, valider_bon_sortie_divers, valider_bon_sortie_vehicule,
 )

@@ -68,14 +68,34 @@ def detail_or_rec(request, or_id):
     })
 
 
+
 @receptionniste_required
 def cloture_or(request, or_id):
-    o = get_object_or_404(OrdreReparation.objects.select_related('vehicule', 'reception'), id=or_id)
+    o = get_object_or_404(
+        OrdreReparation.objects.select_related('vehicule', 'reception'),
+        id=or_id,
+    )
     if request.method != 'POST':
         return redirect('detail_or_rec', or_id=or_id)
 
+    date_str = request.POST.get('date_depot_devis', '').strip()
+    if not date_str:
+        messages.error(request, "La date de dépôt du devis est obligatoire.")
+        if o.reception_id:
+            return redirect('detail_reception', rec_id=o.reception_id)
+        return redirect('detail_or_rec', or_id=o.id)
+
+    try:
+        from datetime import datetime
+        date_depot = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        messages.error(request, "Date de dépôt invalide.")
+        if o.reception_id:
+            return redirect('detail_reception', rec_id=o.reception_id)
+        return redirect('detail_or_rec', or_id=o.id)
+
     now = timezone.now()
-    with transaction.atomic():  # AJOUTÉ : tout ou rien
+    with transaction.atomic():
         a_valider = list(o.taches.exclude(statut=StatutTache.VALIDEE))
         for t in a_valider:
             t.date_debut = t.date_debut or now
@@ -84,8 +104,10 @@ def cloture_or(request, or_id):
             t.statut = StatutTache.VALIDEE
             t.valide_par = request.user
             t.date_validation = now
-            t.commentaire_validation = (t.commentaire_validation
-                                        or "Validée automatiquement à la clôture de l'OR.")
+            t.commentaire_validation = (
+                t.commentaire_validation
+                or "Validée automatiquement à la clôture de l'OR."
+            )
             t.save()
 
         o.duree_totale_minutes = o.taches.aggregate(t=Sum('duree_reelle_minutes'))['t'] or 0
@@ -95,22 +117,31 @@ def cloture_or(request, or_id):
 
         if o.reception:
             o.reception.statut = StatutVehicule.TRAVAUX_TERMINES
-            o.reception.save(update_fields=['statut'])
+            o.reception.date_depot_devis = date_depot
+            o.reception.save(update_fields=['statut', 'date_depot_devis'])
 
     if o.reception:
-        _notifier('OR_CLOTURE', f"OR {o.numero} clôturé",
-                  f"Travaux terminés sur {o.vehicule.immatriculation}.", o.reception)
+        _notifier(
+            'OR_CLOTURE',
+            f"OR {o.numero} clôturé",
+            f"Travaux terminés sur {o.vehicule.immatriculation}.",
+            o.reception,
+        )
 
     log_action(request, ActionType.CHANGEMENT_STATUT, 'RECEPTION', o, {
-        'statut': 'CLOTURE', 'nb_taches_auto_validees': len(a_valider),
+        'statut': 'CLOTURE',
+        'nb_taches_auto_validees': len(a_valider),
+        'date_depot_devis': str(date_depot),
     })
-    messages.success(request, f"OR {o.numero} clôturé ({len(a_valider)} tâche(s) validée(s)).")
+    messages.success(
+        request,
+        f"OR {o.numero} clôturé ({len(a_valider)} tâche(s) validée(s)). "
+        f"Dépot devis : {date_depot.strftime('%d/%m/%Y')}.",
+    )
 
-    # CORRIGÉ : avant, crash si l'OR n'avait pas de réception (rec_id=None)
     if o.reception_id:
         return redirect('detail_reception', rec_id=o.reception_id)
     return redirect('detail_or_rec', or_id=o.id)
-
 
 def _lire_duree(request):
     """Durée en minutes depuis duree_heures / duree_minutes, ou None si invalide."""

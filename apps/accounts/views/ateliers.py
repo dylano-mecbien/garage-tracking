@@ -254,4 +254,4 @@ def detail_atelier(request, atelier_id):
         'debut':        debut,
         'fin':          fin,
         'kpi':          kpi,
-    })
+    }) 

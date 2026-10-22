@@ -9,7 +9,6 @@
 {% block content %}
 <div class="page-header"><div><h1>{{ a.nom }}</h1><div class="breadcrumb"><a href="{% url 'admin_ateliers' %}">Suivi des ateliers</a> › {{ a.nom }}</div></div>
   <a href="{% url 'admin_ateliers' %}" class="btn btn-outline">← Retour</a></div>
-{% for m in messages %}<div class="alert alert-{{ m.tags }}" style="margin-bottom:12px;">{{ m }}</div>{% endfor %}
 
 <div class="card mb-2"><div style="display:flex;gap:28px;flex-wrap:wrap;font-size:13px;">
   <div><span class="text-muted">Chef :</span> <b>{{ a.responsable.get_full_name|default:"—" }}</b></div>
@@ -58,14 +57,14 @@
   {% for r in reouvertures %}<div style="padding:12px 14px;border-top:1px solid var(--border);font-size:13px;">
     <div><a href="{% url 'detail_or_admin' r.ordre_reparation.id %}"><b>{{ r.ordre_reparation.numero }}</b></a> · {{ r.ordre_reparation.vehicule.immatriculation }}
       <span class="bdg {{ r.ordre_reparation.statut }}" style="margin-left:6px;">{{ r.ordre_reparation.get_statut_display }}</span></div>
-    <div class="text-small text-muted">Le {{ r.date|date:"d/m/Y H:i" }} par {{ r.par.get_full_name|default:"—" }}</div>
+    <div class="text-small text-muted">Le {{ r.date_reouverture|date:"d/m/Y H:i" }} par {{ r.reouvert_par.get_full_name|default:"—" }}</div>
     <div style="margin:4px 0;">« {{ r.motif }} »</div>
     <div class="text-small">Tâches réouvertes : {% for t in r.taches_atelier %}<span class="bdg {{ t.statut }}" title="{{ t.get_statut_display }}">{{ t.libelle }}</span> {% endfor %}</div></div>
   {% empty %}<div style="padding:20px;color:var(--text-muted);" class="text-small">Aucun OR réouvert pour cet atelier.</div>{% endfor %}</div>
 
   <div class="card" style="padding:0;"><div class="card-header" style="padding:12px 14px;"><div class="card-title">👷 Temps par technicien</div></div>
   <table><thead><tr><th>Technicien</th><th>Tâches</th><th>Temps passé</th></tr></thead><tbody>
-  {% for t in techniciens %}<tr><td>{{ t.technicien__first_name }} {{ t.technicien__last_name }}{% if not t.technicien__first_name and not t.technicien__last_name %}{{ t.technicien__email|default:"—" }}{% endif %}</td><td>{{ t.nb_taches }}</td><td><b>{{ t.temps|duree }}</b></td></tr>
+  {% for t in techniciens %}<tr><td>{{ t.technicien__nom }} {{ t.technicien__prenom}} </td><td>{{ t.nb_taches }}</td><td><b>{{ t.temps|duree }}</b></td></tr>
   {% empty %}<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun compte rendu</td></tr>{% endfor %}</tbody></table></div>
 </div>
 
@@ -82,7 +81,7 @@
     {% for t in o.taches_atelier %}{% if t.statut == 'VALIDEE' or t.statut == 'TERMINEE' %}
       <label class="pick"><input type="checkbox" name="taches" value="{{ t.id }}"><div style="flex:1;"><b>{{ t.libelle }}</b>
         <div class="text-small text-muted">{{ t.get_statut_display }} · prévu {{ t.duree_estimee_minutes|duree }} · réel {{ t.duree_reelle_minutes|duree }}
-          · 👷 {% for u in t.techniciens.all %}{{ u.get_full_name|default:u.email }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</div></div></label>
+          · 👷 {% for u in t.techniciens.all %}{{ u.get_full_name|default:u.nom }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</div></div></label>
     {% else %}
       <label class="pick off"><input type="checkbox" disabled><div style="flex:1;"><b>{{ t.libelle }}</b><div class="text-small text-muted">{{ t.get_statut_display }} — pas encore terminée</div></div></label>
     {% endif %}{% endfor %}

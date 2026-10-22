@@ -38,6 +38,12 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
 .reo-duree-badge{background:var(--primary);color:#fff;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
 .chip{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:2px 10px;font-size:12px;font-weight:600;}
+
+
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;}
+.modal-ov.open{display:flex;}
+.modal-box{background:var(--surface);border-radius:var(--radius);padding:20px;width:90%;box-shadow:var(--shadow-md);}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
 </style>
 {% endblock %}
 {% block content %}
@@ -49,9 +55,19 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
     <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
     <a href="{% url 'detail_vehicule_rec' rec.vehicule.id %}" class="btn btn-info">👁 Détails véhicule</a>
-    {% if rec.statut == 'PRESENT_ATELIER' or rec.statut == 'FICHE_TECHNIQUE' %}
+
+
+
+
+
+{% if rec.statut == 'PRESENT_ATELIER' or rec.statut == 'FICHE_TECHNIQUE' %}
+  {% if not rec.reference_devis %}
+    <button type="button" class="btn btn-primary" onclick="openModal('modal-devis')">📄 Référencer devis</button>
+  {% else %}
     <a href="{% url 'creer_or_depuis_fiche_technique' rec.id %}" class="btn btn-primary">🔧 Créer OR</a>
-    {% endif %}
+  {% endif %}
+{% endif %}
+
     {% if client_a_signe and signature_apres_faite %}
 
       {% if not rec.entree.bon_sortie %}
@@ -59,7 +75,7 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
 
     {% endif %}
 
-    {% endif %}
+    {% endif %} 
   </div>
 </div>
 
@@ -252,25 +268,7 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
 </div>
 
 <!-- Ateliers -->
-{% with transferts=rec.transferts.all %}
-{% if transferts %}
-<div class="card mt-2">
-  <div class="card-header">
-    <div class="card-title">🏭 Ateliers assignés ({{ transferts|length }})</div>
-    <a href="{% url 'choisir_ateliers' rec.id %}" class="btn btn-outline btn-sm">+ Ajouter</a>
-  </div>
-  <div style="display:flex;flex-wrap:wrap;gap:10px;">
-    {% for t in transferts %}
-    <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;border:1px solid var(--border);">
-      <div class="font-bold">🏭 {{ t.atelier.nom }}</div>
-      <div class="text-small text-muted">{{ t.date_transfert|date:"d/m/Y H:i" }}</div>
-      <div class="text-small">{{ t.motif|truncatechars:80 }}</div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
-{% endwith %}
+
 
 <!-- Fiche contrôle -->
 {% if a_fiche_controle %}
@@ -296,7 +294,17 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
 {% endif %}
 
 <!-- OR (origine + réouverts sur cette réception) -->
-{% if rec.statut == 'FICHE_TECHNIQUE' or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'PRESENT_ATELIER' %}{% include "reception/_or_reception.html" with url_or="detail_or_rec" peut_agir=True peut_creer=True %}{% else %}{% include "reception/_or_reception.html" with url_or="detail_or_rec" peut_agir=True %}{% endif %}
+
+
+{% if rec.reference_devis %}
+  {% if rec.statut == 'FICHE_TECHNIQUE' or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'PRESENT_ATELIER' %}
+    {% include "reception/_or_reception.html" with url_or="detail_or_rec" peut_agir=True peut_creer=True %}
+  {% else %}
+    {% include "reception/_or_reception.html" with url_or="detail_or_rec" peut_agir=True %}
+  {% endif %}
+{% else %}
+  {% include "reception/_or_reception.html" with url_or="detail_or_rec" peut_agir=True %}
+{% endif %}
 
 <!-- Bon de sortie -->
 {% if bon_sortie %}
@@ -306,16 +314,49 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
     {% if bon_sortie.est_valide %}<span class="badge badge-success">✅ Validé</span>{% else %}<span class="badge badge-warning">⏳ Non signé</span>{% endif %}
   </div>
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-    <div>
-      <div class="text-small">Montant : <strong>{{ bon_sortie.montant_facture|floatformat:0 }} FCFA</strong></div>
-      <div class="text-small">Payé : {{ bon_sortie.montant_paye|floatformat:0 }} FCFA</div>
-      {% if bon_sortie.solde_restant > 0 %}<div class="text-small text-danger">Reste : {{ bon_sortie.solde_restant|floatformat:0 }} FCFA</div>{% endif %}
-    </div>
+
     <div style="display:flex;gap:6px;">
-      <a href="{% url 'detail_bon_sortie_rec' bon_sortie.id %}" class="btn btn-info btn-sm">👁 Voir</a>
+      <a href="{% url 'detail_bon_sortie_guerite' bon_sortie.id %}" class="btn btn-info btn-sm">👁 Voir</a>
       <a href="{% url 'pdf_bon_sortie_rec' bon_sortie.id %}" class="btn btn-outline btn-sm">📥 PDF</a>
     </div>
   </div>
 </div>
 {% endif %}
+
+
+<!-- Modal référencer devis -->
+<div class="modal-ov" id="modal-devis">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-head">
+      <strong>📄 Référencer le devis</strong>
+      <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modal-devis')">✕</button>
+    </div>
+    <form method="post" action="{% url 'ref_devis' rec.id %}">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Référence devis / facture *</label>
+        <input type="text" name="reference_devis" class="form-input" required placeholder="Ex: DEV-2026-0042">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date de création du devis *</label>
+        <input type="date" name="date_creation_devis" class="form-input" required>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button type="submit" class="btn btn-primary" style="flex:1;">💾 Enregistrer</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-devis')">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-ov').forEach(m =>
+  m.addEventListener('mousedown', e => { if (e.target === m) closeModal(m.id); })
+);
+</script>
 {% endblock %}

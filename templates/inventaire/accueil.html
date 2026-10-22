@@ -13,7 +13,6 @@
 {% block content %}
 <div class="page-header"><div><h1>Inventaire</h1>
   <div class="breadcrumb">{{ nb_presents_systeme }} véhicule{{ nb_presents_systeme|pluralize }} présent{{ nb_presents_systeme|pluralize }} selon le système</div></div></div>
-{% for m in messages %}<div class="alert alert-{{ m.tags }}" style="margin-bottom:12px;">{{ m }}</div>{% endfor %}
 
 <div class="big">
   {% if en_cours %}

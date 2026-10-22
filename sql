@@ -482,6 +482,11 @@ CREATE INDEX IF NOT EXISTS idx_reo_reception
 
 
 
+ALTER TABLE receptions
+    ADD COLUMN reference_devis            TEXT NOT NULL DEFAULT '',
+    ADD COLUMN date_creation_devis        DATE,
+    ADD COLUMN date_systeme_devis_create  DATE,
+    ADD COLUMN date_depot_devis           DATE;
 
 
 

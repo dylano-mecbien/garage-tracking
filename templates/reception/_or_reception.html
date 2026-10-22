@@ -62,16 +62,7 @@
           <td>
             <div style="display:flex;gap:4px;">
               <a href="{% url url_or o.id %}" class="btn btn-info btn-sm" title="Voir">👁</a>
-              {% if peut_agir %}
-                {% if o.statut != 'CLOTURE' %}
-                <form method="post" action="{% url 'cloture_or_rec' o.id %}" onsubmit="return confirm('Clôturer l\'OR {{ o.numero }} ?')">
-                  {% csrf_token %}<button class="btn btn-success btn-sm" title="Clôturer">✅</button>
-                </form>
-                {% else %}
-                {# Ouvre directement le modal de réouverture sur la page de l'OR #}
-                <a href="{% url 'detail_or_rec' o.id %}?reouvrir=1" class="btn btn-warning btn-sm" title="Réouvrir">🔓</a>
-                {% endif %}
-              {% endif %}
+           
             </div>
           </td>
         </tr>

@@ -44,6 +44,14 @@ class Reception(models.Model):
         'accounts.User', on_delete=models.SET_NULL,
         null=True, related_name='receptions_gerees'
     )
+
+    # devis
+    reference_devis   = models.TextField(blank=True)
+    date_creation_devis   = models.DateField(blank=True)
+    date_systeme_devis_create = models.DateField(blank=True)
+    date_depot_devis   = models.DateField(blank=True)
+
+
     observations   = models.TextField(blank=True)
     created_at     = models.DateTimeField(auto_now_add=True)
     close_at       = models.DateTimeField(null=True, blank=True, verbose_name="Date/heure sortie")

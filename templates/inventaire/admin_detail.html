@@ -17,7 +17,6 @@
 {% block content %}
 <div class="page-header"><div><h1>{{ inv }}</h1><div class="breadcrumb"><a href="{% url 'inventaire_admin_liste' %}">Inventaires</a> › {{ inv.date|date:"d/m/Y" }}</div></div>
   <a href="{% url 'inventaire_admin_liste' %}" class="btn btn-outline">← Retour</a></div>
-{% for m in messages %}<div class="alert alert-{{ m.tags }}" style="margin-bottom:12px;">{{ m }}</div>{% endfor %}
 
 <div class="card mb-2">
   <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;">

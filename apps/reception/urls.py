@@ -12,6 +12,8 @@ urlpatterns = [
         path('<uuid:or_id>/details_or/',               views.detail_or_rec,            name='detail_or_rec'),
     path('Ordre-reparation/',                            views.liste_or,           name='liste_or'),
 
+path('reception/<uuid:rec_id>/ref-devis/', views.ref_devis, name='ref_devis'),
+
     # ── Réceptions (détail + actions) ────────────────────────────
     path('<uuid:rec_id>/',                          views.detail_reception,            name='detail_reception'),
     path('<uuid:rec_id>/rapport/',                  views.creer_rapport,               name='creer_rapport'),
@@ -43,7 +45,6 @@ urlpatterns = [
     path('bons-sortie/<uuid:bon_id>/pdf/',          views.pdf_bon_sortie_guerite,      name='pdf_bon_sortie_guerite'),
 
     # ── Bons de sortie — alias reception (bon/<id>) ──────────────
-    path('bon/<uuid:bon_id>/',                      views.detail_bon_sortie,           name='detail_bon_sortie_rec'),
     path('bon/<uuid:bon_id>/pdf/',                  views.pdf_bon_sortie,              name='pdf_bon_sortie_rec'),
 
     # ── Autocomplete & AJAX ──────────────────────────────────────

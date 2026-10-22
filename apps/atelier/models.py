@@ -480,6 +480,10 @@ class CompteRendu(models.Model):
     @property
     def duree_label(self):
         return _format_minutes(self.duree_minutes)
+    
+    @property
+    def get_full_name(self):
+        return f"{self.technicien.nom} {self.technicien.prenom}".strip()
 
 
 

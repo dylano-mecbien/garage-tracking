@@ -220,11 +220,12 @@
     {# ── Actions ── #}
     <div style="display:flex;gap:6px;flex-shrink:0;">
       {% if or.statut != 'CLOTURE' %}
-      <form method="post" action="{% url 'cloture_or_rec' or.id %}"
-            onsubmit="return confirm('Clôturer cet OR ?');">
-        {% csrf_token %}
-        <button class="btn btn-success btn-sm">✅ Clôturer</button>
-      </form>
+
+
+      <button type="button" class="btn btn-success btn-sm" onclick="openModal('modal-cloture-{{ o.id }}')">
+  ✅ Clôturer
+</button>
+
       {% else %}
       <button type="button" class="btn btn-warning btn-sm"
               onclick="openModal('modal-reouverture')">🔓 Réouvrir</button>
@@ -628,6 +629,33 @@
   </div>
 </div>
 {% endif %}
+
+
+
+
+
+
+<div class="modal-ov" id="modal-cloture-{{ o.id }}">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-head">
+      <strong>✅ Clôturer {{ o.numero }}</strong>
+      <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modal-cloture-{{ o.id }}')">✕</button>
+    </div>
+    <form method="post" action="{% url 'cloture_or_rec' or.id %}">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Date de dépôt du devis au client *</label>
+        <input type="date" name="date_depot_devis" class="form-input" required
+               value="{{ today|date:'Y-m-d' }}">
+      </div>
+      <p class="text-small text-muted">Toutes les tâches non validées seront validées automatiquement.</p>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button type="submit" class="btn btn-success" style="flex:1;">✅ Confirmer la clôture</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-cloture-{{ o.id }}')">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 {% endblock %}
 

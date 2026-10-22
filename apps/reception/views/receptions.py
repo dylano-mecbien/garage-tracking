@@ -4,8 +4,9 @@ Réceptions, rapports, transferts ateliers, entrées guérite.
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Q, Count, Prefetch
+from django.db.models import Q, Case, Count, IntegerField, Prefetch, When
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from apps.accounts.choices import MotifEntree, StatutReception
 from apps.accounts.decorators import guerite_required, receptionniste_required
@@ -62,12 +63,28 @@ def _signe(fiche, champ):
     return bool(fiche and str(getattr(fiche, champ, '') or '').strip())
 
 
-# ─── Réceptions ──────────────────────────────────────────────────────────
+def _ordre_receptions(qs):
+    """Fiches (contrôle / technique) en premier, puis réparation, puis le reste."""
+    return qs.annotate(
+        priorite=Case(
+            When(statut=StatutReception.FICHE_CONTROLE, then=0),   # PRESENT_ATELIER
+            When(statut=StatutReception.FICHE_TECHNIQUE, then=1),
+            When(statut=StatutReception.RAPPORT_FAIT, then=2),
+            When(statut=StatutReception.REPARATION_EN_COURS, then=3),
+            When(statut=StatutReception.TRAVAUX_TERMINES, then=4),
+            When(statut=StatutReception.BON_SORTIE_FAIT, then=5),
+            default=9,
+            output_field=IntegerField(),
+        )
+    ).order_by('priorite', '-created_at')
+
+
+
 @receptionniste_required
 def liste_receptions(request):
     qs = Reception.objects.select_related(
         'vehicule', 'vehicule__client', 'receptionniste'
-    ).order_by('-created_at')
+    )
     statut = request.GET.get('statut', '')
     q = request.GET.get('q', '').strip()
 
@@ -80,6 +97,7 @@ def liste_receptions(request):
             | Q(vehicule__client__nom__icontains=q)
         )
 
+    qs = _ordre_receptions(qs)
     page_obj = paginate_queryset(request, qs)
     return render(request, 'reception/liste_receptions.html', {
         'receptions': page_obj,
@@ -87,6 +105,8 @@ def liste_receptions(request):
         'statuts': StatutReception.choices,
         'statut_filter': statut,
     })
+
+
 
 
 @receptionniste_required
@@ -167,12 +187,25 @@ def detail_reception(request, rec_id):
     entree = getattr(rec, 'entree', None)
     fiche = getattr(entree, 'fiche_controle', None)
  
+    bon_sortie = None
+    if rec.entree_id:
+        bon_sortie = getattr(rec.entree, 'bon_sortie', None)
+
+    if bon_sortie is None:
+        qs = BonSortie.objects.filter(vehicule=rec.vehicule)
+    # si le champ existe :
+        if any(f.name == 'reception' for f in BonSortie._meta.fields):
+            qs_rec = qs.filter(reception=rec)
+            bon_sortie = qs_rec.order_by('-created_at').first() or qs.order_by('-created_at').first()
+        else:
+            bon_sortie = qs.order_by('-created_at').first()
+
     return render(request, 'reception/detail_reception.html', {
         'rec': rec,
         **_contexte_or_reception(rec),
-        'bon_sortie': BonSortie.objects.filter(vehicule=rec.vehicule, reception=rec).first(),
+        'bon_sortie': bon_sortie,
         'fiche_technique': getattr(entree, 'fiche_technique', None),
-        'fiche_controle': fiche,
+        'fiche_controle': fiche, 
         'a_fiche_controle': _signe(fiche, 'signature_technicien'),
         'client_a_signe': _signe(fiche, 'signature_client_avant'),
         'signature_apres_faite': _signe(fiche, 'signature_client_apres'),
@@ -300,3 +333,43 @@ def modifier_motif_reception(request, entree_id):
             messages.error(request, "Motif invalide.")
 
     return redirect('detail_entree_rec', entree_id=entree.id)
+
+
+
+@receptionniste_required
+def ref_devis(request, rec_id):
+    rec = get_object_or_404(Reception, id=rec_id)
+
+    if request.method == 'POST':
+        ref = request.POST.get('reference_devis', '').strip()
+        date_str = request.POST.get('date_creation_devis', '').strip()
+
+        if not ref or not date_str:
+            messages.error(request, "Référence et date de création sont obligatoires.")
+            return redirect('detail_reception', rec_id=rec.id)
+
+        try:
+            from datetime import datetime
+            date_creation = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, "Date invalide.")
+            return redirect('detail_reception', rec_id=rec.id)
+
+        rec.reference_devis = ref
+        rec.date_creation_devis = date_creation
+        rec.date_systeme_devis_create = timezone.localdate()  # auto
+        rec.save(update_fields=[
+            'reference_devis',
+            'date_creation_devis',
+            'date_systeme_devis_create',
+        ])
+
+        log_action(request, ActionType.MODIFICATION, 'RECEPTION', rec, {
+            'reference_devis': ref,
+            'date_creation_devis': str(date_creation),
+        })
+        messages.success(request, f"Devis {ref} référencé.")
+        return redirect('detail_reception', rec_id=rec.id)
+
+    return redirect('detail_reception', rec_id=rec.id)
+
