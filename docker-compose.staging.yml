@@ -146,10 +146,10 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.staging.conf:/etc/nginx/conf.d/default.conf:ro
-      - static_volume:/app/staticfiles:ro
-      - media_volume:/app/media:ro
-      - certbot_certs:/etc/letsencrypt:ro
-      - certbot_www:/var/www/certbot
+      - static_volume_test:/app/staticfiles:ro
+      - media_volume_test:/app/media:ro
+      - certbot_certs_test:/etc/letsencrypt:ro
+      - certbot_www_test:/var/www/certbot
     depends_on:
       - web
     networks:
