@@ -80,7 +80,6 @@ services:
       dockerfile: Dockerfile.prod
     container_name: garage_web_test
     restart: always
-
     command: >
       sh -c "python manage.py makemigrations accounts &&
              python manage.py makemigrations vehicules &&
