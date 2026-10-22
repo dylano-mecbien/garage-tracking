@@ -174,8 +174,6 @@ services:
     restart: always
     volumes:
       - ./backups:/backups
-    environment:
-      - PGPASSWORD=${DB_PASSWORD}
     entrypoint: >
       sh -c "while :; do
                pg_dump -h db -U $${DB_USER} -d $${DB_NAME} -F c
