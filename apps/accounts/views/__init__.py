@@ -13,7 +13,7 @@ from .users import (
     admin_dashboard, audit_logs_view, creer_utilisateur, editer_utilisateur,
     liste_utilisateurs, reset_password_utilisateur, toggle_utilisateur,
 )
-from .mouvements import (
+from .mouvements import (creer_reception_admin,
     detail_entree, detail_or_admin, detail_reception, historique_entrees,
     liste_or, liste_receptions, liste_vehicules_presents, modifier_motif_admin, cloture_or, reouverture_or,
 )

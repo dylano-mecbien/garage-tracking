@@ -74,6 +74,11 @@ CREATE TABLE IF NOT EXISTS receptions (
     close_at          TIMESTAMPTZ,
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
+    reference_devis            TEXT NOT NULL DEFAULT '',
+     date_creation_devis        DATE,
+     date_systeme_devis_create  DATE,
+     date_depot_devis           DATE,
+
     -- ── Contrainte sur le statut ──
     CONSTRAINT receptions_statut_check
         CHECK (statut IN (
@@ -177,33 +182,11 @@ CREATE INDEX idx_ora_ordre   ON ordres_reparation_ateliers(ordrereparation_id);
 CREATE INDEX idx_ora_atelier ON ordres_reparation_ateliers(atelier_id);
 
 
--- Fiche technique
-ALTER TABLE fiches_techniques
-    ALTER COLUMN rendre_pieces   TYPE VARCHAR(3) USING (CASE WHEN rendre_pieces THEN 'OUI' ELSE 'NON' END),
-    ALTER COLUMN ecrou_antivol   TYPE VARCHAR(3) USING (CASE WHEN ecrou_antivol THEN 'OUI' ELSE 'NON' END),
-    ALTER COLUMN alarme          TYPE VARCHAR(3) USING (CASE WHEN alarme THEN 'OUI' ELSE 'NON' END);
-
--- Ajouter un défaut si besoin
-ALTER TABLE fiches_techniques
-    ALTER COLUMN rendre_pieces   SET DEFAULT '',
-    ALTER COLUMN ecrou_antivol   SET DEFAULT '',
-    ALTER COLUMN alarme          SET DEFAULT '';
 
 
 
 
 
-
-
-CREATE TABLE IF NOT EXISTS taches_atelier_techniciens (
-    id         BIGSERIAL PRIMARY KEY,
-    tache_id   UUID NOT NULL REFERENCES taches_atelier(id) ON DELETE CASCADE,
-    user_id    UUID NOT NULL REFERENCES accounts_users(id) ON DELETE CASCADE,
-    CONSTRAINT taches_atelier_techniciens_unique UNIQUE (tache_id, user_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_tat_tache ON taches_atelier_techniciens(tache_id);
-CREATE INDEX IF NOT EXISTS idx_tat_user  ON taches_atelier_techniciens(user_id);
 
 
 
@@ -257,6 +240,18 @@ CREATE INDEX taches_or_idx ON taches_atelier (ordre_reparation_id);
 CREATE INDEX taches_atelier_idx ON taches_atelier (atelier_id);
 CREATE INDEX taches_techniciens_tache_idx ON taches_techniciens (tache_id);
 CREATE INDEX taches_techniciens_user_idx ON taches_techniciens (user_id);
+
+
+
+CREATE TABLE IF NOT EXISTS taches_atelier_techniciens (
+    id         BIGSERIAL PRIMARY KEY,
+    tache_id   UUID NOT NULL REFERENCES taches_atelier(id) ON DELETE CASCADE,
+    user_id    UUID NOT NULL REFERENCES accounts_users(id) ON DELETE CASCADE,
+    CONSTRAINT taches_atelier_techniciens_unique UNIQUE (tache_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tat_tache ON taches_atelier_techniciens(tache_id);
+CREATE INDEX IF NOT EXISTS idx_tat_user  ON taches_atelier_techniciens(user_id);
 
 
 
@@ -477,23 +472,6 @@ END $$;
 -- 3) Index pour accélérer reception.reouvertures_or.all()
 CREATE INDEX IF NOT EXISTS idx_reo_reception
     ON reouvertures_or(reception_id);
-
-
-
-
-
-ALTER TABLE receptions
-    ADD COLUMN reference_devis            TEXT NOT NULL DEFAULT '',
-    ADD COLUMN date_creation_devis        DATE,
-    ADD COLUMN date_systeme_devis_create  DATE,
-    ADD COLUMN date_depot_devis           DATE;
-
-
-
-
-
-
-
 
 
 

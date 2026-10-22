@@ -108,7 +108,6 @@ def liste_receptions(request):
 
 
 
-
 @receptionniste_required
 def creer_reception(request):
     entree = None

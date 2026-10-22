@@ -392,8 +392,8 @@ docker compose -f docker-compose.staging.yml up -d --build
 # 3. Certificat
 docker compose -f docker-compose.staging.yml run --rm certbot certonly \
   --webroot -w /var/www/certbot \
-  -d test.garage.laprudenceplus-cm.com \
-  --email toi@example.com --agree-tos --no-eff-email
+  -d dev.laprudenceplus-cm.com \
+  --email dylanogold@gmail.com --agree-tos --no-eff-email
 
 # 4. Activer les lignes ssl_certificate dans nginx.staging.conf
 docker compose -f docker-compose.staging.yml restart nginx

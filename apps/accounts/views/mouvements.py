@@ -18,8 +18,9 @@ from apps.reception.models import Reception
 from apps.reception.views import (
     get_entrees_presentes_filtrees, get_filtered_entrees, paginate_queryset,
 )
-from apps.reception.views._utils import _notifier
+from apps.reception.views._utils import _notifier, get_or_none, post_str
 from apps.reception.views.receptions import _contexte_or_reception, _signe
+from apps.vehicules.models import Vehicule
 
 from ..decorators import admin_required, receptionniste_required
 from ._utils import MOTIFS_VALIDES
@@ -156,6 +157,76 @@ def detail_reception(request, rec_id):
         'client_a_signe': _signe(fiche, 'signature_client_avant'),
         'signature_apres_faite': _signe(fiche, 'signature_client_apres'),
     })
+
+
+
+
+@receptionniste_required
+def creer_reception_admin(request):
+    entree = None
+    entree_id = request.GET.get('entree_id')
+    if entree_id:
+        entree = get_object_or_404(
+            EnregistrementEntree.objects.select_related('vehicule'),
+            id=entree_id, motif=MotifEntree.REPARATION,
+        )
+        if hasattr(entree, 'reception'):
+            messages.warning(request, "Cette entrée a déjà une réception.")
+            return redirect('detail_rec_admin', rec_id=entree.reception.id)
+
+    if request.method != 'POST':
+        return render(request, 'admin_custom/mouvements/creer_reception.html', {'entree': entree})
+
+    entree_id_post = post_str(request, 'entree_id') or post_str(request, 'entree_select')
+    vehicule_id_post = post_str(request, 'vehicule_id')
+    decision = request.POST.get('decision', 'VERS_ATELIER')
+    observations = post_str(request, 'observations')
+
+    error, vehicule = None, None
+    if not (vehicule_id_post or entree_id_post):
+        error = "Sélectionnez un véhicule ou une entrée guérite."
+    elif not observations:
+        error = "Les observations sont obligatoires."
+    elif entree_id_post:
+        entree = get_or_none(EnregistrementEntree.objects.select_related('vehicule'), id=entree_id_post)
+        if entree is None:
+            error = "Entrée introuvable."
+        elif hasattr(entree, 'reception'):
+            # CORRIGÉ : évite une IntegrityError (2 réceptions pour la même entrée)
+            error = "Cette entrée a déjà une réception."
+        else:
+            vehicule = entree.vehicule
+    else:
+        vehicule = get_or_none(Vehicule.objects, id=vehicule_id_post)
+        if vehicule is None:
+            error = "Véhicule introuvable."
+
+    if error:
+        return render(request, 'admin_custom/mouvements/creer_reception.html', {'entree': entree, 'error': error})
+
+    with transaction.atomic():
+        rec = Reception.objects.create(
+            entree=entree,
+            vehicule=vehicule,
+            statut=StatutVehicule.RAPPORT_FAIT,
+            receptionniste=request.user,
+            observations=observations,
+        )
+        if entree:
+            entree.statut = StatutVehicule.RAPPORT_FAIT
+            entree.save(update_fields=['statut'])
+
+    log_action(request, ActionType.CREATION, 'RECEPTION', rec, {'decision': decision})
+    messages.success(request, f"Réception {rec.numero} créée.")
+
+    if decision == 'SORTIE_DIRECTE':
+        if entree:
+            return redirect('creer_sortie_lien_admin', rec_id=entree.id)
+        # CORRIGÉ : avant, crash (entree = None) quand on passait par le véhicule seul
+        messages.warning(request, "Sortie directe impossible sans entrée guérite.")
+
+    return redirect('detail_rec_admin', rec_id=rec.id)
+
 
 # ─── Ordres de réparation ────────────────────────────────────────────────
 @admin_required
