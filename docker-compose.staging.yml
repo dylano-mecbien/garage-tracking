@@ -53,7 +53,7 @@ services:
 
   # ─── MinIO ──────────────────────────────────────────────────
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     container_name: garage_minio_test
     command: server /data --console-address ":9001"
     environment:
