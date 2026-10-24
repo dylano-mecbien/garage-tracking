@@ -288,22 +288,9 @@ def cloture_or(request, or_id):
         return redirect('detail_rec_admin', or_id=or_id)
 
 
-    date_str = request.POST.get('date_depot_devis', '').strip()
-    if not date_str:
-        messages.error(request, "La date de dépôt du devis est obligatoire.")
-        if o.reception_id:
-            return redirect('detail_rec_admin', rec_id=o.reception_id)
-        return redirect('detail_or_admin', or_id=o.id)
 
-    try:
-        from datetime import datetime
-        date_depot = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        messages.error(request, "Date de dépôt invalide.")
-        if o.reception_id:
-            return redirect('detail_rec_admin', rec_id=o.reception_id)
-        return redirect('detail_or_admin', or_id=o.id)
-    
+
+
     now = timezone.now()
     with transaction.atomic():  # AJOUTÉ : tout ou rien
         a_valider = list(o.taches.exclude(statut=StatutTache.VALIDEE))
@@ -325,8 +312,7 @@ def cloture_or(request, or_id):
 
         if o.reception:
             o.reception.statut = StatutVehicule.TRAVAUX_TERMINES
-            o.reception.date_depot_devis = date_depot
-            o.reception.save(update_fields=['statut', 'date_depot_devis'])
+            o.reception.save(update_fields=['statut'])
 
     if o.reception:
         _notifier('OR_CLOTURE', f"OR {o.numero} clôturé",
@@ -334,17 +320,56 @@ def cloture_or(request, or_id):
 
     log_action(request, ActionType.CHANGEMENT_STATUT, 'RECEPTION', o, {
         'statut': 'CLOTURE', 'nb_taches_auto_validees': len(a_valider),
-        'date_depot_devis': str(date_depot),
     })
     messages.success(
         request,
         f"OR {o.numero} clôturé ({len(a_valider)} tâche(s) validée(s)). "
-        f"Dépot devis : {date_depot.strftime('%d/%m/%Y')}.",
     )
     # CORRIGÉ : avant, crash si l'OR n'avait pas de réception (rec_id=None)
     if o.reception_id:
         return redirect('detail_rec_admin', rec_id=o.reception_id)
     return redirect('detail_or_admin', or_id=o.id)
+
+
+
+
+@admin_required
+def date_depot_devis(request, rec_id):
+    rec = get_object_or_404(Reception, id=rec_id)
+
+    if rec.statut != 'SORTI':
+        messages.error(request, "Le véhicule doit être sorti pour saisir la date de dépôt.")
+        return redirect('detail_rec_admin', rec_id=rec.id)
+
+    if request.method == 'POST':
+        date_str = request.POST.get('date_depot_devis', '').strip()
+        if not date_str:
+            messages.error(request, "La date de dépôt est obligatoire.")
+            return redirect('detail_rec_admin', rec_id=rec.id)
+
+        try:
+            from datetime import datetime
+            date_depot = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, "Date invalide.")
+            return redirect('detail_rec_admin', rec_id=rec.id)
+
+        if rec :
+            rec.statut = StatutReception.DEVIS
+            rec.date_depot_devis = date_depot
+            rec.save(update_fields=['statut', 'date_depot_devis'])
+
+
+        log_action(request, ActionType.MODIFICATION, 'RECEPTION', rec, {
+            'date_depot_devis': str(date_depot),
+        })
+        messages.success(
+            request,
+            f"Date de dépôt enregistrée : {date_depot.strftime('%d/%m/%Y')}.",
+        )
+
+    return redirect('detail_rec_admin', rec_id=rec.id)
+
 
 
 def _lire_duree(request):

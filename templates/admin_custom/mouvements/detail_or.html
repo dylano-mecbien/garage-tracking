@@ -633,11 +633,6 @@
     </div>
     <form method="post" action="{% url 'cloture_or_admin' or.id %}">
       {% csrf_token %}
-      <div class="form-group">
-        <label class="form-label">Date de dépôt du devis au client *</label>
-        <input type="date" name="date_depot_devis" class="form-input" required
-               value="{{ today|date:'Y-m-d' }}">
-      </div>
       <p class="text-small text-muted">Toutes les tâches non validées seront validées automatiquement.</p>
       <div style="display:flex;gap:10px;margin-top:12px;">
         <button type="submit" class="btn btn-success" style="flex:1;">✅ Confirmer la clôture</button>

@@ -133,13 +133,17 @@
           <td class="text-muted text-small">{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
           <td><strong>{{ entree.duree_sejour }}</strong></td>
           <td>
-            {% if not entree.bon_sortie_id and entree.motif != 'VISITE' %}
-            <a href="{% url 'creer_sortie_lien_admin' entree.id %}" class="btn btn-primary btn-sm">
-              ➕ Bon de sortie
-            </a>
-            {% else %}
-            <span class="text-small text-muted">—</span>
-            {% endif %}
+ 
+               {% if entree.motif == 'REPARATION' and not entree.reception %}
+    <a href="{% url 'creer_reception_admin' %}?entree_id={{ entree.id }}"
+       class="btn btn-primary btn-sm">➕ Faire Réception</a>
+
+{% elif entree.motif != 'VISITE' and not entree.bon_sortie_id %}
+    <a href="{% url 'creer_sortie_lien_admin' entree.id %}"
+       class="btn btn-warning btn-sm">📤 Bon de sortie</a>
+{% endif %}
+
+
           </td>
         </tr>
         {% empty %}

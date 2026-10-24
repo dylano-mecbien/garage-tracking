@@ -7,7 +7,7 @@ from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.accounts.choices import TypeRetour
+from apps.accounts.choices import StatutReception, TypeRetour
 from apps.accounts.decorators import receptionniste_required
 from apps.atelier.models import OrdreReparation, ReouvertureOR, StatutOR, StatutTache, Tache
 from apps.atelier.views import _entree_from_or, enrich_taches_duree
@@ -70,6 +70,44 @@ def detail_or_rec(request, or_id):
 
 
 @receptionniste_required
+def date_depot_devis(request, rec_id):
+    rec = get_object_or_404(Reception, id=rec_id)
+
+    if rec.statut != 'SORTI':
+        messages.error(request, "Le véhicule doit être sorti pour saisir la date de dépôt.")
+        return redirect('detail_reception', rec_id=rec.id)
+
+    if request.method == 'POST':
+        date_str = request.POST.get('date_depot_devis', '').strip()
+        if not date_str:
+            messages.error(request, "La date de dépôt est obligatoire.")
+            return redirect('detail_reception', rec_id=rec.id)
+
+        try:
+            from datetime import datetime
+            date_depot = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, "Date invalide.")
+            return redirect('detail_reception', rec_id=rec.id)
+
+        if rec :
+            rec.statut = StatutReception.DEVIS
+            rec.date_depot_devis = date_depot
+            rec.save(update_fields=['statut', 'date_depot_devis'])
+
+
+        log_action(request, ActionType.MODIFICATION, 'RECEPTION', rec, {
+            'date_depot_devis': str(date_depot),
+        })
+        messages.success(
+            request,
+            f"Date de dépôt enregistrée : {date_depot.strftime('%d/%m/%Y')}.",
+        )
+
+    return redirect('detail_reception', rec_id=rec.id)
+
+
+@receptionniste_required
 def cloture_or(request, or_id):
     o = get_object_or_404(
         OrdreReparation.objects.select_related('vehicule', 'reception'),
@@ -77,22 +115,6 @@ def cloture_or(request, or_id):
     )
     if request.method != 'POST':
         return redirect('detail_or_rec', or_id=or_id)
-
-    date_str = request.POST.get('date_depot_devis', '').strip()
-    if not date_str:
-        messages.error(request, "La date de dépôt du devis est obligatoire.")
-        if o.reception_id:
-            return redirect('detail_reception', rec_id=o.reception_id)
-        return redirect('detail_or_rec', or_id=o.id)
-
-    try:
-        from datetime import datetime
-        date_depot = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        messages.error(request, "Date de dépôt invalide.")
-        if o.reception_id:
-            return redirect('detail_reception', rec_id=o.reception_id)
-        return redirect('detail_or_rec', or_id=o.id)
 
     now = timezone.now()
     with transaction.atomic():
@@ -117,8 +139,7 @@ def cloture_or(request, or_id):
 
         if o.reception:
             o.reception.statut = StatutVehicule.TRAVAUX_TERMINES
-            o.reception.date_depot_devis = date_depot
-            o.reception.save(update_fields=['statut', 'date_depot_devis'])
+            o.reception.save(update_fields=['statut'])
 
     if o.reception:
         _notifier(
@@ -131,17 +152,17 @@ def cloture_or(request, or_id):
     log_action(request, ActionType.CHANGEMENT_STATUT, 'RECEPTION', o, {
         'statut': 'CLOTURE',
         'nb_taches_auto_validees': len(a_valider),
-        'date_depot_devis': str(date_depot),
     })
     messages.success(
         request,
         f"OR {o.numero} clôturé ({len(a_valider)} tâche(s) validée(s)). "
-        f"Dépot devis : {date_depot.strftime('%d/%m/%Y')}.",
     )
 
     if o.reception_id:
         return redirect('detail_reception', rec_id=o.reception_id)
     return redirect('detail_or_rec', or_id=o.id)
+
+
 
 def _lire_duree(request):
     """Durée en minutes depuis duree_heures / duree_minutes, ou None si invalide."""

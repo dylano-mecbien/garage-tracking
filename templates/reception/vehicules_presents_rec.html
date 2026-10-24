@@ -72,41 +72,45 @@
       <thead><tr><th>Immatriculation°</th><th>Véhicule</th><th>Propriétaire</th><th>Conducteur</th><th>Motif</th><th>Entrée le</th><th>Durée</th><th>Actions</th></tr></thead>
       <tbody>
 
-        {% for entree in entrees %}
-        <tr>
-          <td><a href="{% url 'detail_entree_rec' entree.id %}">{{ entree.vehicule.immatriculation }}</a></td>
-          
-          <td>{{ entree.vehicule.marque }} {{ entree.vehicule.modele }}</td>
-          <td>{{ entree.vehicule.client }}<br><span class="text-small text-muted">{{ entree.vehicule.client.telephone }}</span></td>
-          <td>{{ entree.conducteur|default:"—" }}</td>
-          <td>
-            {% if entree.motif == 'REPARATION' %}<span class="badge badge-reparation">🔧 Réparation</span>
-            {% elif entree.motif == 'VISITE' %}<span class="badge badge-visite">👁 Visite</span>
-            {% else %}<span class="badge badge-secondary">{{ entree.get_motif_display }}</span>{% endif %}
-          </td>
-          <td class="text-muted text-small">{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
-          <td><strong>{{ entree.duree_sejour }}</strong></td>
-
-          {% if entree.bon_sortie_id == null and entree.motif != 'VISITE'  %}
-
-
-          <td>
-
-            <a href="{% url 'creer_bon_sortie_rec' entree.id %}"
-                   class="btn btn-warning btn-sm">
-                    📤 Bon de sortie
-                </a>
-
-</td> 
-
-{% endif %}
-
-
-
-        </tr>
-        {% empty %}
-        <tr><td colspan="9" class="text-center text-muted" style="padding:40px;">Aucun véhicule dans le local</td></tr>
-        {% endfor %}
+       {% for entree in entrees %}
+<tr>
+  <td><a href="{% url 'detail_entree_rec' entree.id %}">{{ entree.vehicule.immatriculation }}</a></td>
+  <td>{{ entree.vehicule.marque }} {{ entree.vehicule.modele }}</td>
+  <td>
+    {{ entree.vehicule.client }}<br>
+    <span class="text-small text-muted">{{ entree.vehicule.client.telephone }}</span>
+  </td>
+  <td>{{ entree.conducteur|default:"—" }}</td>
+  <td>
+    {% if entree.motif == 'REPARATION' %}
+      <span class="badge badge-reparation">🔧 Réparation</span>
+    {% elif entree.motif == 'VISITE' %}
+      <span class="badge badge-visite">👁 Visite</span>
+    {% else %}
+      <span class="badge badge-secondary">{{ entree.get_motif_display }}</span>
+    {% endif %}
+  </td>
+  <td class="text-muted text-small">{{ entree.date_entree|date:"d/m/Y H:i" }}</td>
+  <td><strong>{{ entree.duree_sejour }}</strong></td>
+  <td>
+    {% if entree.motif == 'REPARATION' and not entree.reception %}
+      <a href="{% url 'creer_reception' %}?entree_id={{ entree.id }}"
+         class="btn btn-primary btn-sm">➕ Faire réception</a>
+    {% elif entree.motif != 'VISITE' and not entree.bon_sortie_id %}
+      <a href="{% url 'creer_bon_sortie_rec' entree.id }}"
+         class="btn btn-warning btn-sm">📤 Bon de sortie</a>
+    {% else %}
+      —
+    {% endif %}
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="8" class="text-center text-muted" style="padding:40px;">
+    Aucun véhicule dans le local
+  </td>
+</tr>
+{% endfor %}
       </tbody>
     </table>
   </div>

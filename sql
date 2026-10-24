@@ -89,7 +89,8 @@ CREATE TABLE IF NOT EXISTS receptions (
             'REPARATION_EN_COURS',
             'TRAVAUX_TERMINES',
             'BON_SORTIE_FAIT',
-            'SORTI'
+            'SORTI',
+            'DEVIS'
         ))
 );
 

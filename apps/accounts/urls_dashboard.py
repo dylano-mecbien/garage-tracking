@@ -27,6 +27,7 @@ urlpatterns = [
      path('utilisateurs/<uuid:user_id>/', detail_utilisateur, name='detail_utilisateur'),
     path('admin-garage/<uuid:rec_id>/rec',                          views.detail_reception,            name='detail_rec_admin'),
         path('creer/',                                   views.creer_reception_admin,             name='creer_reception_admin'),
+    path('reception/<uuid:rec_id>/date-depot-devis/', views.date_depot_devis, name='date_depot_devis_admin'),
 
 
     path('admin-garage/<uuid:rec_id>/bon-sortie/',            views.creer_bon_sortie,   name='creer_sortie_lien_admin'),

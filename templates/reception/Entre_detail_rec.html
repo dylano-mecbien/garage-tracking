@@ -178,17 +178,20 @@
 
 <!-- BOUTONS TOUJOURS VISIBLES -->
 <div style="display:flex;gap:8px; margin-top:20px;">
-  <a href="{% url 'index' %}" class="btn btn-outline">← Retour</a>
+
+    <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
 
 
 
- {% if entree.bon_sortie_id == null and entree.motif != 'VISITE'  %}
-  <a href="{% url 'creer_bon_sortie_rec' entree.id %}"
-                   class="btn btn-warning btn-sm">
-                    📤 Bon de sortie
-                </a>
+   {% if entree.motif == 'REPARATION' and not entree.reception %}
+    <a href="{% url 'creer_reception' %}?entree_id={{ entree.id }}"
+       class="btn btn-primary btn-sm">➕ Faire Réception</a>
 
-  {% endif %}
+{% elif entree.motif != 'VISITE' and not entree.bon_sortie_id %}
+    <a href="{% url 'creer_bon_sortie_rec' entree.id %}"
+       class="btn btn-warning btn-sm">📤 Bon de sortie</a>
+{% endif %}
+
 
 </div>
 

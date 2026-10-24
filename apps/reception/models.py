@@ -177,15 +177,15 @@ class Reception(models.Model):
     @property
     def progression_pct(self):
         pct = {
-        'EN_COURS':            5,
         'RAPPORT_FAIT':        15,
         'PRESENT_ATELIER':     30,
         'FICHE_TECHNIQUE':     45,
         'REPARATION_EN_COURS': 60,
-        'TRAVAUX_TERMINES':    78,
-        'BON_SORTIE_FAIT':     92,
-        'SORTI':               100,
-    }
+        'TRAVAUX_TERMINES':    75,
+        'BON_SORTIE_FAIT':     85,
+        'SORTI':               95,
+        'DEVIS':               100,
+        }
         return pct.get(self.statut, 0)
 
     @property
@@ -203,6 +203,7 @@ class Reception(models.Model):
             'TRAVAUX_TERMINES':    ('📄', 'Créer le bon de sortie', 'success'),
             'BON_SORTIE_FAIT':     ('🚗', 'Bon de sortie prêt — guérite peut libérer le véhicule', 'success'),
             'SORTI':               ('✅', 'Véhicule sorti du garage', 'secondary'),
+            'DEVIS':               ('📄', 'Devis créé', 'secondary'),
         }
         return actions.get(s, ('?', '—', 'secondary'))
 
