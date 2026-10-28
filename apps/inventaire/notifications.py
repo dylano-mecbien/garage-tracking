@@ -16,51 +16,42 @@ log = logging.getLogger(__name__)
 
 
 def destinataires_admin():
-    """settings.INVENTAIRE_EMAILS si défini, sinon les utilisateurs ADMIN actifs + DestinataireEmail actifs."""
-    fixes = getattr(settings, 'INVENTAIRE_EMAILS', None)
-    if fixes:
-        return sorted(set(fixes))
-    emails = set()
-    try:
-        emails |= set(User.objects.filter(role='ADMIN', is_active=True).exclude(email='').values_list('email', flat=True))
-    except Exception:
-        pass
-    try:
-        emails |= set(DestinataireEmail.objects.filter(actif=True).values_list('email', flat=True))
-    except Exception:
-        pass
-    return sorted(emails)
-
-
-def destinataires_admin():
     """
-    Retourne les emails des DestinataireEmail actifs dont l'email
-    correspond à un User ayant le rôle ADMIN actif.
+    Emails des Users ADMIN actifs qui figurent aussi
+    dans DestinataireEmail (actif=True).
     """
     fixes = getattr(settings, 'INVENTAIRE_EMAILS', None)
     if fixes:
         return sorted({e.strip() for e in fixes if e and e.strip()})
 
-    # ── 1) Emails des Users ADMIN actifs ──
-    emails_admin = set(
-        User.objects
-        .filter(role='ADMIN', is_active=True)
-        .exclude(email__isnull=True)
-        .exclude(email='')
-        .values_list('email', flat=True)
-    )
+    # 1) Emails des admins actifs
+    emails_admin = {
+        (e or '').strip().lower()
+        for e in User.objects
+            .filter(role='ADMIN', is_active=True)
+            .exclude(email__isnull=True)
+            .exclude(email='')
+            .values_list('email', flat=True)
+        if e and e.strip()
+    }
+    if not emails_admin:
+        return []
 
-    # ── 2) Intersection avec les DestinataireEmail actifs ──
-    emails = (
+    # 2) Destinataires actifs dont l'email est un admin
+    emails_dest = (
         DestinataireEmail.objects
         .filter(actif=True)
-        .exclude(email__isnull=True)
         .exclude(email='')
-        .filter(email__in=emails_admin)          # ← ne garde que ceux qui sont Admins
         .values_list('email', flat=True)
     )
 
-    return sorted({e.strip() for e in emails if e and e.strip()})
+    result = {
+        e.strip()
+        for e in emails_dest
+        if e and e.strip().lower() in emails_admin
+    }
+
+    return sorted(result)
 
 def envoyer_inventaire_a_valider(inv):
     """Retourne (ok, nb_destinataires, erreur). Un échec n'empêche jamais la validation de l'inventaire."""

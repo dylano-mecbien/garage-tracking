@@ -7,7 +7,7 @@ donc urls.py n'a pas besoin d'être modifié.
 """
 from .auth import (
     changer_langue, changer_theme, connexion, dashboard_redirect,
-    deconnexion, index, profil,
+    deconnexion, index, profil,profil_signature
 )
 from .users import (
     admin_dashboard, audit_logs_view, creer_utilisateur, editer_utilisateur,

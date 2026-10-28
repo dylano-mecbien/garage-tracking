@@ -9,6 +9,7 @@ from django.shortcuts import redirect, render
 
 from apps.audit.models import ActionType
 from apps.audit.service import log_action
+from apps.reception.views._utils import save_signature_from_dataurl
 
 from ..forms import ChangePasswordForm, ConnexionForm
 from ..models import LoginAttempt
@@ -90,6 +91,28 @@ def profil(request):
         # Basé sur la BDD, plus sur la session : impossible à contourner en rechargeant
         'force_change_password': request.user.pass_default,
     })
+
+
+@login_required
+def profil_signature(request):
+    if request.method != 'POST':
+        return redirect('profil')
+
+    data = request.POST.get('signature', '').strip()
+    if not data or not data.startswith('data:image'):
+        messages.error(request, "Signature invalide.")
+        return redirect('profil')
+
+    user = request.user
+    if not save_signature_from_dataurl(user, data, 'signature'):
+        messages.error(request, "Erreur lors de l'enregistrement de la signature.")
+        return redirect('profil')
+
+    user.save(update_fields=['signature'])  # si save_signature ne save pas
+    log_action(request, ActionType.MODIFICATION, 'COMPTE', user, {'champ': 'signature'})
+    messages.success(request, "Signature enregistrée.")
+    return redirect('profil')
+
 
 
 def changer_langue(request):

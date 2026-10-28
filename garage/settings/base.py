@@ -219,11 +219,21 @@ DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 AWS_ACCESS_KEY_ID = config('MINIO_ACCESS_KEY', default='minioGarage')
 AWS_SECRET_ACCESS_KEY = config('MINIO_SECRET_KEY', default='minioadminGarage')
 AWS_STORAGE_BUCKET_NAME = config('MINIO_BUCKET', default='garage-docs')
-AWS_S3_ENDPOINT_URL = config('MINIO_ENDPOINT', default='http://localhost:9000')
 
 
 AWS_S3_USE_SSL = False
 AWS_DEFAULT_ACL = 'private'
+
+AWS_QUERYSTRING_AUTH = False                   # URLs publiques, sans signature
+
+AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', 'http://minio:9000')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('MINIO_BUCKET', 'garage-docs')
+
+
+AWS_S3_URL_PROTOCOL = 'https:'
+
+# Pas de AWS_S3_CUSTOM_DOMAIN si tu gères l’URL toi-même
+AWS_S3_CUSTOM_DOMAIN = None
 
 # Celery
 CELERY_BROKER_URL = REDIS_URL

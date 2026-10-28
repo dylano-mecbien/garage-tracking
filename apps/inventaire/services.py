@@ -14,7 +14,7 @@ from apps.inventaire.notifications import envoyer_inventaire_a_valider
 from . import adapters
 from .models import (Inventaire, LigneInventaire, MouvementTemporaire, Presence, StatutInventaire, TypeMouvement)
 
-MOTIF_REVOCATION_MIN = 5
+MOTIF_REVOCATION_MIN = 1
 
 
 class InventaireError(Exception):
@@ -221,8 +221,7 @@ def revoquer(inv, admin, motif):
     if inv.statut != StatutInventaire.SOUMIS:
         raise InventaireError("Seul un inventaire en attente de validation peut être renvoyé pour correction.")
     motif = (motif or '').strip()
-    if len(motif) < MOTIF_REVOCATION_MIN:
-        raise InventaireError("Indique le motif de la révocation.")
+
 
     rapport = dict(inv.rapport or {})
     rapport.setdefault('revocations', []).append({

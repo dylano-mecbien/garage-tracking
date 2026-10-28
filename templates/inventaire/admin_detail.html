@@ -128,8 +128,8 @@
   </div>
   <form method="post" action="{% url 'inventaire_admin_revoquer' inv.id %}">{% csrf_token %}
     <div class="form-group"><label class="form-label">Motif / corrections attendues *</label>
-      <textarea name="motif" class="form-textarea" rows="3" required minlength="5"
-                placeholder="Ex : LT 977 LV est bien sur le parking, vérifie à nouveau…"></textarea></div>
+      <textarea name="motif" class="form-textarea" rows="3" 
+                placeholder="Ex : LT 000 XX est bien sur le parking, vérifie à nouveau…"></textarea></div>
     <button class="btn btn-primary" style="width:100%;padding:10px;">↩️ Renvoyer à la guérite</button></form>
 </div></div>
 {% endblock %}

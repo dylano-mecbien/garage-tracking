@@ -79,8 +79,6 @@
 </div>
 {% endif %}
 
-
-
       <div class="form-group">
         <label class="form-label">Nouveau mot de passe *</label>
         <div class="password-wrapper">
@@ -104,6 +102,51 @@
   </div>
 </div>
 
+
+  <div class="card" style="grid-column:1/-1;max-width:800px;">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="card-title">✍️ Signature</div>
+      <button type="button" class="btn btn-outline btn-sm" id="btn-toggle-sig" onclick="toggleSigPad()">
+        {% if request.user.signature %}✏️ Modifier{% else %}➕ Ajouter{% endif %}
+      </button>
+    </div>
+
+
+    {% if request.user.signature %}
+
+
+
+  <div id="sig-preview">
+    <img src="{{ request.user.signature.url }}"
+         alt="Signature"
+         style="max-width:280px;border:1px solid var(--border);border-radius:6px;background:#fff;"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+    <div class="text-muted text-small" style="display:none;">
+      Impossible de charger la signature (URL média inaccessible).
+    </div>
+  </div>
+   {% else %}
+    <div id="sig-preview" class="text-muted text-small" style="margin-bottom:12px;">
+      Aucune signature enregistrée.
+    </div>
+    {% endif %}
+
+    <div id="sig-pad-wrap" style="display:none;">
+      <canvas id="sig-canvas" width="560" height="160"
+              style="width:100%;max-width:560px;height:160px;border:2px dashed var(--border);border-radius:8px;background:#fff;display:block;touch-action:none;"></canvas>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="clearSig()">🗑 Effacer</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="submitSig()">💾 Enregistrer</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="toggleSigPad(false)">Annuler</button>
+      </div>
+      <form method="post" action="{% url 'profil_signature' %}" id="sig-form" style="display:none;">
+        {% csrf_token %}
+        <input type="hidden" name="signature" id="sig-data">
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
   (function() {
     // Récupère tous les boutons toggle
@@ -121,6 +164,65 @@
     });
   })();
 
+
+
+
+function toggleSigPad(force) {
+  const wrap = document.getElementById('sig-pad-wrap');
+  const open = force === false ? false : (force === true ? true : wrap.style.display === 'none');
+  wrap.style.display = open ? 'block' : 'none';
+  if (open) initSig();
+}
+
+let sigDrawing = false, sigCtx = null;
+
+function initSig() {
+  const canvas = document.getElementById('sig-canvas');
+  if (!canvas || canvas.dataset.ready) return;
+  canvas.dataset.ready = '1';
+  sigCtx = canvas.getContext('2d');
+  sigCtx.strokeStyle = '#111';
+  sigCtx.lineWidth = 2;
+  sigCtx.lineCap = 'round';
+
+  function pos(e) {
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return {
+      x: (t.clientX - r.left) * (canvas.width / r.width),
+      y: (t.clientY - r.top) * (canvas.height / r.height),
+    };
+  }
+  function start(e) { e.preventDefault(); sigDrawing = true; const p = pos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); }
+  function draw(e) { if (!sigDrawing) return; e.preventDefault(); const p = pos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); }
+  function stop() { sigDrawing = false; }
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('mouseup', stop);
+  canvas.addEventListener('mouseleave', stop);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', draw, { passive: false });
+  canvas.addEventListener('touchend', stop);
+}
+
+function clearSig() {
+  const canvas = document.getElementById('sig-canvas');
+  if (canvas && sigCtx) sigCtx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function submitSig() {
+  const canvas = document.getElementById('sig-canvas');
+  // canvas vide ?
+  const blank = document.createElement('canvas');
+  blank.width = canvas.width; blank.height = canvas.height;
+  if (canvas.toDataURL() === blank.toDataURL()) {
+    alert('Veuillez signer avant d\'enregistrer.');
+    return;
+  }
+  document.getElementById('sig-data').value = canvas.toDataURL('image/png');
+  document.getElementById('sig-form').submit();
+}
 
 </script>
 {% endblock %}
