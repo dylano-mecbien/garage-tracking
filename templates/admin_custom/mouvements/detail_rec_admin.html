@@ -67,19 +67,13 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
 
 
 
-{% if rec.statut == 'SORTI' %}
-  {% if not rec.date_depot_devis %}
-    <button type="button" class="btn btn-primary" onclick="openModal('modal-depot-devis')">
-      📅 Date dépôt devis
-    </button>
-  {% else %}
-    <button type="button" class="btn btn-outline" onclick="openModal('modal-depot-devis')">
-      📅 Dépôt devis : {{ rec.date_depot_devis|date:"d/m/Y" }}
-    </button>
-  {% endif %}
+
+
+{% if rec.statut == 'SORTI' and not rec.date_depot_facture %}
+  <button type="button" class="btn btn-primary" onclick="openModal('modal-depot-facture')">
+    📅 Date dépôt facture
+  </button>
 {% endif %}
-
-
 
 {% if rec.statut == 'PRESENT_ATELIER' or rec.statut == 'FICHE_TECHNIQUE' %}
   {% if not rec.reference_devis %}
@@ -89,8 +83,11 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
   {% endif %}
 {% endif %}
 
-     {% if not rec.entree.bon_sortie %}
-  <a href="{% url 'creer_sortie_lien_admin' rec.entree.id %}" class="btn btn-success">📄 Bon de sortie</a>
+
+{% if rec.entree_id and not bon_sortie %}
+  <a href="{% url 'creer_sortie_lien_admin' rec.entree_id %}" class="btn btn-success">
+    📄 Bon de sortie
+  </a>
 {% endif %}
 
   </div>
@@ -139,6 +136,8 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
   </div>
 
  <!-- Timeline -->
+
+<!-- Timeline -->
 <div class="card">
   <div class="card-header"><div class="card-title">📅 Chronologie</div></div>
   <div class="timeline">
@@ -152,7 +151,7 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
       </div>
     </div>
 
-    {# 2. Fiche de réception #}
+    {# 2. Fiche de réception (signature client avant) #}
     <div class="tl-item">
       <div class="tl-dot {% if client_a_signe %}done{% else %}active{% endif %}">
         {% if client_a_signe %}✓{% else %}✍{% endif %}
@@ -172,10 +171,10 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
       </div>
     </div>
 
-    {# 3. Fiche de contrôle #}
+    {# 3. Fiche de contrôle (technique) #}
     <div class="tl-item">
-      <div class="tl-dot {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}done{% elif a_fiche_controle %}active{% else %}wait{% endif %}">
-        {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}✓{% else %}📋{% endif %}
+      <div class="tl-dot {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}done{% elif a_fiche_controle %}active{% else %}wait{% endif %}">
+        {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}✓{% else %}📋{% endif %}
       </div>
       <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <div>
@@ -194,21 +193,42 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
       </div>
     </div>
 
-    {# 4. Travaux #}
+    {# 4. Référencement devis #}
     <div class="tl-item">
-      <div class="tl-dot {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}done{% elif rec.statut == 'REPARATION_EN_COURS' %}active{% else %}wait{% endif %}">
-        {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}✓{% else %}🔧{% endif %}
+      <div class="tl-dot {% if rec.reference_devis %}done{% elif rec.statut == 'SORTI' %}active{% else %}wait{% endif %}">
+        {% if rec.reference_devis %}✓{% else %}📄{% endif %}
+      </div>
+      <div>
+        <div class="font-bold text-small">Référencement devis</div>
+        <div class="text-small text-muted">
+          {% if rec.reference_devis %}
+            <b>{{ rec.reference_devis }}</b>
+            {% if rec.date_creation_devis %}· {{ rec.date_creation_devis|date:"d/m/Y" }}{% endif %}
+          {% elif rec.statut == 'SORTI' %}
+            <span style="color:var(--accent);">À renseigner</span>
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# 5. Travaux #}
+    <div class="tl-item">
+      <div class="tl-dot {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}done{% elif rec.statut == 'REPARATION_EN_COURS' %}active{% else %}wait{% endif %}">
+        {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}✓{% else %}🔧{% endif %}
       </div>
       <div>
         <div class="font-bold text-small">Travaux</div>
         <div class="text-small text-muted">
-          {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}Terminés ✅
+          {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}Terminés ✅
           {% elif rec.statut == 'REPARATION_EN_COURS' %}En cours...
           {% else %}En attente{% endif %}
         </div>
       </div>
     </div>
 
+    {# 5 bis. Réouvertures #}
     {% for r in reouvertures_ici %}
     <div class="tl-item">
       <div class="tl-dot reo">🔓</div>
@@ -219,10 +239,29 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
     </div>
     {% endfor %}
 
-    {# 5. Bon de sortie #}
+    {# 6. Contrôle Qualité (signature client après) #}
     <div class="tl-item">
-      <div class="tl-dot {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}done{% elif rec.statut == 'TRAVAUX_TERMINES' %}active{% else %}wait{% endif %}">
-        {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}✓{% else %}📄{% endif %}
+      <div class="tl-dot {% if signature_apres_faite %}done{% elif rec.statut == 'TRAVAUX_TERMINES' %}active{% else %}wait{% endif %}">
+        {% if signature_apres_faite %}✓{% else %}✍{% endif %}
+      </div>
+      <div>
+        <div class="font-bold text-small">Contrôle Qualité</div>
+        <div class="text-small text-muted">
+          {% if signature_apres_faite %}
+            Signé · {{ rec.date_cloture|default:"—"|date:"d/m/Y" }}
+          {% elif rec.statut == 'TRAVAUX_TERMINES' %}
+            <span style="color:var(--accent);">À faire</span>
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# 7. Bon de sortie #}
+    <div class="tl-item">
+      <div class="tl-dot {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}done{% elif rec.statut == 'TRAVAUX_TERMINES' %}active{% else %}wait{% endif %}">
+        {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}✓{% else %}📄{% endif %}
       </div>
       <div>
         <div class="font-bold text-small">Bon de sortie</div>
@@ -234,41 +273,45 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
       </div>
     </div>
 
-    {# 6. Sortie #}
+    {# 8. Sortie #}
     <div class="tl-item">
-      <div class="tl-dot {% if rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}done{% elif rec.statut == 'BON_SORTIE_FAIT' %}active{% else %}wait{% endif %}">
-        {% if rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}✓{% else %}🚪{% endif %}
+      <div class="tl-dot {% if rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}done{% elif rec.statut == 'BON_SORTIE_FAIT' %}active{% else %}wait{% endif %}">
+        {% if rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}✓{% else %}🚪{% endif %}
       </div>
       <div>
         <div class="font-bold text-small">Sortie</div>
         <div class="text-small text-muted">
-          {% if rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}Sorti ✅
+          {% if rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}Sorti ✅
           {% elif rec.statut == 'BON_SORTIE_FAIT' %}<span style="color:var(--accent);">En attente guérite</span>
           {% else %}—{% endif %}
         </div>
       </div>
     </div>
 
-    {# 7. Dépôt devis #}
+    {# 9. Dépôt facture #}
     <div class="tl-item">
-      <div class="tl-dot {% if rec.statut == 'DEVIS' or rec.date_depot_devis %}done{% elif rec.statut == 'SORTI' %}active{% else %}wait{% endif %}">
-        {% if rec.statut == 'DEVIS' or rec.date_depot_devis %}✓{% else %}📅{% endif %}
+      <div class="tl-dot {% if rec.date_depot_facture %}done{% elif rec.statut == 'SORTI' %}active{% else %}wait{% endif %}">
+        {% if rec.date_depot_facture %}✓{% else %}📅{% endif %}
       </div>
       <div>
-        <div class="font-bold text-small">Dépôt devis / facture</div>
+        <div class="font-bold text-small">Dépôt facture</div>
         <div class="text-small text-muted">
-          {% if rec.date_depot_devis %}{{ rec.date_depot_devis|date:"d/m/Y" }}
-          {% elif rec.statut == 'SORTI' %}<span style="color:var(--accent);">À renseigner</span>
-          {% else %}—{% endif %}
+          {% if rec.date_depot_facture %}
+            <b>{{ rec.reference_facture|default:"—" }}</b>
+            · {{ rec.date_depot_facture|date:"d/m/Y" }}
+          {% elif rec.statut == 'SORTI' %}
+            <span style="color:var(--accent);">À renseigner</span>
+          {% else %}
+            —
+          {% endif %}
         </div>
       </div>
     </div>
 
-  </div>
-</div>
+  </div>{# .timeline #}
+</div>{# .card #}
 
 
-</div>
 
 <!-- Ateliers -->
 {% with transferts=rec.transferts.all %}
@@ -353,7 +396,7 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
     <form method="post" action="{% url 'ref_devis' rec.id %}">
       {% csrf_token %}
       <div class="form-group">
-        <label class="form-label">Référence devis / facture *</label>
+        <label class="form-label">Référence devis *</label>
         <input type="text" name="reference_devis" class="form-input" required placeholder="Ex: DEV-2026-0042">
       </div>
       <div class="form-group">
@@ -371,22 +414,26 @@ tr.or-reouvert td:first-child{box-shadow:inset 3px 0 0 var(--danger);}
 
 
 
-<div class="modal-ov" id="modal-depot-devis">
+<div class="modal-ov" id="modal-depot-facture">
   <div class="modal-box" style="max-width:400px;">
     <div class="modal-head">
       <strong>📅 Date de dépôt de la facture</strong>
-      <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modal-depot-devis')">✕</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modal-depot-facture')">✕</button>
     </div>
-    <form method="post" action="{% url 'date_depot_devis_admin' rec.id %}">
+    <form method="post" action="{% url 'date_depot_facture_admin' rec.id %}">
       {% csrf_token %}
+        <div class="form-group">
+        <label class="form-label">Référence Facture *</label>
+        <input type="text" name="reference_facture" class="form-input" required placeholder="Ex: FAC-2026-0042">
+      </div>
       <div class="form-group">
         <label class="form-label">Date de dépôt au client *</label>
-        <input type="date" name="date_depot_devis" class="form-input" required
-               value="{% if rec.date_depot_devis %}{{ rec.date_depot_devis|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}">
+        <input type="date" name="date_depot_facture" class="form-input" required
+               value="{% if rec.date_depot_facture %}{{ rec.date_depot_facture|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}">
       </div>
       <div style="display:flex;gap:10px;margin-top:12px;">
         <button type="submit" class="btn btn-primary" style="flex:1;">💾 Enregistrer</button>
-        <button type="button" class="btn btn-outline" onclick="closeModal('modal-depot-devis')">Annuler</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-depot-facture')">Annuler</button>
       </div>
     </form>
   </div>

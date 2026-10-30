@@ -179,7 +179,11 @@ def creer_bon_sortie(request, rec_id):
             bon.types = TypeBon.VEHICULE
             if enreg.vehicule:
                 bon.vehicule = enreg.vehicule
+            # Rattacher le bon à la réception si elle existe
+            if reception is not None:
+                bon.reception = reception
             bon.save()
+
 
             enreg.bon_sortie = bon
             enreg.save(update_fields=['bon_sortie'])
@@ -245,6 +249,7 @@ def creer_bon_sortie_direct(request):
                     bon = BonSortie.objects.create(
                         types=TypeBon.VEHICULE,
                         vehicule=vehicule,
+                        reception=reception,  # None si pas de réception
                         nom_demandeur=post_str(request, 'nom_demandeur'),
                         observations=post_str(request, 'observations'),
                         cree_par=request.user,

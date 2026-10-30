@@ -75,7 +75,6 @@ def liste_bons_sortie(request):
         'bons': page_obj, 'page_obj': page_obj, 'stats': stats, 'filters': f,
     })
 
-
 @admin_required
 def creer_bon_sortie(request, rec_id):
     enreg = get_object_or_404(EnregistrementEntree.objects.select_related('vehicule'), id=rec_id)
@@ -90,12 +89,14 @@ def creer_bon_sortie(request, rec_id):
             bon.types = TypeBon.VEHICULE
             if enreg.vehicule:
                 bon.vehicule = enreg.vehicule
+            # Rattacher le bon à la réception si elle existe
+            if reception is not None:
+                bon.reception = reception
             bon.save()
 
             # Le statut SORTI sera appliqué par la guérite, pas ici.
             enreg.bon_sortie = bon
             enreg.save(update_fields=['bon_sortie'])
-
 
             if reception is not None:
                 reception.statut = StatutVehicule.BON_SORTIE_FAIT
@@ -105,7 +106,7 @@ def creer_bon_sortie(request, rec_id):
                     reception.date_sortie = timezone.now()
                     champs.append('date_sortie')
                 reception.save(update_fields=champs)
-                
+
             _gen_qr(bon)
             log_action(request, ActionType.CREATION, 'RECEPTION', bon)
 
@@ -143,16 +144,14 @@ def creer_bon_sortie_direct(request):
         elif entree is None:
             messages.error(request, "Ce véhicule n'est pas présent sur le site.")
         else:
+            # ── Réception liée à l'entrée active (si elle existe) ──
+            reception = getattr(entree, 'reception', None)
 
-                            # ── Réception liée à l'entrée active (si elle existe) ──
-            reception = getattr(entree, 'reception', None) if entree else None
-
-
-            
             with transaction.atomic():
                 bon = BonSortie.objects.create(
                     types=TypeBon.VEHICULE,
                     vehicule=entree.vehicule,
+                    reception=reception,  # None si pas de réception
                     nom_demandeur=post_str(request, 'nom_demandeur'),
                     observations=post_str(request, 'observations'),
                     cree_par=request.user,
@@ -160,17 +159,15 @@ def creer_bon_sortie_direct(request):
                 entree.bon_sortie = bon
                 entree.save(update_fields=['bon_sortie'])
 
-
-
-                     # Mettre à jour la réception associée
+                # Mettre à jour la réception associée
                 if reception is not None:
                     reception.statut = StatutVehicule.BON_SORTIE_FAIT
                     champs = ['statut']
                     if a_champ(reception, 'date_sortie'):
-                       reception.date_sortie = timezone.now()
-                       champs.append('date_sortie')
+                        reception.date_sortie = timezone.now()
+                        champs.append('date_sortie')
                     reception.save(update_fields=champs)
-                
+
                 _gen_qr(bon)
                 log_action(request, ActionType.CREATION, 'GUERITE', bon)
 
@@ -184,6 +181,7 @@ def creer_bon_sortie_direct(request):
         'form': BonSortieForm(),
         'reception': None,
     })
+
 
 
 @admin_required

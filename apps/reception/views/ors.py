@@ -14,6 +14,8 @@ from apps.atelier.views import _entree_from_or, enrich_taches_duree
 from apps.audit.models import ActionType
 from apps.audit.service import log_action
 from apps.reception.models import Reception, StatutVehicule
+from django.utils.dateparse import parse_date
+from django.views.decorators.http import require_POST
 
 from ._utils import _notifier
 
@@ -70,41 +72,48 @@ def detail_or_rec(request, or_id):
 
 
 @receptionniste_required
-def date_depot_devis(request, rec_id):
+@require_POST
+def date_depot_facture(request, rec_id):
     rec = get_object_or_404(Reception, id=rec_id)
 
+    # ── Le véhicule doit être sorti ──
     if rec.statut != 'SORTI':
         messages.error(request, "Le véhicule doit être sorti pour saisir la date de dépôt.")
         return redirect('detail_reception', rec_id=rec.id)
 
-    if request.method == 'POST':
-        date_str = request.POST.get('date_depot_devis', '').strip()
-        if not date_str:
-            messages.error(request, "La date de dépôt est obligatoire.")
-            return redirect('detail_reception', rec_id=rec.id)
+    # ── Récupération des champs ──
+    date_str    = request.POST.get('date_depot_facture', '').strip()
+    ref_facture = request.POST.get('reference_facture', '').strip()
 
-        try:
-            from datetime import datetime
-            date_depot = datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            messages.error(request, "Date invalide.")
-            return redirect('detail_reception', rec_id=rec.id)
+    if not date_str:
+        messages.error(request, "La date de dépôt est obligatoire.")
+        return redirect('detail_reception', rec_id=rec.id)
 
-        if rec :
-            rec.statut = StatutReception.DEVIS
-            rec.date_depot_devis = date_depot
-            rec.save(update_fields=['statut', 'date_depot_devis'])
+    # ── Parsing (accepte YYYY-MM-DD et autres formats ISO) ──
+    date_depot = parse_date(date_str)
+    if date_depot is None:
+        messages.error(request, "Date invalide.")
+        return redirect('detail_reception', rec_id=rec.id)
 
+    # ── Enregistrement ──
+    rec.statut             = StatutReception.FACTURE
+    rec.date_depot_facture = date_depot
+    rec.reference_facture  = ref_facture
+    rec.date_systeme_facture_create = timezone.localdate()  # auto
 
-        log_action(request, ActionType.MODIFICATION, 'RECEPTION', rec, {
-            'date_depot_devis': str(date_depot),
-        })
-        messages.success(
-            request,
-            f"Date de dépôt enregistrée : {date_depot.strftime('%d/%m/%Y')}.",
-        )
+    rec.save(update_fields=['statut', 'date_depot_facture', 'reference_facture', 'date_systeme_facture_create'])
 
+    log_action(request, ActionType.MODIFICATION, 'RECEPTION', rec, {
+        'date_depot_facture': str(date_depot),
+        'reference_facture':  ref_facture,
+    })
+
+    messages.success(
+        request,
+        f"Date de dépôt enregistrée : {date_depot.strftime('%d/%m/%Y')}.",
+    )
     return redirect('detail_reception', rec_id=rec.id)
+
 
 
 @receptionniste_required

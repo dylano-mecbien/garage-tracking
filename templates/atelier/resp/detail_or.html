@@ -303,7 +303,7 @@
           <span class="text-small text-muted">Aucun technicien assigné</span>
           {% endfor %}
         </div>
-
+ 
         {# ── Actions ── #}
         <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;">
 
@@ -338,12 +338,15 @@
               📄 Voir le compte rendu
             </button>
 
-          {% elif t.statut == 'EN_COURS' or t.statut == 'A_FAIRE' %}
-            <button type="button" class="btn btn-outline btn-sm"
+         
+          {% endif %}
+
+{% if t.statut != 'TERMINEE' or t.statut != 'VALIDEE' %}
+             <button type="button" class="btn btn-outline btn-sm"
                     onclick="openModal('cl-{{ t.id }}')">
               🔒 Clôturer à la place du technicien
             </button>
-          {% endif %}
+{% endif %}
         </div>
 
       </div>

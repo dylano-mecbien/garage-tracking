@@ -21,10 +21,11 @@ var/
 # Django
 *.log
 *.pot
+.env
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-
+static/
 venv/
 env/
 backups/
@@ -48,7 +49,7 @@ ENV/
 
 # Fichiers de log
 *.log
-
+media/
 # Fichiers de cache / tests
 *.cache
 *.cached

@@ -3,7 +3,10 @@ Garage Suivi - Settings de base
 """
 import os
 from pathlib import Path
+from datetime import timedelta
+
 from decouple import config
+from django.utils.translation import gettext_lazy as _
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -12,11 +15,10 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-produc
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 
-# settings.py
-SITE_URL = "https://garage.laprudenceplus-cm.com"
-# Apps
-INSTALLED_APPS = [
+SITE_URL = config('SITE_URL', default='https://garage.laprudenceplus-cm.com')
 
+# ─── Apps ───────────────────────────────────────────────────────────────
+INSTALLED_APPS = [
     'apps.accounts',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -31,9 +33,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'django_filters',
     # Local apps
-    
-    
-    'apps.guerite', 
+    'apps.guerite',
     'apps.vehicules',
     'apps.reception',
     'apps.notifications',
@@ -47,7 +47,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.locale.LocaleMiddleware',   # ← i18n: doit être APRÈS SessionMiddleware
+    'django.middleware.locale.LocaleMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -59,25 +59,19 @@ MIDDLEWARE = [
     'garage.middleware.SlowRequestMiddleware',
 ]
 
-
-
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Garage Suivi API',
     'DESCRIPTION': 'API complète de gestion de garage automobile',
     'VERSION': '1.0.0',
     'CONTACT': {'email': 'contact@laprudenceplus-cm.com'},
     'SERVE_INCLUDE_SCHEMA': False,
-
-    # Regroupement par tags (facultatif, rend le Swagger plus lisible)
     'TAGS': [
-        {'name': 'Auth',      'description': 'Authentification & comptes'},
+        {'name': 'Auth', 'description': 'Authentification & comptes'},
         {'name': 'Véhicules', 'description': 'Gestion des véhicules & clients'},
-        {'name': 'Guérite',   'description': 'Entrées / sorties guérite'},
+        {'name': 'Guérite', 'description': 'Entrées / sorties guérite'},
         {'name': 'Réception', 'description': 'Réception atelier'},
-        {'name': 'Atelier',   'description': 'Travaux et suivi atelier'},
+        {'name': 'Atelier', 'description': 'Travaux et suivi atelier'},
     ],
-
-    # Affichage
     'SWAGGER_UI_SETTINGS': {
         'persistAuthorization': True,
         'displayOperationId': False,
@@ -109,8 +103,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'garage.wsgi.application'
 ASGI_APPLICATION = 'garage.asgi.application'
 
-
-
+# ─── Database ───────────────────────────────────────────────────────────
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -122,7 +115,7 @@ DATABASES = {
     }
 }
 
-# Redis / Cache
+# ─── Redis / Cache ──────────────────────────────────────────────────────
 REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
 
 CACHES = {
@@ -131,20 +124,23 @@ CACHES = {
         'LOCATION': REDIS_URL,
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+        },
     }
 }
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
-SESSION_COOKIE_AGE = 604800  # 8 hours
+SESSION_COOKIE_AGE = 604800  # 7 jours
 
-# Auth
+# ─── Auth ───────────────────────────────────────────────────────────────
 AUTH_USER_MODEL = 'accounts.User'
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},
+    },
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
@@ -153,27 +149,44 @@ LOGIN_URL = '/auth/connexion/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/auth/connexion/'
 
-# Internationalization
+# ─── Internationalisation ───────────────────────────────────────────────
 LANGUAGE_CODE = 'fr-fr'
 TIME_ZONE = 'Africa/Douala'
 USE_I18N = True
+USE_L10N = True
 USE_TZ = True
 
+LANGUAGES = [
+    ('fr', _('Français')),
+    ('en', _('English')),
+]
 
-# Static & Media
+LOCALE_PATHS = [BASE_DIR / 'locale']
+
+# ─── Static & Media (stockage local — plus de MinIO) ────────────────────
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-
-
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', BASE_DIR / 'media'))
+
+DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+
+# Django ≥ 4.2 (optionnel, équivalent moderne) :
+# STORAGES = {
+#     'default': {
+#         'BACKEND': 'django.core.files.storage.FileSystemStorage',
+#     },
+#     'staticfiles': {
+#         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+#     },
+# }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# REST Framework
+# ─── REST Framework ─────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -190,8 +203,6 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-# JWT
-from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -199,11 +210,11 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
-# CORS
+# ─── CORS ───────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = config('CORS_ORIGINS', default='http://localhost:3000').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
-# Email
+# ─── Email ──────────────────────────────────────────────────────────────
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp-relay.brevo.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
@@ -212,50 +223,11 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='garage@garage.cm')
 
-
-
-# MinIO / S3
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-AWS_ACCESS_KEY_ID = config('MINIO_ACCESS_KEY', default='minioGarage')
-AWS_SECRET_ACCESS_KEY = config('MINIO_SECRET_KEY', default='minioadminGarage')
-AWS_STORAGE_BUCKET_NAME = config('MINIO_BUCKET', default='garage-docs')
-
-
-AWS_S3_USE_SSL = False
-AWS_DEFAULT_ACL = 'private'
-
-AWS_QUERYSTRING_AUTH = False                   # URLs publiques, sans signature
-
-AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', 'http://minio:9000')
-AWS_STORAGE_BUCKET_NAME = os.environ.get('MINIO_BUCKET', 'garage-docs')
-
-
-AWS_S3_URL_PROTOCOL = 'https:'
-
-# Pas de AWS_S3_CUSTOM_DOMAIN si tu gères l’URL toi-même
-AWS_S3_CUSTOM_DOMAIN = None
-
-# Celery
+# ─── Celery ─────────────────────────────────────────────────────────────
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TIMEZONE = TIME_ZONE
 
-# Security
+# ─── Security ───────────────────────────────────────────────────────────
 SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = 'SAMEORIGIN'
-
-# ─── Internationalisation (i18n) ──────────────────────────────────────────
-from django.utils.translation import gettext_lazy as _
-
-LANGUAGES = [
-    ('fr', _('Français')),
-    ('en', _('English')),
-]
-
-LOCALE_PATHS = [BASE_DIR / 'locale']
-
-# ─── URLs langue ──────────────────────────────────────────────────────────
-# Permet /fr/... et /en/... OU le cookie/session
-USE_I18N = True
-USE_L10N = True
-

@@ -186,18 +186,13 @@ def detail_reception(request, rec_id):
     entree = getattr(rec, 'entree', None)
     fiche = getattr(entree, 'fiche_controle', None)
  
-    bon_sortie = None
-    if rec.entree_id:
-        bon_sortie = getattr(rec.entree, 'bon_sortie', None)
-
-    if bon_sortie is None:
-        qs = BonSortie.objects.filter(vehicule=rec.vehicule)
-    # si le champ existe :
-        if any(f.name == 'reception' for f in BonSortie._meta.fields):
-            qs_rec = qs.filter(reception=rec)
-            bon_sortie = qs_rec.order_by('-created_at').first() or qs.order_by('-created_at').first()
-        else:
-            bon_sortie = qs.order_by('-created_at').first()
+    # ── Bon de sortie : UNIQUEMENT celui attaché à cette réception ──
+    bon_sortie = (
+        BonSortie.objects
+        .filter(reception=rec)
+        .order_by('-created_at')
+        .first()
+    )
 
     return render(request, 'reception/detail_reception.html', {
         'rec': rec,

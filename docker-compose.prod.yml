@@ -64,25 +64,6 @@ services:
     networks:
       - garage_internal
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - "0.0.0.0:9000:9000"
-      - "0.0.0.0:9001:9001"
-    volumes:
-      - minio_data:/data
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-    - garage_internal
 
   # ─── Application Django (Gunicorn) ─────────────────────────────────────
   web:
@@ -126,10 +107,6 @@ services:
     - DB_PASSWORD=${DB_PASSWORD}
     - DB_PORT=${DB_PORT}                    # ⬅️ AJOUT OBLIGATOIRE
     - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-    - MINIO_ENDPOINT=${MINIO_ENDPOINT}
-    - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-    - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-    - MINIO_BUCKET=${MINIO_BUCKET}
     - EMAIL_HOST=${EMAIL_HOST}
     - EMAIL_HOST_USER=${EMAIL_HOST_USER}
     - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
@@ -211,4 +188,3 @@ volumes:
   logs_volume:
   certbot_certs:
   certbot_www:
-  minio_data:

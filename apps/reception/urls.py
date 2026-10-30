@@ -28,7 +28,7 @@ path('reception/<uuid:rec_id>/ref-devis/', views.ref_devis, name='ref_devis'),
 
     # ── Ordres de réparation ─────────────────────────────────────
     path('or/<uuid:or_id>/cloture/',                views.cloture_or,                  name='cloture_or_rec'),
-    path('reception/<uuid:rec_id>/date-depot-devis/', views.date_depot_devis, name='date_depot_devis'),
+    path('reception/<uuid:rec_id>/date-depot-devis/', views.date_depot_facture, name='date_depot_facture'),
     path('or/<uuid:or_id>/reouverture/',            views.reouverture_or,              name='reouverture_or_rec'),
 
     # ── Bons de sortie — liste & export ──────────────────────────

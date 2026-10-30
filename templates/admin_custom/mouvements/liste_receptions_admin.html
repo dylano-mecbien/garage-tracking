@@ -62,7 +62,6 @@
     <a href="{% url 'liste_receptions_admin' %}" class="btn btn-outline">✕</a>
   </form>
 </div>
-
 <div class="card">
   <div class="table-wrap">
     <table>
@@ -72,7 +71,7 @@
           <th>Véhicule</th>
           <th>Client</th>
           <th>Statut</th>
-          <th>Atelier</th>
+          <th>Atelier(s)</th>
           <th>Réceptionniste</th>
           <th>Date</th>
           <th>Actions</th>
@@ -82,55 +81,114 @@
 
         {% for r in receptions %}
         <tr>
-          <td><a href="{% url 'detail_rec_admin' r.id %}"><strong>{{ r.vehicule.immatriculation }}</strong></a></td>
-          <td><strong>{{ r.vehicule.marque }}</strong><br><span class="text-small text-muted">{{ r.vehicule.modele }}</span></td>
-          <td>{{ r.vehicule.client }}</td>
-      <td>
-  {% if r.statut == 'RAPPORT_FAIT' %}
-    <span class="badge badge-a-faire">Réception en attente</span>
-
-  {% elif r.statut == 'PRESENT_ATELIER' %}
-    <span class="badge badge-info">Présent atelier</span>
-
-  {% elif r.statut == 'FICHE_TECHNIQUE' %}
-    <span class="badge badge-info">Fiche technique établie</span>
-
-  {% elif r.statut == 'REPARATION_EN_COURS' %}
-    <span class="badge badge-en-cours">Réparation en cours</span>
-
-  {% elif r.statut == 'TRAVAUX_TERMINES' %}
-    <span class="badge badge-success">Travaux terminés</span>
-
-  {% elif r.statut == 'BON_SORTIE_FAIT' %}
-    <span class="badge badge-ouvert">Bon de sortie établi</span>
-
-  {% else %}
-    <span class="badge badge-secondary">{{ r.get_statut_display }}</span>
-  {% endif %}
-</td>
+          {# ── N° ── #}
           <td>
-  {% for at in r.ordre_reparation.ateliers.all %}
-    <span class="badge badge-info" style="font-size:11px;">{{ at.nom }}</span>
-  {% empty %}
-    <span class="text-muted text-small">—</span>
-  {% endfor %}
-</td>
-          <td class="text-small">{{ r.receptionniste.full_name|default:"—" }}</td>
-          <td class="text-small text-muted">{{ r.created_at|date:"d/m/Y H:i" }}</td>
+            <a href="{% url 'detail_rec_admin' r.id %}">
+              <strong>{{ r.numero }}</strong>
+            </a>
+          </td>
+
+          {# ── Véhicule ── #}
+          <td>
+            <strong>{{ r.vehicule.immatriculation }}</strong><br>
+            <span class="text-small text-muted">
+              {{ r.vehicule.marque }} {{ r.vehicule.modele }}
+            </span>
+          </td>
+
+          {# ── Client ── #}
+          <td>
+            {{ r.vehicule.client }}
+            {% if r.vehicule.client.telephone %}
+              <br><span class="text-small text-muted">{{ r.vehicule.client.telephone }}</span>
+            {% endif %}
+          </td>
+
+          {# ── Statut + progression ── #}
+          <td style="min-width:180px;">
+            {% if r.statut == 'RAPPORT_FAIT' %}
+              <span class="badge badge-a-faire">Réception en attente</span>
+
+            {% elif r.statut == 'PRESENT_ATELIER' %}
+              <span class="badge badge-info">Présent atelier</span>
+
+            {% elif r.statut == 'FICHE_TECHNIQUE' %}
+              <span class="badge" style="background:#e0e7ff;color:#3730a3;">Fiche technique</span>
+
+            {% elif r.statut == 'REPARATION_EN_COURS' %}
+              <span class="badge badge-en-cours"> Réparation en cours</span>
+
+            {% elif r.statut == 'TRAVAUX_TERMINES' %}
+              <span class="badge badge-success"> Travaux terminés</span>
+
+            {% elif r.statut == 'BON_SORTIE_FAIT' %}
+              <span class="badge" style="background:#ccfbf1;color:#115e59;"> Bon de sortie</span>
+
+            {% elif r.statut == 'SORTI' %}
+              <span class="badge" style="background:#f1f5f9;color:#475569;">Sorti</span>
+
+            {% elif r.statut == 'FACTURE' %}
+              <span class="badge" style="background:#15803d;color:#fff;"> Facturé</span>
+
+            {% else %}
+              <span class="badge badge-secondary">{{ r.get_statut_display }}</span>
+            {% endif %}
+
+            {# Barre de progression #}
+            <div class="prog-bar" style="height:5px;margin-top:6px;">
+              <div class="prog-fill"
+                   style="width:{{ r.progression_pct }}%;
+                          {% if r.progression_pct == 100 %}background:var(--success);
+                          {% elif r.progression_pct >= 85 %}background:#14b8a6;
+                          {% elif r.progression_pct >= 60 %}background:var(--warning);
+                          {% endif %}"></div>
+            </div>
+            <div class="text-small text-muted" style="font-size:10px;margin-top:2px;">
+              {{ r.progression_pct }}%
+            </div>
+          </td>
+
+          {# ── Atelier(s) ── #}
+          <td>
+            {% for at in r.ordre_reparation.ateliers.all %}
+              <span class="badge" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);font-size:11px;">
+                 {{ at.nom }}
+              </span>
+            {% empty %}
+              <span class="text-muted text-small">—</span>
+            {% endfor %}
+          </td>
+
+          {# ── Réceptionniste ── #}
+          <td class="text-small">
+            {{ r.receptionniste.full_name|default:"—" }}
+          </td>
+
+          {# ── Date ── #}
+          <td class="text-small text-muted">
+            {{ r.created_at|date:"d/m/Y" }}<br>
+            <span style="font-size:11px;">{{ r.created_at|date:"H:i" }}</span>
+          </td>
+
+          {# ── Actions ── #}
           <td>
             <div style="display:flex;gap:4px;">
-              <a href="{% url 'detail_rec_admin' r.id %}" class="btn btn-info btn-sm">👁</a>
-              
+              <a href="{% url 'detail_rec_admin' r.id %}"
+                 class="btn btn-info btn-sm" title="Voir le détail">👁</a>
             </div>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="8" class="text-center text-muted" style="padding:30px;">Aucune réception</td></tr>
+        <tr>
+          <td colspan="8" class="text-center text-muted" style="padding:30px;">
+            Aucune réception
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
-{% include "_pagination.html" with page_obj=page_obj filters=filters %}
+  {% include "_pagination.html" with page_obj=page_obj filters=filters %}
 </div>
 {% endblock %}

@@ -45,11 +45,13 @@ class Reception(models.Model):
         null=True, related_name='receptions_gerees'
     )
 
-    # devis
     reference_devis   = models.TextField(blank=True)
-    date_creation_devis   = models.DateField(blank=True)
+    date_creation_devis  = models.DateField(blank=True)
     date_systeme_devis_create = models.DateField(blank=True)
-    date_depot_devis   = models.DateField(blank=True)
+    # FACTURE
+    reference_facture  = models.TextField(blank=True)
+    date_systeme_facture_create = models.DateField(blank=True)
+    date_depot_facture   = models.DateField(blank=True)
 
 
     observations   = models.TextField(blank=True)
@@ -184,7 +186,7 @@ class Reception(models.Model):
         'TRAVAUX_TERMINES':    75,
         'BON_SORTIE_FAIT':     85,
         'SORTI':               95,
-        'DEVIS':               100,
+        'FACTURE':               100,
         }
         return pct.get(self.statut, 0)
 
@@ -203,7 +205,7 @@ class Reception(models.Model):
             'TRAVAUX_TERMINES':    ('📄', 'Créer le bon de sortie', 'success'),
             'BON_SORTIE_FAIT':     ('🚗', 'Bon de sortie prêt — guérite peut libérer le véhicule', 'success'),
             'SORTI':               ('✅', 'Véhicule sorti du garage', 'secondary'),
-            'DEVIS':               ('📄', 'Devis créé', 'secondary'),
+            'FACTURE':               ('📄', 'Facture créé', 'secondary'),
         }
         return actions.get(s, ('?', '—', 'secondary'))
 

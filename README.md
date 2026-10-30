@@ -395,5 +395,7 @@ docker compose -f docker-compose.staging.yml run --rm certbot certonly \
   -d dev.laprudenceplus-cm.com \
   --email dylanogold@gmail.com --agree-tos --no-eff-email
 
+ docker run --rm   -v garage-tracking_certbot_certs:/etc/letsencrypt   -v garage-tracking_certbot_www:/var/www/certbot   certbot/certbot certonly --webroot -w /var/www/certbot   -d dev.laprudenceplus-cm.com   --email dylanogold@gmail.com --agree-tos --no-eff-email
+
 # 4. Activer les lignes ssl_certificate dans nginx.staging.conf
 docker compose -f docker-compose.staging.yml restart nginx

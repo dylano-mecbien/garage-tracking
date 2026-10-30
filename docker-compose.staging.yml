@@ -52,26 +52,7 @@ services:
       - garage_test
 
   # ─── MinIO ──────────────────────────────────────────────────
-  minio:
-    image: cgr.dev/chainguard/minio:latest
-    container_name: garage_minio_test
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - "0.0.0.0:9000:9000"
-      - "0.0.0.0:9001:9001"
-    volumes:
-      - minio_data_test:/data
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - garage_test
+
 
   # ─── Django / Gunicorn ──────────────────────────────────────
   web:
@@ -109,11 +90,6 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_PORT=${DB_PORT:-5432}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - MINIO_BUCKET=${MINIO_BUCKET}
-      - MINIO_USE_SSL=${MINIO_USE_SSL:-False}
       - EMAIL_HOST=${EMAIL_HOST}
       - EMAIL_PORT=${EMAIL_PORT:-587}
       - EMAIL_HOST_USER=${EMAIL_HOST_USER}
@@ -206,4 +182,3 @@ volumes:
   logs_volume_test:
   certbot_certs_test:
   certbot_www_test:
-  minio_data_test:

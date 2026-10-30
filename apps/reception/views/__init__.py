@@ -18,7 +18,7 @@ from .receptions import (
     detail_vehicule, historique_entrees, liste_receptions, liste_vehicules_presents,
     modifier_motif_reception,ref_devis,
 )
-from .ors import cloture_or, detail_or_rec, liste_or, reouverture_or,date_depot_devis
+from .ors import cloture_or, detail_or_rec, liste_or, reouverture_or,date_depot_facture
 from .bons import (
     creer_bon_sortie, creer_bon_sortie_direct, creer_bon_sortie_divers,
     detail_bon_sortie_guerite, export_bons_pdf, liste_bons_sortie, pdf_bon_sortie,

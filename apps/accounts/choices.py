@@ -113,7 +113,7 @@ class StatutVehicule(models.TextChoices):
     # Étape 3 : sortie
     BON_SORTIE_FAIT     = 'BON_SORTIE_FAIT',     'Bon de sortie établi'
     SORTI               = 'SORTI',               'Véhicule sorti'
-    DEVIS     = 'DEVIS',     'Devis déposé'
+    FACTURE     = 'FACTURE',     'facture déposé'
 
 
 class StatutReception(models.TextChoices):
@@ -126,7 +126,7 @@ class StatutReception(models.TextChoices):
     TRAVAUX_TERMINES    = 'TRAVAUX_TERMINES',    ' Travaux terminés'
     # Étape 3 : sortie
     BON_SORTIE_FAIT     = 'BON_SORTIE_FAIT',     'Bon de sortie établi'
-    DEVIS     = 'DEVIS',     'Devis déposé'
+    FACTURE     = 'FACTURE',     'facture déposé'
 
 
 class StatutVehiculeAtelier(models.TextChoices):

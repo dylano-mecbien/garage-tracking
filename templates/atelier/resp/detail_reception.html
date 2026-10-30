@@ -187,6 +187,25 @@
     </div>
     {% endfor %}
 
+        {# 6. Contrôle Qualité (signature client après) #}
+    <div class="tl-item">
+      <div class="tl-dot {% if signature_apres_faite %}done{% elif rec.statut == 'TRAVAUX_TERMINES' %}active{% else %}wait{% endif %}">
+        {% if signature_apres_faite %}✓{% else %}✍{% endif %}
+      </div>
+      <div>
+        <div class="font-bold text-small">Contrôle Qualité</div>
+        <div class="text-small text-muted">
+          {% if signature_apres_faite %}
+            Signé · {{ rec.date_cloture|default:"—"|date:"d/m/Y" }}
+          {% elif rec.statut == 'TRAVAUX_TERMINES' %}
+            <span style="color:var(--accent);">À faire</span>
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    
     {# 5. Bon de sortie #}
     <div class="tl-item">
       <div class="tl-dot {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}done{% elif rec.statut == 'TRAVAUX_TERMINES' %}active{% else %}wait{% endif %}">
@@ -215,7 +234,7 @@
           {% else %}—{% endif %}
         </div>
       </div>
-    </div>
+    </div> 
 
     {# 7. Dépôt devis #}
     <div class="tl-item">

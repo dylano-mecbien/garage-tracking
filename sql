@@ -77,7 +77,11 @@ CREATE TABLE IF NOT EXISTS receptions (
     reference_devis            TEXT NOT NULL DEFAULT '',
      date_creation_devis        DATE,
      date_systeme_devis_create  DATE,
-     date_depot_devis           DATE,
+
+    reference_facture           TEXT NOT NULL DEFAULT '',
+*     date_systeme_facture_create  DATE,
+     date_depot_facture          DATE,
+
 
     -- ── Contrainte sur le statut ──
     CONSTRAINT receptions_statut_check
@@ -90,7 +94,7 @@ CREATE TABLE IF NOT EXISTS receptions (
             'TRAVAUX_TERMINES',
             'BON_SORTIE_FAIT',
             'SORTI',
-            'DEVIS'
+            'FACTURE'
         ))
 );
 

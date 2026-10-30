@@ -47,7 +47,7 @@ MAX_SIZE = 2 * 1024 * 1024  # 2 Mo
 def save_signature_to_storage(data_url, folder='signatures', field_name='sig'):
     """
     Convertit un dataURL (base64) en fichier image, le sauvegarde sur le storage
-    (local ou MinIO) et retourne le chemin relatif, ou None si la conversion échoue.
+    (local ) et retourne le chemin relatif, ou None si la conversion échoue.
     """
     if not data_url or not isinstance(data_url, str) or not data_url.startswith('data:image'):
         return None

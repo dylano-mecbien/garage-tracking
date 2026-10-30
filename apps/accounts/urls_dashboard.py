@@ -16,8 +16,8 @@ urlpatterns = [
     path('Ordre-reparation/admin/',                            views.liste_or,           name='liste_or_admin'),
     path('<uuid:or_id>/details_or/',               views.detail_or_admin,            name='detail_or_admin'),
         # ── Ordres de réparation ─────────────────────────────────────
-        path('or/<uuid:or_id>/cloture/',                views.cloture_or,                  name='cloture_or_admin'),
-        path('or/<uuid:or_id>/reouverture/',            views.reouverture_or,              name='reouverture_or_admin'),
+     path('or/<uuid:or_id>/cloture/',                views.cloture_or,                  name='cloture_or_admin'),
+    path('or/<uuid:or_id>/reouverture/',            views.reouverture_or,              name='reouverture_or_admin'),
         
     
 
@@ -27,7 +27,10 @@ urlpatterns = [
      path('utilisateurs/<uuid:user_id>/', detail_utilisateur, name='detail_utilisateur'),
     path('admin-garage/<uuid:rec_id>/rec',                          views.detail_reception,            name='detail_rec_admin'),
         path('creer/',                                   views.creer_reception_admin,             name='creer_reception_admin'),
-    path('reception/<uuid:rec_id>/date-depot-devis/', views.date_depot_devis, name='date_depot_devis_admin'),
+
+    path('reception/<uuid:rec_id>/date-depot-facture/', views.date_depot_facture, name='date_depot_facture_admin'),
+
+    
 
 
     path('admin-garage/<uuid:rec_id>/bon-sortie/',            views.creer_bon_sortie,   name='creer_sortie_lien_admin'),
