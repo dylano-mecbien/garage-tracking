@@ -14,8 +14,16 @@
   display:flex;justify-content:space-between;align-items:center;}
 .cmp-sec h3 .nb{font-size:12px;font-weight:700;padding:2px 10px;border-radius:12px;background:#fef3c7;color:#92400e;}
 .cmp-t{width:100%;border-collapse:collapse;font-size:13px;}
-.cmp-t th{text-align:left;padding:7px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);}
+
+/* ── En-têtes bien visibles : Élément (bleu), Avant (gris ardoise), Maintenant (orange) ── */
+.cmp-t thead th{text-align:left;padding:10px 14px;font-size:12.5px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.5px;color:#fff;background:#1a3a5c;}
+.cmp-t thead th.h-avant{background:#475569;}
+.cmp-t thead th.h-apres{background:#e67e22;}
+.cmp-t thead th small{display:block;font-size:10.5px;font-weight:600;text-transform:none;letter-spacing:0;opacity:.85;}
+
 .cmp-t td{padding:8px 14px;border-top:1px solid var(--border);vertical-align:top;}
+.cmp-t td.el{font-weight:700;color:var(--text,#1e293b);}
 .cmp-t td.v{font-weight:700;width:24%;}
 .cmp-t .good{color:#15803d;} .cmp-t .bad{color:#b91c1c;}
 .cmp-t tr.t-pire td{background:#fee2e2;} .cmp-t tr.t-mieux td{background:#dcfce7;} .cmp-t tr.t-change td{background:#fef3c7;}
@@ -25,7 +33,16 @@
 .cmp-only-diff tr.t-same{display:none;}
 .cmp-schemas{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;padding:12px 14px;border-top:1px solid var(--border);}
 .cmp-schemas canvas{width:100%;border:1.5px solid var(--border);border-radius:8px;background:#f8fafc;}
-@media print{ .cmp-toggle{display:none;} .cmp-sec{break-inside:avoid;} }
+
+/* Étiquettes au-dessus des schémas */
+.cmp-lbl{display:inline-block;margin-bottom:8px;padding:5px 14px;border-radius:6px;color:#fff;
+  font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;}
+.cmp-lbl.avant{background:#475569;} .cmp-lbl.apres{background:#e67e22;}
+
+@media print{
+  .cmp-toggle{display:none;} .cmp-sec{break-inside:avoid;}
+  .cmp-t thead th,.cmp-lbl{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}
 </style>
 
 <div class="cmp-km">
@@ -49,11 +66,15 @@
 <div class="cmp-sec">
   <h3>{{ s.titre }}{% if s.nb_diff %}<span class="nb">{{ s.nb_diff }} différence{{ s.nb_diff|pluralize }}</span>{% endif %}</h3>
   <table class="cmp-t">
-    <thead><tr><th>Élément</th><th>Avant (entrée)</th><th>Maintenant (sortie)</th></tr></thead>
+    <thead><tr>
+      <th>Élément</th>
+      <th class="h-avant">Avant<small>à l'entrée</small></th>
+      <th class="h-apres">Maintenant<small>à la sortie</small></th>
+    </tr></thead>
     <tbody>
     {% for l in s.lignes %}
       <tr class="{% if l.tendance %}t-{{ l.tendance }}{% else %}t-same{% endif %}">
-        <td>{{ l.libelle }}</td>
+        <td class="el">{{ l.libelle }}</td>
         <td class="v {{ l.avant_css }}">{{ l.avant_txt }}</td>
         <td class="v apres {{ l.apres_css }}">{{ l.apres_txt }}</td>
       </tr>
@@ -65,8 +86,8 @@
   </table>
   {% if s.titre == "Peinture et carrosserie" %}
   <div class="cmp-schemas">
-    <div><div class="text-small font-bold">Avant</div><canvas id="cmp-schema-avant" width="600" height="280"></canvas></div>
-    <div><div class="text-small font-bold">Maintenant</div><canvas id="cmp-schema-apres" width="600" height="280"></canvas></div>
+    <div><span class="cmp-lbl avant">Avant</span><canvas id="cmp-schema-avant" width="600" height="280"></canvas></div>
+    <div><span class="cmp-lbl apres">Maintenant</span><canvas id="cmp-schema-apres" width="600" height="280"></canvas></div>
   </div>
   {% endif %}
 </div>

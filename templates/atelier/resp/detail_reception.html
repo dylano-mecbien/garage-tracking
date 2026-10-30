@@ -142,8 +142,8 @@
 
     {# 3. Fiche de contrôle #}
     <div class="tl-item">
-      <div class="tl-dot {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}done{% elif a_fiche_controle %}active{% else %}wait{% endif %}">
-        {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}✓{% else %}📋{% endif %}
+      <div class="tl-dot {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}done{% elif a_fiche_controle %}active{% else %}wait{% endif %}">
+        {% if fiche_technique or rec.statut == 'REPARATION_EN_COURS' or rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}✓{% else %}📋{% endif %}
       </div>
       <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <div>
@@ -164,13 +164,13 @@
 
     {# 4. Travaux #}
     <div class="tl-item">
-      <div class="tl-dot {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}done{% elif rec.statut == 'REPARATION_EN_COURS' %}active{% else %}wait{% endif %}">
-        {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}✓{% else %}🔧{% endif %}
+      <div class="tl-dot {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}done{% elif rec.statut == 'REPARATION_EN_COURS' %}active{% else %}wait{% endif %}">
+        {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}✓{% else %}🔧{% endif %}
       </div>
       <div>
         <div class="font-bold text-small">Travaux</div>
         <div class="text-small text-muted">
-          {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}Terminés ✅
+          {% if rec.statut == 'TRAVAUX_TERMINES' or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}Terminés ✅
           {% elif rec.statut == 'REPARATION_EN_COURS' %}En cours...
           {% else %}En attente{% endif %}
         </div>
@@ -208,8 +208,8 @@
     
     {# 5. Bon de sortie #}
     <div class="tl-item">
-      <div class="tl-dot {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}done{% elif rec.statut == 'TRAVAUX_TERMINES' %}active{% else %}wait{% endif %}">
-        {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}✓{% else %}📄{% endif %}
+      <div class="tl-dot {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}done{% elif rec.statut == 'TRAVAUX_TERMINES' %}active{% else %}wait{% endif %}">
+        {% if bon_sortie or rec.statut == 'BON_SORTIE_FAIT' or rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}✓{% else %}📄{% endif %}
       </div>
       <div>
         <div class="font-bold text-small">Bon de sortie</div>
@@ -223,28 +223,28 @@
 
     {# 6. Sortie #}
     <div class="tl-item">
-      <div class="tl-dot {% if rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}done{% elif rec.statut == 'BON_SORTIE_FAIT' %}active{% else %}wait{% endif %}">
-        {% if rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}✓{% else %}🚪{% endif %}
+      <div class="tl-dot {% if rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}done{% elif rec.statut == 'BON_SORTIE_FAIT' %}active{% else %}wait{% endif %}">
+        {% if rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}✓{% else %}🚪{% endif %}
       </div>
       <div>
         <div class="font-bold text-small">Sortie</div>
         <div class="text-small text-muted">
-          {% if rec.statut == 'SORTI' or rec.statut == 'DEVIS' %}Sorti ✅
+          {% if rec.statut == 'SORTI' or rec.statut == 'FACTURE' %}Sorti ✅
           {% elif rec.statut == 'BON_SORTIE_FAIT' %}<span style="color:var(--accent);">En attente guérite</span>
           {% else %}—{% endif %}
         </div>
       </div>
     </div> 
 
-    {# 7. Dépôt devis #}
+    {# 7. Dépôt FACTURE #}
     <div class="tl-item">
-      <div class="tl-dot {% if rec.statut == 'DEVIS' or rec.date_depot_devis %}done{% elif rec.statut == 'SORTI' %}active{% else %}wait{% endif %}">
-        {% if rec.statut == 'DEVIS' or rec.date_depot_devis %}✓{% else %}📅{% endif %}
+      <div class="tl-dot {% if rec.statut == 'FACTURE' or rec.date_depot_facture %}done{% elif rec.statut == 'SORTI' %}active{% else %}wait{% endif %}">
+        {% if rec.statut == 'FACTURE' or rec.date_depot_facture %}✓{% else %}📅{% endif %}
       </div>
       <div>
-        <div class="font-bold text-small">Dépôt devis / facture</div>
+        <div class="font-bold text-small">Dépôt facture</div>
         <div class="text-small text-muted">
-          {% if rec.date_depot_devis %}{{ rec.date_depot_devis|date:"d/m/Y" }}
+          {% if rec.date_depot_facture %}{{ rec.date_depot_facture|date:"d/m/Y" }}
           {% elif rec.statut == 'SORTI' %}<span style="color:var(--accent);">À renseigner</span>
           {% else %}—{% endif %}
         </div>
