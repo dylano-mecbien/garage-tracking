@@ -218,7 +218,7 @@ def afficher(nom, valeur):
 def qualite(nom, valeur):
     """'good' | 'bad' | '' — sert au code couleur."""
     if valeur in (None, '', []):
-        return ''
+        return '' 
     if nom == 'points_degats_carrosserie':
         return 'bad' if _points_norm(valeur) else 'good'
     if isinstance(valeur, bool):

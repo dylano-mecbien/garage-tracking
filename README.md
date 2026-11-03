@@ -376,10 +376,18 @@ sudo systemctl stop postgresql
 make prod-logs-nginx
 ```
 
+copier les images de minio vert labas
+scp -r ./10-28-2026-16-50-17_files_list root@77.237.241.55:/home/deploy/garage-tracking/medias_import
 
+docker run --rm -v garage-tracking_media_volume_test:/media \
+  -v ~/garage-tracking/medias_import:/src alpine cp -a /src/. /media/
+docker run --rm -v garage-tracking_media_volume_test:/m alpine ls /m
 
+docker volume rm garage-tracking_minio_data_test
 
+ docker volume ls -f dangling=true 
 
+docker volume prune 
 
 envirronement test
 
