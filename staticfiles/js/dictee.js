@@ -72,20 +72,36 @@
     return txt.replace(/([.!?]\s+|\n)(\p{Ll})/gu, function (m, sep, c) { return sep + c.toUpperCase(); });
   }
 
-  // Insère le texte au curseur, avec espace et majuscule au bon endroit
-  function inserer(field, texte) {
-    texte = nettoyer(texte).trim();
-    if (!texte) return;
-    var val = field.value;
-    var deb = typeof field.selectionStart === 'number' ? field.selectionStart : val.length;
-    var fin = typeof field.selectionEnd === 'number' ? field.selectionEnd : val.length;
-    var avant = val.slice(0, deb), apres = val.slice(fin);
-    var avantTrim = avant.replace(/\s+$/, '');
-    if (avantTrim === '' || /[.!?\n]$/.test(avant.replace(/ +$/, ''))) {
-      texte = texte.charAt(0).toUpperCase() + texte.slice(1);
+  // Assemble les résultats définitifs en supprimant les répétitions.
+  // Chrome (surtout Android) renvoie souvent la même phrase plusieurs fois,
+  // ou une version qui reprend la précédente en la complétant.
+  function assembler(results) {
+    var morceaux = [];
+    for (var i = 0; i < results.length; i++) {
+      if (!results[i] || !results[i].isFinal) continue;
+      var t = results[i][0].transcript.trim();
+      if (!t) continue;
+      var dernier = morceaux.length ? morceaux[morceaux.length - 1] : null;
+      var tl = t.toLowerCase(), dl = dernier && dernier.toLowerCase();
+      if (dernier !== null && tl.indexOf(dl) === 0) morceaux[morceaux.length - 1] = t; // version complétée
+      else if (dernier !== null && dl.indexOf(tl) === 0) continue;                    // doublon plus court
+      else morceaux.push(t);
     }
-    if (avant && !/\s$/.test(avant) && !/^[,.;?!\n]/.test(texte)) texte = ' ' + texte;
-    if (apres && !/^\s/.test(apres) && !/\n$/.test(texte)) texte = texte + ' ';
+    return morceaux.join(' ');
+  }
+
+  // Écrit le texte dicté entre "avant" et "apres" (figés au démarrage), avec espace et majuscule
+  function ecrire(a, brut) {
+    var field = a.field, avant = a.avant, apres = a.apres;
+    var texte = nettoyer(brut).trim();
+    if (texte) {
+      if (avant.replace(/\s+$/, '') === '' || /[.!?\n]$/.test(avant.replace(/ +$/, ''))) {
+        texte = texte.charAt(0).toUpperCase() + texte.slice(1);
+      }
+      if (avant && !/\s$/.test(avant) && !/^[,.;?!\n]/.test(texte)) texte = ' ' + texte;
+      if (apres && !/^\s/.test(apres) && !/\n$/.test(texte)) texte = texte + ' ';
+    }
+    if (avant + texte + apres === field.value) return;
     field.value = avant + texte + apres;
     var pos = (avant + texte).length;
     try { field.setSelectionRange(pos, pos); } catch (e) {}
@@ -130,7 +146,12 @@
     reco.interimResults = true;
     reco.maxAlternatives = 1;
 
-    var a = { field: field, btn: btn, live: live, reco: reco, timer: null };
+    var val = field.value;
+    var focus = document.activeElement === field;
+    var deb = focus && typeof field.selectionStart === 'number' ? field.selectionStart : val.length;
+    var fin = focus && typeof field.selectionEnd === 'number' ? field.selectionEnd : val.length;
+    var a = { field: field, btn: btn, live: live, reco: reco, timer: null,
+              avant: val.slice(0, deb), apres: val.slice(fin) };
     actif = a;
 
     function relancerMinuteur() {
@@ -140,11 +161,11 @@
 
     reco.onresult = function (ev) {
       if (actif !== a) return;
+      // On relit toute la liste à chaque fois (au lieu de resultIndex, peu fiable sur Android)
+      ecrire(a, assembler(ev.results));
       var provisoire = '';
-      for (var i = ev.resultIndex; i < ev.results.length; i++) {
-        var r = ev.results[i];
-        if (r.isFinal) inserer(field, r[0].transcript);
-        else provisoire += r[0].transcript;
+      for (var i = 0; i < ev.results.length; i++) {
+        if (ev.results[i] && !ev.results[i].isFinal) provisoire = ev.results[i][0].transcript;
       }
       live.textContent = provisoire ? '… ' + provisoire : '';
       relancerMinuteur();
