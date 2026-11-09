@@ -10,7 +10,7 @@
   <li><a href="{% url 'audit_logs' %}"><span class="icon">📋</span> Logs d'audit</a></li>
   <li><a href="{% url 'admin_nettoyage' %}"><span class="icon">🧹</span> Nettoyage</a></li>
   <li><a href="{% url 'inventaire_admin_liste' %}"><span class="icon">📋</span> Inventaire</a></li>
-  <li><a href="{% url 'liste_or_admin' %} " ><span class="icon">🔧</span> Ordres de réparation</a></li>
+  <li><a href="{% url 'liste_or_admin' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
   <li class="has-submenu">
     <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
     <ul class="submenu">
@@ -67,7 +67,9 @@
   background: var(--surface); border-radius: 20px;
   padding: 6px 14px; font-size: 12px; font-weight: 600;
   border: 1px solid var(--border); display: flex; align-items: center; gap: 6px;
+  text-decoration: none; color: inherit;
 }
+a.stat-chip:hover { filter: brightness(0.97); }
 
 .tbl-toolbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -77,6 +79,13 @@
 .etat-creer       { background:#f1f5f9; color:#475569; }
 .etat-approbation { background:#fef3c7; color:#92400e; }
 .etat-valider     { background:#d1fae5; color:#065f46; }
+.etat-refuser     { background:#fee2e2; color:#991b1b; }   /* manquait */
+
+.actions-cell { display:flex; gap:4px; flex-wrap:nowrap; }
+.btn-warning-sm {
+  background:#fef3c7; color:#92400e; border:1px solid #fde68a;
+}
+.btn-warning-sm:hover { background:#fde68a; }
 
 .export-wrap { position: relative; }
 .export-menu {
@@ -118,18 +127,22 @@
 
 <div class="stats-row">
   <div class="stat-chip">📄 <span>{{ stats.total }}</span> total</div>
-  <div class="stat-chip" style="border-color:#d1fae5;color:#065f46;">✅ <span>{{ stats.valides }}</span> validés</div>
+  <a href="?etat=VALIDER" class="stat-chip" style="border-color:#d1fae5;color:#065f46;">✅ <span>{{ stats.valides }}</span> validés</a>
   <div class="stat-chip" style="border-color:#fef3c7;color:#92400e;">⏳ <span>{{ stats.en_attente }}</span> en attente</div>
-  <div class="stat-chip" style="border-color:#dbeafe;color:#1e40af;">🚗 <span>{{ stats.vehicules }}</span> véhicules</div>
-  <div class="stat-chip" style="border-color:#e0e7ff;color:#3730a3;">📦 <span>{{ stats.divers }}</span> divers</div>
+  {% if 'refuses' in stats %}
+  <a href="?etat=REFUSER" class="stat-chip" style="border-color:#fee2e2;color:#991b1b;">❌ <span>{{ stats.refuses }}</span> refusés</a>
+  {% endif %}
+  <a href="?type=VEHICULE" class="stat-chip" style="border-color:#dbeafe;color:#1e40af;">🚗 <span>{{ stats.vehicules }}</span> véhicules</a>
+  <a href="?type=DIVERS" class="stat-chip" style="border-color:#e0e7ff;color:#3730a3;">📦 <span>{{ stats.divers }}</span> divers</a>
 </div>
 
 <div class="filter-bar">
   <form method="get" id="filter-form">
+    {% if filters.sort %}<input type="hidden" name="sort" value="{{ filters.sort }}">{% endif %}
     <div class="filter-grid">
       <div>
         <label class="form-label">🔍 Recherche</label>
-        <input type="text" name="q" value="{{ filters.q }}" class="form-input"
+        <input type="text" name="q" value="{{ filters.q|default:'' }}" class="form-input"
                placeholder="N° bon, immatriculation, demandeur..."
                oninput="debounceSubmit()">
       </div>
@@ -148,6 +161,7 @@
           <option value="CREER" {% if filters.etat == 'CREER' %}selected{% endif %}>📝 Créé</option>
           <option value="APPROBATION" {% if filters.etat == 'APPROBATION' %}selected{% endif %}>⏳ Approbation</option>
           <option value="VALIDER" {% if filters.etat == 'VALIDER' %}selected{% endif %}>✅ Validé</option>
+          <option value="REFUSER" {% if filters.etat == 'REFUSER' %}selected{% endif %}>❌ Refusé</option>
         </select>
       </div>
       <div>
@@ -174,12 +188,12 @@
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
       <div>
         <label class="form-label">Du</label>
-        <input type="date" name="date_debut" value="{{ filters.date_debut }}"
+        <input type="date" name="date_debut" value="{{ filters.date_debut|default:'' }}"
                class="form-input" style="width:160px;" onchange="this.form.submit()">
       </div>
       <div>
         <label class="form-label">Au</label>
-        <input type="date" name="date_fin" value="{{ filters.date_fin }}"
+        <input type="date" name="date_fin" value="{{ filters.date_fin|default:'' }}"
                class="form-input" style="width:160px;" onchange="this.form.submit()">
       </div>
     </div>
@@ -198,10 +212,11 @@
     </div>
     <div style="display:flex;gap:6px;align-items:center;">
       <span class="text-small text-muted">Trier par :</span>
-      <a href="?{{ request.GET.urlencode }}&sort=date"
-         class="btn btn-outline btn-sm {% if filters.sort == 'date' %}btn-primary{% endif %}">Date ↓</a>
-      <a href="?{{ request.GET.urlencode }}&sort=numero"
-         class="btn btn-outline btn-sm {% if filters.sort == 'numero' %}btn-primary{% endif %}">N°</a>
+      {# Boutons de tri : soumettent le formulaire de filtres avec sort=..., pour ne pas empiler &sort= dans l'URL #}
+      <button type="submit" form="filter-form" name="sort" value="date"
+              class="btn btn-sm {% if filters.sort == 'date' or not filters.sort %}btn-primary{% else %}btn-outline{% endif %}">Date ↓</button>
+      <button type="submit" form="filter-form" name="sort" value="numero"
+              class="btn btn-sm {% if filters.sort == 'numero' %}btn-primary{% else %}btn-outline{% endif %}">N°</button>
     </div>
   </div>
 
@@ -239,6 +254,8 @@
             <span class="badge etat-valider">✅ Validé</span>
             {% elif bon.etats == 'APPROBATION' %}
             <span class="badge etat-approbation">⏳ Approbation</span>
+            {% elif bon.etats == 'REFUSER' %}
+            <span class="badge etat-refuser">❌ Refusé</span>
             {% else %}
             <span class="badge etat-creer">📝 Créé</span>
             {% endif %}
@@ -263,7 +280,12 @@
           </td>
           <td class="text-small text-muted">{{ bon.cree_par.full_name|default:"—" }}</td>
           <td>
-            <a href="{% url 'detail_bon_sortie_guerite' bon.id %}" class="btn btn-info btn-sm" title="Voir">👁</a>
+            <div class="actions-cell">
+              <a href="{% url 'detail_bon_sortie_guerite' bon.id %}" class="btn btn-info btn-sm" title="Voir">👁</a>
+              {% if bon.types == 'VEHICULE' %}{% if bon.etats == 'CREER' or bon.etats == 'REFUSER' %}
+              <a href="{% url 'modifier_bon_sortie' bon.id %}" class="btn btn-sm btn-warning-sm" title="Modifier">✏️</a>
+              {% endif %}{% endif %}
+            </div>
           </td>
         </tr>
         {% empty %}
@@ -271,7 +293,7 @@
           <td colspan="9" style="text-align:center;padding:50px;color:var(--text-muted);">
             <div style="font-size:40px;margin-bottom:10px;">📄</div>
             <div style="font-weight:600;">Aucun bon de sortie trouvé</div>
-            {% if filters.q or filters.type or filters.etat %}
+            {% if filters.q or filters.type or filters.etat or filters.periode %}
             <div class="text-small" style="margin-top:6px;">Essayez de modifier vos filtres</div>
             <a href="{% url 'liste_bons_admin' %}" class="btn btn-outline" style="margin-top:12px;">Voir tous</a>
             {% else %}
@@ -306,68 +328,58 @@ document.addEventListener('click', e => {
     document.getElementById('export-menu').classList.remove('open');
 });
 
-function exportCSV(){
-  const rows = [['N° Bon','Type','État','Véhicule','Demandeur','Date création','Validé le','Créé par']];
+// ── Lecture du tableau (commune au CSV et à l'Excel) ──
+const ENTETES = ['N° Bon','Type','État','Véhicule','Demandeur','Date création','Validé le','Créé par'];
+function lignesTableau(){
+  const rows = [ENTETES];
   document.querySelectorAll('#bons-table tbody tr').forEach(tr => {
     const cells = tr.querySelectorAll('td');
-    if (cells.length < 8) return;
-    rows.push([
-      cells[0].innerText.trim(),
-      cells[1].innerText.trim(),
-      cells[2].innerText.trim(),
-      cells[3].innerText.trim().replace(/\n/g,' '),
-      cells[4].innerText.trim(),
-      cells[5].innerText.trim().replace(/\n/g,' '),
-      cells[6].innerText.trim(),
-      cells[7].innerText.trim(),
-    ]);
+    if (cells.length < 8) return;                       // ligne « aucun résultat »
+    const ligne = [];
+    for (let i = 0; i < 8; i++) {                       // on ignore la colonne Actions
+      ligne.push(cells[i].innerText.trim().replace(/\s*\n\s*/g, ' '));
+    }
+    rows.push(ligne);
   });
-  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  return rows;
+}
+function telecharger(blob, nom){
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'}));
-  a.download = `bons-sortie-${new Date().toISOString().slice(0,10)}.csv`;
+  a.href = URL.createObjectURL(blob);
+  a.download = nom;
   a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   document.getElementById('export-menu').classList.remove('open');
 }
+const dateDuJour = () => new Date().toISOString().slice(0, 10);
 
+function exportCSV(){
+  const csv = lignesTableau()
+    .map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';'))   // « ; » : séparateur d'Excel en français
+    .join('\r\n');
+  telecharger(new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'}),
+              `bons-sortie-${dateDuJour()}.csv`);
+}
+
+function echapper(s){
+  return String(s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+}
 function exportExcel(){
-  const rows = [['N° Bon','Type','État','Véhicule','Demandeur','Date création','Validé le','Créé par']];
-  document.querySelectorAll('#bons-table tbody tr').forEach(tr => {
-    const cells = tr.querySelectorAll('td');
-    if (cells.length < 8) return;
-    rows.push([
-      cells[0].innerText.trim(),
-      cells[1].innerText.trim(),
-      cells[2].innerText.trim(),
-      cells[3].innerText.trim().replace(/\n/g,' '),
-      cells[4].innerText.trim(),
-      cells[5].innerText.trim().replace(/\n/g,' '),
-      cells[6].innerText.trim(),
-      cells[7].innerText.trim(),
-    ]);
-  });
-  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
-  html += '<head><meta charset="UTF-8"></head><body><table>';
-  rows.forEach((r, i) => {
-    html += '<tr>';
-    r.forEach(c => {
-      html += i === 0
-        ? `<th style="background:#1a3a5c;color:white;font-weight:bold;">${c}</th>`
-        : `<td>${c}</td>`;
-    });
-    html += '</tr>';
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
+           + '<head><meta charset="UTF-8"></head><body><table>';
+  lignesTableau().forEach((r, i) => {
+    html += '<tr>' + r.map(c => i === 0
+      ? `<th style="background:#1a3a5c;color:white;font-weight:bold;">${echapper(c)}</th>`
+      : `<td style="mso-number-format:'\\@';">${echapper(c)}</td>`).join('') + '</tr>';
   });
   html += '</table></body></html>';
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8;'}));
-  a.download = `bons-sortie-${new Date().toISOString().slice(0,10)}.xls`;
-  a.click();
-  document.getElementById('export-menu').classList.remove('open');
+  telecharger(new Blob([html], {type: 'application/vnd.ms-excel;charset=utf-8;'}),
+              `bons-sortie-${dateDuJour()}.xls`);
 }
 </script>
 <style>
 @media print {
-  .sidebar, .topbar, .filter-bar, .tbl-toolbar .btn,
+  .sidebar, .topbar, .filter-bar, .tbl-toolbar .btn, .stats-row,
   td:last-child, th:last-child { display:none!important; }
   .card { box-shadow:none; border:1px solid #ccc; }
   table { font-size:11px; }

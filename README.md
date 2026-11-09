@@ -407,3 +407,13 @@ docker compose -f docker-compose.staging.yml run --rm certbot certonly \
 
 # 4. Activer les lignes ssl_certificate dans nginx.staging.conf
 docker compose -f docker-compose.staging.yml restart nginx
+
+
+
+
+
+
+docker compose -f docker-compose.staging.yml exec web id
+# note uid et gid, par ex. uid=1000 gid=1000
+docker compose -f docker-compose.staging.yml exec -u root web chown -R 1000:1000 /app/media
+docker compose -f docker-compose.staging.yml exec -u root web chmod -R u+rwX,go+rX /app/media

@@ -86,6 +86,7 @@ class EtatBon(models.TextChoices):
     CREER = 'CREER', 'Créer'
     APPROBATION = 'APPROBATION', 'Approbation'
     VALIDER = 'VALIDER', 'Valider'
+    REFUSER = 'REFUSER', 'Refuser'
 
 
 class ActionType(models.TextChoices):

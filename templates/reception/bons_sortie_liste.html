@@ -157,6 +157,7 @@
           <option value="CREER"       {% if filters.etat == 'CREER' %}selected{% endif %}>📝 Créé</option>
           <option value="APPROBATION" {% if filters.etat == 'APPROBATION' %}selected{% endif %}>⏳ Approbation</option>
           <option value="VALIDER"     {% if filters.etat == 'VALIDER' %}selected{% endif %}>✅ Validé</option>
+          <option value="REFUSER"     {% if filters.etat == 'REFUSER' %}selected{% endif %}>❌ Refusé</option>
         </select>
       </div>
       <!-- Période -->
@@ -258,6 +259,8 @@
             <span class="badge etat-valider">✅ Validé</span>
             {% elif bon.etats == 'APPROBATION' %}
             <span class="badge etat-approbation">⏳ Approbation</span>
+            {% elif bon.etats == 'REFUSER' %}
+            <span class="badge etat-refuser">❌ Refusé</span>
             {% else %}
             <span class="badge etat-creer">📝 Créé</span>
             {% endif %}

@@ -22,7 +22,7 @@ from .ors import cloture_or, detail_or_rec, liste_or, reouverture_or,date_depot_
 from .bons import (
     creer_bon_sortie, creer_bon_sortie_direct, creer_bon_sortie_divers,
     detail_bon_sortie_guerite, export_bons_pdf, liste_bons_sortie, pdf_bon_sortie,
-    pdf_bon_sortie_guerite, valider_bon_sortie_divers, valider_bon_sortie_vehicule,
+    pdf_bon_sortie_guerite, valider_bon_sortie_divers, valider_bon_sortie_vehicule,refuser_bon_sortie,modifier_bon_sortie
 )
 from .api import (
     api_entrees_vehicule, api_vehicules, autocomplete_demandeur,

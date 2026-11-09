@@ -11,14 +11,13 @@
             <span class="icon">📊</span> Tableau de bord
         </a>
     </li>
-
-  
-
+    <li>
     {% if request.user.is_admin %}
-    <a href="{% url 'liste_bons_admin' %}"> <span class="icon">📄</span> Bons de sortie </a>
-{% else %}
-    <a href="{% url 'liste_bons_sortie' %}"> <span class="icon">📄</span>  Bons de sortie </a>
-{% endif %}
+        <a href="{% url 'liste_bons_admin' %}" class="active"><span class="icon">📄</span> Bons de sortie</a>
+    {% else %}
+        <a href="{% url 'liste_bons_sortie' %}" class="active"><span class="icon">📄</span> Bons de sortie</a>
+    {% endif %}
+    </li>
 </ul>
 {% endblock %}
 
@@ -39,6 +38,12 @@
 .etat-creer      { background: rgba(255,255,255,.15); color:#fff; }
 .etat-approbation{ background: #fef3c7; color: #92400e; }
 .etat-valider    { background: #d1fae5; color: #065f46; }
+.etat-refuser    { background: #fee2e2; color: #991b1b; }
+
+.refus-bandeau {
+  background:#fee2e2; border-left:4px solid var(--danger, #dc3545); color:#7f1d1d;
+  border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:14px;
+}
 
 .info-section { background: var(--surface2); border-radius: 8px; padding: 14px 16px; }
 .info-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
@@ -63,7 +68,7 @@
   .bon-header { background: #1a3a5c !important; -webkit-print-color-adjust: exact; }
 }
 </style>
-{% endblock %} 
+{% endblock %}
 
 {% block content %}
 <div class="page-header no-print">
@@ -73,11 +78,22 @@
       <a href="{% url 'liste_bons_sortie' %}">Bons de sortie</a> › {{ bon.numero }}
     </div>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
-<a href="{% url 'pdf_bon_sortie_guerite' bon.id %}" class="btn btn-primary">🖨️ Imprimer / PDF</a>
-
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    {# Boutons Modifier / Refuser (n'apparaissent que si autorisés) #}
+    {% include "reception/_actions_bon_sortie.html" %}
+    <a href="{% url 'pdf_bon_sortie_guerite' bon.id %}" class="btn btn-primary">🖨️ Imprimer / PDF</a>
   </div>
 </div>
+
+{% if bon.etats == 'REFUSER' %}
+<div class="refus-bandeau no-print">
+  <strong>⛔ Ce bon a été refusé</strong>
+  {% if bon.refuse_par %} par {{ bon.refuse_par.full_name|default:bon.refuse_par }}{% endif %}
+  {% if bon.date_refus %} le {{ bon.date_refus|date:"d/m/Y H:i" }}{% endif %}.
+  {% if bon.motif_refus %}<br>Motif : {{ bon.motif_refus }}{% endif %}
+  {% if peut_modifier %}<br>Corrigez-le avec le bouton « Modifier » pour le renvoyer en validation.{% endif %}
+</div>
+{% endif %}
 
 <!-- ── En-tête du bon ──────────────────────────────────── -->
 <div class="bon-header">
@@ -94,6 +110,8 @@
     <span class="etat-badge etat-valider">✅ VALIDÉ</span>
     {% elif bon.etats == 'APPROBATION' %}
     <span class="etat-badge etat-approbation">⏳ APPROBATION</span>
+    {% elif bon.etats == 'REFUSER' %}
+    <span class="etat-badge etat-refuser">⛔ REFUSÉ</span>
     {% else %}
     <span class="etat-badge etat-creer">📝 CRÉÉ</span>
     {% endif %}
@@ -118,8 +136,8 @@
       </div>
       <div class="info-row"><span class="info-label">Demandeur</span><strong>{{ bon.nom_demandeur|default:"—" }}</strong></div>
 
-      {% if bon.observations and bon.types == 'VEHICULE'%}
-      <div class="info-row"><span class="info-label">Observations</span>{{ bon.observations }}</div>
+      {% if bon.observations and bon.types == 'VEHICULE' %}
+      <div class="info-row"><span class="info-label">Observations</span><span style="white-space:pre-line;text-align:right;">{{ bon.observations }}</span></div>
       {% endif %}
 
       <div class="info-row"><span class="info-label">Créé par</span>{{ bon.cree_par.full_name|default:"—" }}</div>
@@ -138,36 +156,32 @@
     <div class="info-section">
       <div class="info-row"><span class="info-label">Immatriculation</span><strong style="font-size:16px;">{{ bon.vehicule.immatriculation }}</strong></div>
       <div class="info-row"><span class="info-label">Marque / Modèle</span>{{ bon.vehicule.marque }} {{ bon.vehicule.modele }}</div>
-      <div class="info-row"><span class="info-label">Année</span>{{ bon.vehicule.annee }}</div>
+      <div class="info-row"><span class="info-label">Année</span>{{ bon.vehicule.annee|default:"—" }}</div>
       <div class="info-row"><span class="info-label">Couleur</span>{{ bon.vehicule.couleur|default:"—" }}</div>
-      <div class="info-row"><span class="info-label">Carburant</span>{{ bon.vehicule.get_type_carburant_display }}</div>
-      <div class="info-row"><span class="info-label">Propriétaire</span><strong>{{ bon.vehicule.client }}</strong></div>
-      <div class="info-row"><span class="info-label">Téléphone</span>{{ bon.vehicule.client.telephone }}</div>
+      <div class="info-row"><span class="info-label">Carburant</span>{{ bon.vehicule.get_type_carburant_display|default:"—" }}</div>
+      <div class="info-row"><span class="info-label">Propriétaire</span><strong>{{ bon.vehicule.client|default:"—" }}</strong></div>
+      <div class="info-row"><span class="info-label">Téléphone</span>{{ bon.vehicule.client.telephone|default:"—" }}</div>
     </div>
     {% elif bon.types == 'DIVERS' %}
     <div class="card-header"><div class="card-title">📦 Objet / Matériel</div></div>
     <div class="info-section">
-
-<div class="info-row" style="display: flex; align-items: flex-start; gap: 16px;">
-    <span class="info-label" style="flex: 0 0 120px; font-weight: 600; white-space: nowrap;">Description</span>
-    <div style="flex: 1;">
-        {% with articles=bon.observations|split_articles %}
+      <div class="info-row" style="display:flex;align-items:flex-start;gap:16px;">
+        <span class="info-label" style="flex:0 0 120px;white-space:nowrap;">Description</span>
+        <div style="flex:1;">
+          {% with articles=bon.observations|split_articles %}
             {% if articles %}
-                <ol style="margin:0; padding-left:18px;">
-                    {% for article in articles %}
-                        <li style="margin:2px 0;">{{ article }}</li>
-                    {% endfor %}
-                </ol>
+              <ol style="margin:0;padding-left:18px;">
+                {% for article in articles %}
+                  <li style="margin:2px 0;">{{ article }}</li>
+                {% endfor %}
+              </ol>
             {% else %}
-                <span>—</span>
+              <span>—</span>
             {% endif %}
-        {% endwith %}
+          {% endwith %}
+        </div>
+      </div>
     </div>
-</div>
-
-  
-
-          </div>
     {% else %}
     <div class="card-header"><div class="card-title">📄 Détails</div></div>
     <div class="info-section">
@@ -187,94 +201,72 @@
   </div>
 </div>
 
-
-
-
-
-
-
-<!-- ── Zone de signature (Admin uniquement) ── -->
+<!-- ── Zone de signature (super réceptionniste / admin) ── -->
 {% if super and bon.etats == 'CREER' %}
 
-<div style="background:#fef9c3;border-radius:8px;padding:16px;margin-bottom:20px;">
+<div class="no-print" style="background:#fef9c3;border-radius:8px;padding:16px;margin:20px 0;">
     <div class="card-header">
         <div class="card-title">✍️ Signature pour la sortie</div>
     </div>
 
-    {% if request.user.signature %}
-        <!-- L'admin a déjà une signature stockée → juste le bouton -->
-        <div class="text-small text-muted" style="margin-bottom:12px;">
-            Votre signature est déjà enregistrée. Cliquez sur Valider pour l'appliquer au bon.
-        </div>
+    {% if bon.types == 'DIVERS' %}
+        {% url 'valider_bon_sortie_guerite' bon.id as url_signature %}
+    {% else %}
+        {% url 'valider_bon_sortie_super' bon.id as url_signature %}
+    {% endif %}
 
+    {% if request.user.signature %}
+        <!-- Signature déjà enregistrée → juste le bouton -->
+        <div class="text-small text-muted" style="margin-bottom:12px;">
+            Votre signature est déjà enregistrée. Cliquez sur le bouton pour l'appliquer au bon.
+        </div>
         <div style="margin-bottom:14px;">
-            <img src="{{ request.user.signature.url }}"
-                 alt="Votre signature"
+            <img src="{{ request.user.signature.url }}" alt="Votre signature"
                  style="max-width:280px;border:1px solid var(--border);border-radius:6px;background:#fff;">
         </div>
-
-        {% if bon.types == 'DIVERS' %}
-            <form method="post" action="{% url 'valider_bon_sortie_guerite' bon.id %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-success" style="width:100%;padding:12px;font-size:15px;">
-                    ✅ Valider avec ma signature
-                </button>
-            </form>
-        {% else %}
-            <form method="post" action="{% url 'valider_bon_sortie_super' bon.id %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-success" style="width:100%;padding:12px;font-size:15px;">
-                    ✅ Approuver avec ma signature
-                </button>
-            </form>
-        {% endif %}
+        <form method="post" action="{{ url_signature }}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success" style="width:100%;padding:12px;font-size:15px;">
+                ✅ {% if bon.types == 'DIVERS' %}Valider{% else %}Approuver{% endif %} avec ma signature
+            </button>
+        </form>
 
     {% else %}
-        <!-- L'admin n'a pas encore de signature → il doit signer -->
+        <!-- Pas encore de signature → pad -->
         <div class="text-small text-muted" style="margin-bottom:12px;">
             Vous n'avez pas encore de signature enregistrée. Signez ci-dessous (elle sera sauvegardée pour les prochains bons).
         </div>
 
-        <canvas id="sig-canvas" width="100%" height="160"
-                style="width:100%;border:2px dashed var(--border);border-radius:8px;background:#fff;display:block;"></canvas>
+        <canvas id="sig-canvas" height="160"></canvas>
 
-        <div class="sig-actions" style="margin-top:8px;">
+        <div class="sig-actions">
             <button type="button" onclick="clearSig()" class="btn btn-outline btn-sm">🗑 Effacer</button>
-        </div> 
+        </div>
+        <div id="sig-erreur" class="text-small" style="color:var(--danger,#dc3545);margin-top:6px;display:none;">
+            Veuillez signer avant de valider.
+        </div>
 
-        {% if bon.types == 'DIVERS' %}
-            <form method="post" action="{% url 'valider_bon_sortie_guerite' bon.id %}" id="sig-form" style="margin-top:14px;">
-                {% csrf_token %}
-                <input type="hidden" name="signature_admin" id="sig-data">
-                <button type="button" onclick="submitSig()" class="btn btn-success" style="width:100%;padding:12px;font-size:15px;">
-                    ✅ Valider et enregistrer ma signature
-                </button>
-            </form>
-        {% else %}
-            <form method="post" action="{% url 'valider_bon_sortie_super' bon.id %}" id="sig-form" style="margin-top:14px;">
-                {% csrf_token %}
-                <input type="hidden" name="signature_admin" id="sig-data">
-                <button type="button" onclick="submitSig()" class="btn btn-success" style="width:100%;padding:12px;font-size:15px;">
-                    ✅ Approuver et enregistrer ma signature
-                </button>
-            </form>
-        {% endif %}
+        <form method="post" action="{{ url_signature }}" id="sig-form" style="margin-top:14px;">
+            {% csrf_token %}
+            <input type="hidden" name="signature_admin" id="sig-data">
+            <button type="button" onclick="submitSig()" class="btn btn-success" style="width:100%;padding:12px;font-size:15px;">
+                ✅ {% if bon.types == 'DIVERS' %}Valider{% else %}Approuver{% endif %} et enregistrer ma signature
+            </button>
+        </form>
     {% endif %}
 </div>
 
 {% elif bon.signature_admin %}
-    <!-- Affichage de la signature déjà présente sur le bon -->
+    <!-- Signature déjà présente sur le bon -->
     <div class="card mt-2">
         <div class="card-header">
             <div class="card-title">✍️ Signature</div>
             <span class="badge badge-success">✅ Signée</span>
         </div>
-        <img src="{{ bon.signature_admin.url }}"
-             alt="Signature admin"
+        <img src="{{ bon.signature_admin.url }}" alt="Signature admin"
              style="max-width:280px;border:1px solid var(--border);border-radius:6px;">
     </div>
 {% endif %}
-
 
 {% endblock %}
 
@@ -285,8 +277,9 @@ const canvas = document.getElementById('sig-canvas');
 if (canvas) {
   const ctx = canvas.getContext('2d');
   canvas.width = canvas.offsetWidth;
-
   let drawing = false;
+  let aSigne = false;
+
   const getPos = e => {
     const r   = canvas.getBoundingClientRect();
     const src = e.touches ? e.touches[0] : e;
@@ -299,10 +292,11 @@ if (canvas) {
     e.preventDefault();
     const p = getPos(e);
     ctx.lineTo(p.x, p.y);
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text') || '#2c3e50';
+    ctx.strokeStyle = '#1f2937';   // trait foncé, lisible sur le fond blanc du PDF
     ctx.lineWidth = 2.5;
     ctx.lineCap   = 'round';
     ctx.stroke();
+    aSigne = true;
   };
   const stop = () => drawing = false;
 
@@ -314,9 +308,13 @@ if (canvas) {
   canvas.addEventListener('touchmove',  draw,  { passive: false });
   canvas.addEventListener('touchend',   stop);
 
-  window.clearSig = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+  window.clearSig = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); aSigne = false; };
 
   window.submitSig = () => {
+    if (!aSigne) {
+      document.getElementById('sig-erreur').style.display = 'block';
+      return;
+    }
     document.getElementById('sig-data').value = canvas.toDataURL();
     document.getElementById('sig-form').submit();
   };

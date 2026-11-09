@@ -8,7 +8,7 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.accounts.choices import TypeBon
+from apps.accounts.choices import EtatBon, TypeBon
 from apps.accounts.decorators import guerite_required, receptionniste_required
 from apps.accounts.models import Role
 from apps.audit.models import ActionType
@@ -20,6 +20,7 @@ from apps.reception.forms import BonSortieForm
 from apps.reception.models import StatutVehicule
 from apps.reception.pdf_bon_liste import generer_pdf_liste_bons
 from apps.vehicules.models import Vehicule
+from django.views.decorators.http import require_POST
 
 from ._utils import (
     _gen_qr, a_champ, filtrer_bons, get_or_none, paginate_queryset, pdf_response,
@@ -30,6 +31,34 @@ from ._utils import (
 def _notifier_si_pas_admin(request, bon):
     if request.user.role != Role.ADMIN:
         notifier_bon_sortie_cree(bon)
+
+
+
+# ─── Petits helpers ──────────────────────────────────────────────────────
+# Le champ d'état s'appelle `etats` dans le PDF (getattr(bon, 'etats')).
+# Si chez toi c'est `etat`, ces helpers marchent quand même.
+def _champ_etat(bon):
+    return 'etats' if a_champ(bon, 'etats') else 'etat'
+ 
+ 
+def _etat(bon):
+    return getattr(bon, _champ_etat(bon), None)
+ 
+ 
+def _est_super(user):
+    return getattr(user, 'role', None) in (Role.SUPER_RECEPTIONNISTE, Role.ADMIN)
+ 
+ 
+ETATS_MODIFIABLES = (EtatBon.CREER, EtatBon.REFUSER)
+ETATS_REFUSABLES = (EtatBon.CREER)
+ 
+ 
+def peut_modifier(bon):
+    return _etat(bon) in ETATS_MODIFIABLES
+ 
+ 
+def peut_refuser(bon, user):
+    return _est_super(user) and _etat(bon) in ETATS_REFUSABLES
 
 
 # ─── Liste / détail / PDF ────────────────────────────────────────────────
@@ -57,7 +86,7 @@ def liste_bons_sortie(request):
     })
 
 
-
+# ─── Détail (version mise à jour : ajoute peut_modifier / peut_refuser) ──
 @guerite_required
 def detail_bon_sortie_guerite(request, bon_id):
     bon = get_object_or_404(
@@ -67,8 +96,11 @@ def detail_bon_sortie_guerite(request, bon_id):
     )
     return render(request, 'reception/bons_sortie_detail.html', {
         'bon': bon,
-        'super': request.user.role in (Role.SUPER_RECEPTIONNISTE, Role.ADMIN),
+        'super': _est_super(request.user),
+        'peut_modifier': peut_modifier(bon),
+        'peut_refuser': peut_refuser(bon, request.user),
     })
+
 
 
 @login_required  # AJOUTÉ : le PDF était téléchargeable sans connexion
@@ -313,3 +345,117 @@ def creer_bon_sortie_divers(request):
             return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
 
     return render(request, 'reception/creer_divers.html')
+
+
+
+
+
+
+
+
+# ─── Modification ────────────────────────────────────────────────────────
+@receptionniste_required
+def modifier_bon_sortie(request, bon_id):
+    """Modifier un bon de sortie tant qu'il est CRÉÉ ou REFUSÉ.
+ 
+    Le véhicule n'est pas modifiable (il est lié à l'enregistrement d'entrée) :
+    on modifie le demandeur et les observations. Un bon REFUSÉ qui est corrigé
+    repasse à l'état CRÉER pour être de nouveau traité.
+    """
+    bon = get_object_or_404(
+        BonSortie.objects.select_related('vehicule', 'vehicule__client', 'reception'),
+        id=bon_id,
+    )
+ 
+    if not peut_modifier(bon):
+        messages.error(
+            request,
+            f"Le bon {bon.numero} ne peut plus être modifié (état : {_etat(bon)}).")
+        return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+ 
+    etait_refuse = _etat(bon) == EtatBon.REFUSER
+    vehicule_origine = bon.vehicule
+ 
+    form = BonSortieForm(request.POST or None, instance=bon)
+    if request.method == 'POST' and form.is_valid():
+        with transaction.atomic():
+            bon = form.save(commit=False)
+            bon.vehicule = vehicule_origine          # le véhicule ne change jamais ici
+            if etait_refuse:
+                setattr(bon, _champ_etat(bon), EtatBon.CREER)
+                if a_champ(bon, 'motif_refus'):
+                    bon.motif_refus = ''
+            bon.save()
+ 
+        if etait_refuse:
+            # Le bon repart dans le circuit : on prévient comme à la création
+            _notifier_si_pas_admin(request, bon)
+        log_action(request, getattr(ActionType, 'MODIFICATION', ActionType.CREATION),
+                   'RECEPTION', bon)
+        messages.success(
+            request,
+            f"Bon de sortie {bon.numero} modifié"
+            + (" et renvoyé pour validation." if etait_refuse else "."))
+        return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+ 
+    vehicles_data, vehicles_json = vehicules_presents_json()
+    return render(request, 'reception/creer_bon_sortie.html', {
+        'form': form,
+        'bon': bon,                      # active le mode « modification » du template
+        'bon_refuse': etait_refuse,
+        'reception': None,
+        'vehicles_data': vehicles_data,
+        'vehicles_json': vehicles_json,
+    })
+ 
+ 
+# ─── Refus ───────────────────────────────────────────────────────────────
+@require_POST
+@guerite_required
+def refuser_bon_sortie(request, bon_id):
+    """Passe le bon à l'état REFUSER (super réceptionniste / admin uniquement)."""
+    bon = get_object_or_404(BonSortie, id=bon_id)
+ 
+    if not _est_super(request.user):
+        messages.error(request, "Seul un super réceptionniste ou un admin peut refuser un bon.")
+        return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+ 
+    if not peut_refuser(bon, request.user):
+        messages.error(
+            request,
+            f"Le bon {bon.numero} ne peut pas être refusé (état : {_etat(bon)}).")
+        return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+ 
+    motif = (request.POST.get('motif') or '').strip()
+ 
+    champ_etat = _champ_etat(bon)
+    setattr(bon, champ_etat, EtatBon.REFUSER)
+    champs = [champ_etat]
+ 
+    # Champs optionnels : utilisés seulement s'ils existent sur le modèle
+    if a_champ(bon, 'motif_refus'):
+        bon.motif_refus = motif
+        champs.append('motif_refus')
+    elif motif and a_champ(bon, 'observations'):
+        # Pas de champ dédié : on garde le motif dans les observations
+        date = timezone.localtime().strftime('%d/%m/%Y %H:%M')
+        bon.observations = (
+            (bon.observations or '').rstrip()
+            + f"\n[Refusé le {date} par {request.user}] {motif}"
+        ).strip()
+        champs.append('observations')
+    if a_champ(bon, 'refuse_par'):
+        bon.refuse_par = request.user
+        champs.append('refuse_par')
+    if a_champ(bon, 'date_refus'):
+        bon.date_refus = timezone.now()
+        champs.append('date_refus')
+ 
+    bon.save(update_fields=champs)
+ 
+    log_action(request, getattr(ActionType, 'REFUS', getattr(ActionType, 'MODIFICATION',
+                                                               ActionType.CREATION)),
+               'RECEPTION', bon)
+    messages.warning(request, f"Bon de sortie {bon.numero} refusé.")
+    return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+ 

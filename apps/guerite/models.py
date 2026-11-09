@@ -9,6 +9,7 @@ import re
 from django.db import transaction
 
 from apps.accounts.choices import EtatBon, MotifEntree, StatutVehicule, TypeBon
+from garage import settings
 
 
 
@@ -218,6 +219,14 @@ class BonSortie(models.Model):
         null=True,
         blank=True
     )
+    motif_refus = models.TextField(blank=True, default='')
+    refuse_par = models.ForeignKey(
+      'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bons_refuses')
+    date_refus = models.DateTimeField(null=True, blank=True)
     # Création
     cree_par = models.ForeignKey(
         'accounts.User',

@@ -1,0 +1,92 @@
+{% comment %}
+  Boutons « Modifier » et « Refuser » d'un bon de sortie.
+  À inclure dans reception/bons_sortie_detail.html, là où sont les autres boutons
+  (en général dans le .page-header) :
+
+      {% include "reception/_actions_bon_sortie.html" %}
+
+  Variables attendues (fournies par detail_bon_sortie_guerite) :
+      bon, peut_modifier, peut_refuser
+{% endcomment %}
+
+{% if peut_modifier or peut_refuser %}
+<div class="bon-actions">
+    {% if peut_modifier %}
+    <a href="{% url 'modifier_bon_sortie' bon.id %}" class="btn btn-primary">
+        ✏️ Modifier
+    </a>
+    {% endif %}
+
+    {% if peut_refuser %}
+    <button type="button" class="btn btn-danger" onclick="ouvrirRefusBon()">
+        ⛔ Refuser
+    </button>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if peut_refuser %}
+<!-- Fenêtre de confirmation du refus -->
+<div class="refus-overlay" id="refus-bon-modal" aria-hidden="true">
+    <div class="refus-modal" role="dialog" aria-modal="true" aria-labelledby="refus-bon-titre">
+        <form method="post" action="{% url 'refuser_bon_sortie' bon.id %}">
+            {% csrf_token %}
+            <h3 id="refus-bon-titre">⛔ Refuser le bon {{ bon.numero }} ?</h3>
+            <p class="refus-aide">
+                Le bon passera à l'état « Refuser ». La réception pourra le corriger
+                puis l'enregistrer de nouveau.
+            </p>
+            <label class="form-label" for="refus-motif">Motif du refus (facultatif)</label>
+            <textarea name="motif" id="refus-motif" class="form-input" rows="3"
+                      placeholder="Ex. : demandeur incorrect, véhicule non prêt…"></textarea>
+            <div class="refus-boutons">
+                <button type="button" class="btn btn-outline" onclick="fermerRefusBon()">Annuler</button>
+                <button type="submit" class="btn btn-danger">Confirmer le refus</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function ouvrirRefusBon() {
+        const m = document.getElementById('refus-bon-modal');
+        m.classList.add('open');
+        m.setAttribute('aria-hidden', 'false');
+        setTimeout(() => document.getElementById('refus-motif').focus(), 50);
+    }
+    function fermerRefusBon() {
+        const m = document.getElementById('refus-bon-modal');
+        m.classList.remove('open');
+        m.setAttribute('aria-hidden', 'true');
+    }
+    document.getElementById('refus-bon-modal').addEventListener('click', function (e) {
+        if (e.target === this) fermerRefusBon();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') fermerRefusBon();
+    });
+</script>
+{% endif %}
+
+<style>
+    .bon-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .btn-danger {
+        background: var(--danger, #dc3545); color:#fff; border:none;
+    }
+    .btn-danger:hover { filter: brightness(0.92); }
+    .refus-overlay {
+        display:none; position:fixed; inset:0; z-index:2000;
+        background:rgba(0,0,0,0.45);
+        align-items:center; justify-content:center; padding:16px;
+    }
+    .refus-overlay.open { display:flex; }
+    .refus-modal {
+        background: var(--surface, #fff); border-radius:12px;
+        width:100%; max-width:480px; padding:20px 22px;
+        box-shadow:0 10px 30px rgba(0,0,0,0.2);
+    }
+    .refus-modal h3 { margin:0 0 8px; font-size:18px; }
+    .refus-aide { font-size:14px; color:var(--text-muted); margin:0 0 14px; }
+    .refus-modal textarea { width:100%; resize:vertical; }
+    .refus-boutons { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+</style>

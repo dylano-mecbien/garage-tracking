@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Créer bon de sortie{% endblock %}
-{% block page_title %}📄 Créer bon de sortie{% endblock %}
+{% block title %}{% if bon %}Modifier bon de sortie{% else %}Créer bon de sortie{% endif %}{% endblock %}
+{% block page_title %}📄 {% if bon %}Modifier le bon {{ bon.numero }}{% else %}Créer bon de sortie{% endif %}{% endblock %}
 
 {% block sidebar_nav %}
 <div class="sidebar-section">Réception</div>
@@ -12,7 +12,7 @@
 <li><a href="{% url 'historique_entrees_rec' %}"><span class="icon">📋</span> Historique des mouvements</a></li>
   <li><a href="{% url 'liste_or' %}"><span class="icon">🔧</span> Ordres de réparation</a></li>
 
-<li><a href="{% url 'liste_bons_sortie' %}"><span class="icon">📄</span> Bons de sortie</a></li>
+<li><a href="{% url 'liste_bons_sortie' %}"{% if bon %} class="active"{% endif %}><span class="icon">📄</span> Bons de sortie</a></li>
 <li class="has-submenu">
 <a href="#" class="submenu-toggle"><span class="icon">📁</span> Bases <span class="arrow">▼</span></a>
 <ul class="submenu">
@@ -26,7 +26,7 @@
 <div class="sidebar-section">Actions</div>
 <ul class="sidebar-nav">
     <li>
-        <a href="{% url 'creer_bon_sortie_direct' %}" class="active">
+        <a href="{% url 'creer_bon_sortie_direct' %}"{% if not bon %} class="active"{% endif %}>
             <span class="icon">🚚</span> Bon de sortie véhicule
         </a>
     </li>
@@ -42,24 +42,38 @@
 
 <div class="page-header">
     <div>
-        <h1>Bon de sortie</h1>
-        {% if reception %}
+        <h1>{% if bon %}Modifier le bon de sortie {{ bon.numero }}{% else %}Bon de sortie{% endif %}</h1>
+        {% if bon %}
+        <div class="breadcrumb">
+            <a href="{% url 'liste_bons_sortie' %}">Bons de sortie</a>
+            › <a href="{% url 'detail_bon_sortie_guerite' bon.id %}">{{ bon.numero }}</a>
+            › Modifier
+        </div>
+        {% elif reception %}
         <div class="breadcrumb">
             <a href="{% url 'detail_vehicule_rec' reception.id %}">
                 {{ reception.numero }}
             </a>
             › {{ reception.vehicule.immatriculation }}
-        </div> 
+        </div>
         {% endif %}
     </div>
-    {% if reception %}
+    {% if bon %}
+    <a href="{% url 'detail_bon_sortie_guerite' bon.id %}" class="btn btn-outline">← Annuler</a>
+    {% elif reception %}
     <a href="{% url 'index' %}" class="btn btn-outline">
         ← Retour
     </a>
     {% endif %}
 </div>
 
-
+{% if bon_refuse %}
+<div class="alert alert-warning">
+    <strong>⚠️ Ce bon a été refusé.</strong>
+    {% if bon.motif_refus %}<br>Motif : {{ bon.motif_refus }}{% endif %}
+    <br>Après enregistrement, il repassera à l'état « Créer » pour être de nouveau traité.
+</div>
+{% endif %}
 
     <!-- Affichage des erreurs globales du formulaire -->
     {% if form.non_field_errors %}
@@ -69,7 +83,7 @@
             {% endfor %}
         </div>
     {% endif %}
-    
+
 
     {% if form.errors %}
     <div class="alert alert-danger">
@@ -87,9 +101,6 @@
 
 <div class="card" style="max-width:800px; margin:auto;">
 
-
-
-
     <form method="post">
         {% csrf_token %}
 
@@ -101,12 +112,17 @@
             <label class="form-label">🚘 Immatriculation du véhicule</label>
             <div class="search-wrap">
                 <input type="text" id="vehicule-search" class="form-input"
-                       placeholder="Tapez l'immatriculation..." autocomplete="off">
+                       placeholder="Tapez l'immatriculation..." autocomplete="off"
+                       {% if bon %}readonly style="background:#f3f4f6; cursor:not-allowed;"{% endif %}>
                 <div class="search-results" id="vehicule-results"></div>
             </div>
             <input type="hidden" name="vehicule_id" id="vehicule-id">
             <div id="vehicule-info" style="margin-top:6px; font-size:14px; color:var(--text-muted);"></div>
-            <!-- Affichage des erreurs du champ vehicule_id (si le formulaire l'utilise) -->
+            {% if bon %}
+            <div style="margin-top:4px; font-size:12px; color:var(--text-muted);">
+                Le véhicule ne peut pas être changé sur un bon existant.
+            </div>
+            {% endif %}
             {% if form.vehicule_id.errors %}
                 <div class="form-error">{{ form.vehicule_id.errors.0 }}</div>
             {% endif %}
@@ -140,12 +156,18 @@
 
         <hr>
 
+        {% if bon %}
+        <button type="submit" class="btn btn-primary" style="font-size:15px;padding:10px 24px;">
+            💾 Enregistrer les modifications
+        </button>
+        <a href="{% url 'detail_bon_sortie_guerite' bon.id %}" class="btn btn-outline" style="margin-left:8px;">Annuler</a>
+        {% else %}
         <button type="submit" class="btn btn-success" style="font-size:15px;padding:10px 24px;">
             📄 Créer le bon de sortie
         </button>
+        {% endif %}
 
     </form>
-
 
 </div>
 
@@ -204,6 +226,7 @@
     // ===========================
     let vehiculeTimeout = null;
     let vehiculeAbort = null;
+    const MODE_EDITION = {% if bon %}true{% else %}false{% endif %};
 
     const searchInput = document.getElementById('vehicule-search');
     const resultsContainer = document.getElementById('vehicule-results');
@@ -213,7 +236,6 @@
 
     // Fonction pour mettre à jour le select demandeur
     function updateDemandeur(vehiculeData) {
-        // Vider le select
         demandeurSelect.innerHTML = '';
         if (!vehiculeData) {
             const opt = document.createElement('option');
@@ -223,7 +245,6 @@
             return;
         }
 
-        // Ajouter les options : conducteur et/ou client
         const options = [];
         if (vehiculeData.conducteur_nom) {
             options.push({ value: vehiculeData.conducteur_nom, label: 'Conducteur : ' + vehiculeData.conducteur_nom });
@@ -246,18 +267,33 @@
         }
     }
 
+    // Sélectionne une valeur dans le select demandeur (l'ajoute si absente)
+    function choisirDemandeur(valeur) {
+        if (!valeur) return;
+        const existe = Array.from(demandeurSelect.options).some(o => o.value === valeur);
+        if (!existe) {
+            // retirer l'option vide « Aucun conducteur/client trouvé » éventuelle
+            Array.from(demandeurSelect.options).forEach(o => { if (!o.value) o.remove(); });
+            const opt = document.createElement('option');
+            opt.value = valeur;
+            opt.textContent = valeur;
+            demandeurSelect.insertBefore(opt, demandeurSelect.firstChild);
+        }
+        demandeurSelect.value = valeur;
+    }
+
     // Sélection d'un véhicule
     function selectVehicule(item) {
         searchInput.value = item.immatriculation;
         vehiculeId.value = item.id;
         infoDiv.textContent = `🚗 ${item.immatriculation} ${item.client_nom ? '- Client: ' + item.client_nom : ''} ${item.conducteur_nom ? '- Conducteur: ' + item.conducteur_nom : ''}`;
         resultsContainer.classList.remove('open');
-        // Mettre à jour le demandeur
         updateDemandeur(item);
     }
 
-    // Recherche
+    // Recherche (désactivée en modification)
     searchInput.addEventListener('input', function() {
+        if (MODE_EDITION) return;
         clearTimeout(vehiculeTimeout);
         const q = this.value.trim();
         if (q.length < 2) {
@@ -308,7 +344,6 @@
         });
     }
 
-    // Fermer les résultats en cliquant ailleurs
     document.addEventListener('click', function(e) {
         if (!e.target.closest('.search-wrap')) {
             resultsContainer.classList.remove('open');
@@ -316,10 +351,22 @@
     });
 
     // ===========================
-    // PRÉ-REMPLISSAGE SI RÉCEPTION
+    // PRÉ-REMPLISSAGE
     // ===========================
-    {% if reception %}
-        // Si une réception est passée, on pré-remplit avec son véhicule
+    {% if bon %}
+        // Mode modification : véhicule du bon + demandeur actuel
+        (function() {
+            const data = {
+                id: "{{ bon.vehicule.id|default:'' }}",
+                immatriculation: "{{ bon.vehicule.immatriculation|default:''|escapejs }}",
+                client_nom: "{{ bon.vehicule.client.nom|default:''|escapejs }}",
+                conducteur_nom: "{% if bon.reception.conducteur %}{{ bon.reception.conducteur.nom|default:''|escapejs }} {{ bon.reception.conducteur.prenom|default:''|escapejs }}{% endif %}".trim()
+            };
+            selectVehicule(data);
+            // Valeur saisie (après une erreur de formulaire) ou valeur enregistrée
+            choisirDemandeur("{% if form.nom_demandeur.value %}{{ form.nom_demandeur.value|escapejs }}{% else %}{{ bon.nom_demandeur|default:''|escapejs }}{% endif %}");
+        })();
+    {% elif reception %}
         (function() {
             const data = {
                 id: "{{ reception.vehicule.id }}",

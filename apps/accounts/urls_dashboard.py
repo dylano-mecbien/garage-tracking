@@ -31,7 +31,7 @@ urlpatterns = [
     path('reception/<uuid:rec_id>/date-depot-facture/', views.date_depot_facture, name='date_depot_facture_admin'),
 
     
-
+ 
 
     path('admin-garage/<uuid:rec_id>/bon-sortie/',            views.creer_bon_sortie,   name='creer_sortie_lien_admin'),
  
