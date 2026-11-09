@@ -1,5 +1,6 @@
 from django.urls import path
 
+from apps.documents.views_impression_groupee import imprimer_bons_sortie
 from apps.reception import views_or
 from . import views
 
@@ -96,4 +97,6 @@ path('reception/<uuid:rec_id>/ref-devis/', views.ref_devis, name='ref_devis'),
 
     # ── Bases — Conducteurs ──────────────────────────────────────
     path('conducteurs/',                            views.rec_conducteurs,             name='rec_conducteurs'),
+    path('bons-sortie/imprimer/', imprimer_bons_sortie, name='imprimer_bons_sortie'),
+
 ]

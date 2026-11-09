@@ -15,7 +15,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
-    Flowable, Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+    Flowable, Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
 )
 from django.utils import timezone
 
@@ -31,6 +31,8 @@ COULEUR_APPROBATION_BG = colors.HexColor('#fef3c7')
 COULEUR_APPROBATION_TEXTE = colors.HexColor('#92400e')
 COULEUR_CREER_BG = colors.HexColor('#e5e7eb')
 COULEUR_CREER_TEXTE = colors.HexColor('#374151')
+COULEUR_REFUSE_BG = colors.HexColor('#fee2e2')
+COULEUR_REFUSE_TEXTE = colors.HexColor('#991b1b')
 
 COULEUR_DISCRET = colors.HexColor('#6b7280')
 COULEUR_BORDURE = colors.HexColor('#d5dbe1')
@@ -109,6 +111,8 @@ def _badge_etat(etat):
         texte, bg, fg = "VALIDÉ", COULEUR_VALIDE_BG, COULEUR_VALIDE_TEXTE
     elif etat == 'APPROBATION':
         texte, bg, fg = "EN ATTENTE D'APPROBATION", COULEUR_APPROBATION_BG, COULEUR_APPROBATION_TEXTE
+    elif etat == 'REFUSER':
+        texte, bg, fg = "REFUSÉ", COULEUR_REFUSE_BG, COULEUR_REFUSE_TEXTE
     else:
         texte, bg, fg = "EN ATTENTE DE VALIDATION", COULEUR_CREER_BG, COULEUR_CREER_TEXTE
 
@@ -344,16 +348,34 @@ def _pied_de_page(texte):
     return dessiner
 
 
+
 # ════════════════════════════════════════════════════════════════
-#  BON DE SORTIE
+#  BON DE SORTIE  (un bon, ou plusieurs bons à raison d'un par page)
 # ════════════════════════════════════════════════════════════════
-def generer_pdf_bon_sortie(bon):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(
-        buffer, pagesize=A4, title=f"Bon de sortie {bon.numero}", author="Centre Auto La Prudence+",
-        topMargin=10 * mm, bottomMargin=15 * mm, leftMargin=MARGE, rightMargin=MARGE,
-    )
-    elements = []
+class _MarqueurBon(Flowable):
+    """Invisible : indique au document quel bon est en cours (pour le pied de page)."""
+
+    def __init__(self, texte):
+        Flowable.__init__(self)
+        self.texte = texte
+
+    def wrap(self, availWidth, availHeight):
+        return (0, 0)
+
+    def draw(self):
+        self.canv._doctemplate._texte_pied = self.texte
+
+
+class _DocBons(SimpleDocTemplate):
+    """Dessine le pied de page en FIN de page : il connaît alors le bon affiché."""
+
+    def afterPage(self):
+        _pied_de_page(getattr(self, '_texte_pied', 'Bon de sortie'))(self.canv, self)
+
+
+def _elements_bon_sortie(bon):
+    """Liste des flowables d'UN bon de sortie (même rendu qu'avant)."""
+    elements = [_MarqueurBon(f"Bon de sortie N° {bon.numero}")]
 
     vehicule = bon.vehicule if bon.types == 'VEHICULE' and bon.vehicule else None
     client = vehicule.client if vehicule else None
@@ -429,9 +451,31 @@ def generer_pdf_bon_sortie(bon):
     # ── Signatures en bas de page (toujours présentes, pour signer à la main si besoin) ──
     elements.append(BottomSpacer(reserve=62 * mm))
     elements.append(_bloc_signatures(bon))
+    return elements
 
-    pied = _pied_de_page(f"Bon de sortie N° {bon.numero}")
-    doc.build(elements, onFirstPage=pied, onLaterPages=pied)
+
+def generer_pdf_bons_sortie(bons, titre="Bons de sortie"):
+    """PDF de plusieurs bons : chaque bon commence sur une nouvelle page."""
+    bons = list(bons)
+    buffer = BytesIO()
+    doc = _DocBons(
+        buffer, pagesize=A4, title=titre, author="Centre Auto La Prudence+",
+        topMargin=10 * mm, bottomMargin=15 * mm, leftMargin=MARGE, rightMargin=MARGE,
+    )
+    elements = []
+    for i, bon in enumerate(bons):
+        if i:
+            elements.append(PageBreak())
+        elements.extend(_elements_bon_sortie(bon))
+    if not elements:
+        elements.append(_P("Aucun bon de sortie ne correspond aux filtres.", 11, True, TA_CENTER))
+
+    doc.build(elements)
     pdf_bytes = buffer.getvalue()
     buffer.close()
     return pdf_bytes
+
+
+def generer_pdf_bon_sortie(bon):
+    """Un seul bon (inchangé pour le reste de l'appli : vue PDF, email...)."""
+    return generer_pdf_bons_sortie([bon], titre=f"Bon de sortie {bon.numero}")
