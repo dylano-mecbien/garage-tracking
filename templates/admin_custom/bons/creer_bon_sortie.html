@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}Créer bon de sortie{% endblock %}
-{% block page_title %}📄 Créer bon de sortie{% endblock %}
+{% block title %}{% if bon %}Modifier bon de sortie{% else %}Créer bon de sortie{% endif %}{% endblock %}
+{% block page_title %}📄 {% if bon %}Modifier le bon {{ bon.numero }}{% else %}Créer bon de sortie{% endif %}{% endblock %}
+
 
 {% block sidebar_nav %}
 <ul class="sidebar-nav">
@@ -69,6 +70,13 @@
 </div>
 
 
+{% if bon_refuse %}
+<div class="alert alert-warning">
+    <strong>⚠️ Ce bon a été refusé.</strong>
+    {% if bon.motif_refus %}<br>Motif : {{ bon.motif_refus }}{% endif %}
+    <br>Après enregistrement, il repassera à l'état « Créer » pour être de nouveau traité.
+</div>
+{% endif %}
 
     <!-- Affichage des erreurs globales du formulaire -->
     {% if form.non_field_errors %}
@@ -149,9 +157,16 @@
 
         <hr>
 
+        {% if bon %}
+        <button type="submit" class="btn btn-primary" style="font-size:15px;padding:10px 24px;">
+            💾 Enregistrer les modifications
+        </button>
+        <a href="{% url 'detail_bon_sortie_guerite' bon.id %}" class="btn btn-outline" style="margin-left:8px;">Annuler</a>
+        {% else %}
         <button type="submit" class="btn btn-success" style="font-size:15px;padding:10px 24px;">
             📄 Créer le bon de sortie
         </button>
+        {% endif %}
 
     </form>
 
@@ -324,11 +339,24 @@
         }
     });
 
+
     // ===========================
-    // PRÉ-REMPLISSAGE SI RÉCEPTION
+    // PRÉ-REMPLISSAGE
     // ===========================
-    {% if reception %}
-        // Si une réception est passée, on pré-remplit avec son véhicule
+    {% if bon %}
+        // Mode modification : véhicule du bon + demandeur actuel
+        (function() {
+            const data = {
+                id: "{{ bon.vehicule.id|default:'' }}",
+                immatriculation: "{{ bon.vehicule.immatriculation|default:''|escapejs }}",
+                client_nom: "{{ bon.vehicule.client.nom|default:''|escapejs }}",
+                conducteur_nom: "{% if bon.reception.conducteur %}{{ bon.reception.conducteur.nom|default:''|escapejs }} {{ bon.reception.conducteur.prenom|default:''|escapejs }}{% endif %}".trim()
+            };
+            selectVehicule(data);
+            // Valeur saisie (après une erreur de formulaire) ou valeur enregistrée
+            choisirDemandeur("{% if form.nom_demandeur.value %}{{ form.nom_demandeur.value|escapejs }}{% else %}{{ bon.nom_demandeur|default:''|escapejs }}{% endif %}");
+        })();
+    {% elif reception %}
         (function() {
             const data = {
                 id: "{{ reception.vehicule.id }}",

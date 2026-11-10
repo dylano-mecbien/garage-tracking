@@ -9,6 +9,7 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from apps.accounts.choices import EtatBon
 from apps.audit.models import ActionType
 from apps.audit.service import log_action
 from apps.guerite.models import BonSortie, EnregistrementEntree, StatutVehicule, TypeBon
@@ -16,6 +17,7 @@ from apps.notifications.hook import notifier_bon_sortie_cree
 from apps.reception.forms import BonSortieForm
 from apps.reception.views import _gen_qr, paginate_queryset
 from apps.reception.views._utils import a_champ
+from apps.reception.views.bons import _champ_etat, _etat, _notifier_si_pas_admin, peut_modifier
 
 from ..decorators import admin_required
 from ..models import Role
@@ -211,3 +213,124 @@ def creer_bon_sortie_divers(request):
             return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
 
     return render(request, 'admin_custom/bons/creer_divers_admin.html')
+
+
+
+
+
+@admin_required
+def modifier_bon_admin_vehicule(request, bon_id):
+    """Modifier un bon de sortie tant qu'il est CRÉÉ ou REFUSÉ.
+ 
+    Le véhicule n'est pas modifiable (il est lié à l'enregistrement d'entrée) :
+    on modifie le demandeur et les observations. Un bon REFUSÉ qui est corrigé
+    repasse à l'état CRÉER pour être de nouveau traité.
+    """
+    bon = get_object_or_404(
+        BonSortie.objects.select_related('vehicule', 'vehicule__client', 'reception'),
+        id=bon_id,
+    )
+ 
+    if not peut_modifier(bon):
+        messages.error(
+            request,
+            f"Le bon {bon.numero} ne peut plus être modifié (état : {_etat(bon)}).")
+        return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+ 
+    etait_refuse = _etat(bon) == EtatBon.REFUSER
+    vehicule_origine = bon.vehicule
+ 
+    form = BonSortieForm(request.POST or None, instance=bon)
+    if request.method == 'POST' and form.is_valid():
+        with transaction.atomic():
+            bon = form.save(commit=False)
+            bon.vehicule = vehicule_origine          # le véhicule ne change jamais ici
+            if etait_refuse:
+                setattr(bon, _champ_etat(bon), EtatBon.CREER)
+                if a_champ(bon, 'motif_refus'):
+                    bon.motif_refus = ''
+            bon.save()
+ 
+        if etait_refuse:
+            # Le bon repart dans le circuit : on prévient comme à la création
+            _notifier_si_pas_admin(request, bon)
+        log_action(request, getattr(ActionType, 'MODIFICATION', ActionType.CREATION),
+                   'RECEPTION', bon)
+        messages.success(
+            request,
+            f"Bon de sortie {bon.numero} modifié"
+            + (" et renvoyé pour validation." if etait_refuse else "."))
+        return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+ 
+    vehicles_data, vehicles_json = vehicules_presents_json()
+    return render(request, 'admin_custom/bons/creer_bon_sortie.html', {
+        'form': form,
+        'bon': bon,                      # active le mode « modification » du template
+        'bon_refuse': etait_refuse,
+        'reception': None,
+        'vehicles_data': vehicles_data,
+        'vehicles_json': vehicles_json,
+    })
+
+
+
+
+
+@admin_required  # ou @guerite_required selon ton accès
+def modifier_bon_admin_divers(request, bon_id):
+    """Modifier un bon DIVERS tant qu'il est CRÉER ou REFUSER."""
+    bon = get_object_or_404(BonSortie, id=bon_id, types='DIVERS')
+
+    if not peut_modifier(bon):
+        messages.error(
+            request,
+            f"Le bon {bon.numero} ne peut plus être modifié (état : {_etat(bon)})."
+        )
+        return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+
+    etait_refuse = _etat(bon) == EtatBon.REFUSER
+
+    if request.method == 'POST':
+        nom_demandeur = post_str(request, 'nom_demandeur')
+        observations = post_str(request, 'observations')
+
+        if not nom_demandeur:
+            messages.error(request, "Veuillez sélectionner un demandeur.")
+        elif not observations:
+            messages.error(request, "Veuillez saisir au moins une ligne (article).")
+        else:
+            with transaction.atomic():
+                bon.nom_demandeur = nom_demandeur
+                bon.observations = observations
+                if etait_refuse:
+                    setattr(bon, _champ_etat(bon), EtatBon.CREER)
+                    if a_champ(bon, 'motif_refus'):
+                        bon.motif_refus = ''
+                    if a_champ(bon, 'refuse_par'):
+                        bon.refuse_par = None
+                    if a_champ(bon, 'date_refus'):
+                        bon.date_refus = None
+                bon.save()
+
+                if etait_refuse:
+                    _notifier_si_pas_admin(request, bon)
+
+                log_action(
+                    request,
+                    getattr(ActionType, 'MODIFICATION', ActionType.CREATION),
+                    'RECEPTION',
+                    bon,
+                )
+
+            messages.success(
+                request,
+                f"Bon de sortie {bon.numero} modifié"
+                + (" et renvoyé pour validation." if etait_refuse else ".")
+            )
+            return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+
+    return render(request, 'admin_custom/bons/creer_divers_admin.html', {
+        'bon': bon,
+        'bon_refuse': etait_refuse,
+        'mode_edition': True,
+    })

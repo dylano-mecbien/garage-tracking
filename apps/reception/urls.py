@@ -45,8 +45,10 @@ path('reception/<uuid:rec_id>/ref-devis/', views.ref_devis, name='ref_devis'),
     path('bons-sortie/<uuid:bon_id>/valider/',      views.valider_bon_sortie_divers,   name='valider_bon_sortie_guerite'),
     path('bons-sortie/<uuid:bon_id>/validerAdmin/', views.valider_bon_sortie_vehicule, name='valider_bon_sortie_super'),
     path('bons-sortie/<uuid:bon_id>/pdf/',          views.pdf_bon_sortie_guerite,      name='pdf_bon_sortie_guerite'),
-        path('bons-sortie/<uuid:bon_id>/modifier/', views.modifier_bon_sortie,
-         name='modifier_bon_sortie'),
+    path('bons-sortie/<uuid:bon_id>/modifier/',     views.modifier_bon_sortie_vehicule, name='modifier_bon_sortie_vehicule'), 
+    path('bons-sortie/<uuid:bon_id>/modifier/divers/',     views.modifier_bon_sortie_divers, name='modifier_bon_sortie_divers'), 
+
+        
     path('bons-sortie/<uuid:bon_id>/refuser/', views.refuser_bon_sortie,
          name='refuser_bon_sortie'),
 

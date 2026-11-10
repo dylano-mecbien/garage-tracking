@@ -11,17 +11,35 @@
 
 {% if peut_modifier or peut_refuser %}
 <div class="bon-actions">
-    {% if peut_modifier %}
-    <a href="{% url 'modifier_bon_sortie' bon.id %}" class="btn btn-primary">
-        ✏️ Modifier
-    </a>
+  {% if peut_modifier %}
+    {% if request.user.is_admin %}
+      {% if bon.types == 'DIVERS' %}
+        <a href="{% url 'modifier_bon_admin_divers' bon.id %}" class="btn btn-primary">
+          ✏️ Modifier
+        </a>
+      {% else %}
+        <a href="{% url 'modifier_bon_admin_vehicule' bon.id %}" class="btn btn-primary">
+          ✏️ Modifier
+        </a>
+      {% endif %}
+    {% else %}
+      {% if bon.types == 'DIVERS' %}
+        <a href="{% url 'modifier_bon_sortie_divers' bon.id %}" class="btn btn-primary">
+          ✏️ Modifier
+        </a>
+      {% else %}
+        <a href="{% url 'modifier_bon_sortie_vehicule' bon.id %}" class="btn btn-primary">
+          ✏️ Modifier
+        </a>
+      {% endif %}
     {% endif %}
+  {% endif %}
 
-    {% if peut_refuser %}
+  {% if peut_refuser %}
     <button type="button" class="btn btn-danger" onclick="ouvrirRefusBon()">
-        ⛔ Refuser
+      ⛔ Refuser
     </button>
-    {% endif %}
+  {% endif %}
 </div>
 {% endif %}
 

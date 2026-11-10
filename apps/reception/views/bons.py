@@ -320,32 +320,6 @@ def creer_bon_sortie_direct(request):
         'reception':     None,
     })
 
-@guerite_required
-def creer_bon_sortie_divers(request):
-    """Bon de sortie divers (articles, matériel…)."""
-    if request.method == 'POST':
-        nom_demandeur = post_str(request, 'nom_demandeur')
-        observations = post_str(request, 'observations')
-
-        if not nom_demandeur:
-            messages.error(request, "Veuillez sélectionner un demandeur.")
-        elif not observations:
-            messages.error(request, "Veuillez saisir au moins une ligne (article) dans les observations.")
-        else:
-            bon = BonSortie.objects.create(
-                types='DIVERS',
-                nom_demandeur=nom_demandeur,
-                Origine_demande='DIVERS',
-                observations=observations,
-                cree_par=request.user,
-            )
-            _notifier_si_pas_admin(request, bon)
-            log_action(request, ActionType.CREATION, 'GUERITE', bon, {'type': 'DIVERS'})
-            messages.success(request, f"Bon de sortie {bon.numero} créé avec succès.")
-            return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
-
-    return render(request, 'reception/creer_divers.html')
-
 
 
 
@@ -355,7 +329,7 @@ def creer_bon_sortie_divers(request):
 
 # ─── Modification ────────────────────────────────────────────────────────
 @receptionniste_required
-def modifier_bon_sortie(request, bon_id):
+def modifier_bon_sortie_vehicule(request, bon_id):
     """Modifier un bon de sortie tant qu'il est CRÉÉ ou REFUSÉ.
  
     Le véhicule n'est pas modifiable (il est lié à l'enregistrement d'entrée) :
@@ -407,11 +381,102 @@ def modifier_bon_sortie(request, bon_id):
         'vehicles_data': vehicles_data,
         'vehicles_json': vehicles_json,
     })
- 
- 
+
+
+
+
+@receptionniste_required
+def creer_bon_sortie_divers(request):
+    """Bon de sortie divers (articles, matériel…)."""
+    if request.method == 'POST':
+        nom_demandeur = post_str(request, 'nom_demandeur')
+        observations = post_str(request, 'observations')
+
+        if not nom_demandeur:
+            messages.error(request, "Veuillez sélectionner un demandeur.")
+        elif not observations:
+            messages.error(request, "Veuillez saisir au moins une ligne (article) dans les observations.")
+        else:
+            bon = BonSortie.objects.create(
+                types='DIVERS',
+                nom_demandeur=nom_demandeur,
+                Origine_demande='DIVERS',
+                observations=observations,
+                cree_par=request.user,
+            )
+            _notifier_si_pas_admin(request, bon)
+            log_action(request, ActionType.CREATION, 'GUERITE', bon, {'type': 'DIVERS'})
+            messages.success(request, f"Bon de sortie {bon.numero} créé avec succès.")
+            return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+
+    return render(request, 'reception/creer_divers.html')
+
+
+
+@receptionniste_required  # ou @guerite_required selon ton accès
+def modifier_bon_sortie_divers(request, bon_id):
+    """Modifier un bon DIVERS tant qu'il est CRÉER ou REFUSER."""
+    bon = get_object_or_404(BonSortie, id=bon_id, types='DIVERS')
+
+    if not peut_modifier(bon):
+        messages.error(
+            request,
+            f"Le bon {bon.numero} ne peut plus être modifié (état : {_etat(bon)})."
+        )
+        return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+
+    etait_refuse = _etat(bon) == EtatBon.REFUSER
+
+    if request.method == 'POST':
+        nom_demandeur = post_str(request, 'nom_demandeur')
+        observations = post_str(request, 'observations')
+
+        if not nom_demandeur:
+            messages.error(request, "Veuillez sélectionner un demandeur.")
+        elif not observations:
+            messages.error(request, "Veuillez saisir au moins une ligne (article).")
+        else:
+            with transaction.atomic():
+                bon.nom_demandeur = nom_demandeur
+                bon.observations = observations
+                if etait_refuse:
+                    setattr(bon, _champ_etat(bon), EtatBon.CREER)
+                    if a_champ(bon, 'motif_refus'):
+                        bon.motif_refus = ''
+                    if a_champ(bon, 'refuse_par'):
+                        bon.refuse_par = None
+                    if a_champ(bon, 'date_refus'):
+                        bon.date_refus = None
+                bon.save()
+
+                if etait_refuse:
+                    _notifier_si_pas_admin(request, bon)
+
+                log_action(
+                    request,
+                    getattr(ActionType, 'MODIFICATION', ActionType.CREATION),
+                    'RECEPTION',
+                    bon,
+                )
+
+            messages.success(
+                request,
+                f"Bon de sortie {bon.numero} modifié"
+                + (" et renvoyé pour validation." if etait_refuse else ".")
+            )
+            return redirect('detail_bon_sortie_guerite', bon_id=bon.id)
+
+    return render(request, 'reception/creer_divers.html', {
+        'bon': bon,
+        'bon_refuse': etait_refuse,
+        'mode_edition': True,
+    })
+
+
+
 # ─── Refus ───────────────────────────────────────────────────────────────
 @require_POST
-@guerite_required
+@receptionniste_required
 def refuser_bon_sortie(request, bon_id):
     """Passe le bon à l'état REFUSER (super réceptionniste / admin uniquement)."""
     bon = get_object_or_404(BonSortie, id=bon_id)

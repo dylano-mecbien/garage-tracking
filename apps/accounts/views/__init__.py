@@ -18,7 +18,7 @@ from .mouvements import (creer_reception_admin,date_depot_facture,
     liste_or, liste_receptions, liste_vehicules_presents, modifier_motif_admin, cloture_or, reouverture_or,
 )
 from .bons import (
-    creer_bon_sortie, creer_bon_sortie_direct, creer_bon_sortie_divers, liste_bons_sortie,
+    creer_bon_sortie, creer_bon_sortie_direct, creer_bon_sortie_divers, liste_bons_sortie, modifier_bon_admin_vehicule,modifier_bon_admin_divers
 )
 from .vehicules import (
     admin_creer_vehicule, admin_modifier_vehicule, admin_mouvements_vehicule,

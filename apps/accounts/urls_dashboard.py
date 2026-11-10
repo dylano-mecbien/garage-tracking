@@ -29,6 +29,8 @@ urlpatterns = [
         path('creer/',                                   views.creer_reception_admin,             name='creer_reception_admin'),
 
     path('reception/<uuid:rec_id>/date-depot-facture/', views.date_depot_facture, name='date_depot_facture_admin'),
+    path('bons-sortie/<uuid:bon_id>/modifier/divers/admin/',     views.modifier_bon_admin_divers, name='modifier_bon_admin_divers'), 
+    path('bons-sortie/<uuid:bon_id>/modifier/vehicule/admin/',     views.modifier_bon_admin_vehicule, name='modifier_bon_admin_vehicule'), 
 
     
  

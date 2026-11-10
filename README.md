@@ -376,8 +376,13 @@ sudo systemctl stop postgresql
 make prod-logs-nginx
 ```
 
+
+docker run --rm -v ~/garage-tracking:/parent alpine \
+  rm -rf /parent/medias_import
+
+
 copier les images de minio vert labas
-scp -r ./10-28-2026-16-50-17_files_list root@77.237.241.55:/home/deploy/garage-tracking/medias_import
+scp -r ./ root@77.237.241.55:/home/deploy/garage-tracking/medias_import
 
 docker run --rm -v garage-tracking_media_volume_test:/media \
   -v ~/garage-tracking/medias_import:/src alpine cp -a /src/. /media/
@@ -417,3 +422,4 @@ docker compose -f docker-compose.staging.yml exec web id
 # note uid et gid, par ex. uid=1000 gid=1000
 docker compose -f docker-compose.staging.yml exec -u root web chown -R 1000:1000 /app/media
 docker compose -f docker-compose.staging.yml exec -u root web chmod -R u+rwX,go+rX /app/media
+

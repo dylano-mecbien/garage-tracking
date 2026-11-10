@@ -291,9 +291,15 @@ a.stat-chip:hover { filter: brightness(0.97); }
           <td>
             <div class="actions-cell">
               <a href="{% url 'detail_bon_sortie_guerite' bon.id %}" class="btn btn-info btn-sm" title="Voir">👁</a>
-              {% if bon.types == 'VEHICULE' %}{% if bon.etats == 'CREER' or bon.etats == 'REFUSER' %}
-              <a href="{% url 'modifier_bon_sortie' bon.id %}" class="btn btn-sm btn-warning-sm" title="Modifier">✏️</a>
-              {% endif %}{% endif %}
+{% if bon.etats == 'CREER' or bon.etats == 'REFUSER' %}
+  {% if bon.types == 'VEHICULE' %}
+  <a href="{% url 'modifier_bon_admin_vehicule' bon.id %}"
+     class="btn btn-sm btn-warning-sm" title="Modifier">✏️</a>
+  {% elif bon.types == 'DIVERS' %}
+  <a href="{% url 'modifier_bon_admin_divers' bon.id %}"
+     class="btn btn-sm btn-warning-sm" title="Modifier">✏️</a>
+  {% endif %}
+{% endif %}
             </div>
           </td>
         </tr>

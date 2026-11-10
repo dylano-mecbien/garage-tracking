@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Nouveau bon de sortie divers{% endblock %}
-{% block page_title %}📦 Bon de sortie — Divers (simplifié){% endblock %}
-
+{% block title %}{% if bon %}Modifier {{ bon.numero }}{% else %}Nouveau bon de sortie divers{% endif %}{% endblock %}
+{% block page_title %}
+  {% if bon %}✏️ Modifier le bon {{ bon.numero }}{% else %}📦 Bon de sortie — Divers{% endif %}
+{% endblock %}
 {% block sidebar_nav %}
 
 <ul class="sidebar-nav">
@@ -124,14 +125,20 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>Bon de sortie — Divers (simplifié)</h1>
+    <h1>{% if bon %}Modifier le bon {{ bon.numero }}{% else %}Bon de sortie — Divers{% endif %}</h1>
     <div class="breadcrumb">
-      <a href="{% url 'liste_bons_admin' %}">Bons de sortie</a> › Nouvelle sortie divers
+      <a href="{% url 'liste_bons_sortie' %}">Bons de sortie</a> ›
+      {% if bon %}{{ bon.numero }}{% else %}Nouvelle sortie divers{% endif %}
     </div>
   </div>
-  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+  <a href="{% url 'liste_bons_sortie' %}" class="btn btn-outline">← Retour</a>
 </div>
 
+{% if bon_refuse %}
+<div class="alert" style="background:#fef3c7;border:1px solid #fcd34d;max-width:800px;margin-bottom:12px;">
+  Ce bon a été refusé. Après enregistrement, il repassera en <strong>CRÉER</strong> pour revalidation.
+</div>
+{% endif %}
 <form method="post" id="bon-form">
   {% csrf_token %}
   <div class="card" style="max-width:800px;">
@@ -191,8 +198,9 @@
     <div class="form-group">
       <label class="form-label">📝 Articles / Lignes</label>
 
+
       <textarea name="observations" id="obs-textarea" class="form-textarea" rows="6"
-                placeholder="Saisissez chaque article/ligne sur une nouvelle ligne ou séparez par des points-virgules (;).&#10;Exemple :&#10;Pince multiprise;Tournevis cruciforme;Clé à molette 13mm"></textarea>
+  placeholder="...">{% if bon %}{{ bon.observations }}{% endif %}</textarea>
 
       <!-- Aperçu en temps réel (cahier) -->
       <div id="cahier-preview" style="margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fafbfc; min-height: 50px;">
@@ -210,8 +218,8 @@
 
     <div style="display:flex;gap:10px;margin-top:8px;">
       <button type="submit" class="btn btn-success" style="flex:1;font-size:15px;padding:12px;">
-        📄 Créer le bon de sortie
-      </button>
+  {% if bon %}💾 Enregistrer les modifications{% else %}📄 Créer le bon de sortie{% endif %}
+</button>
       <a href="{% url 'liste_bons_sortie' %}" class="btn btn-outline" style="padding:12px 16px;">
         Annuler
       </a>
@@ -454,5 +462,22 @@ document.getElementById('bon-form').addEventListener('submit', function(e) {
     return;
   }
 });
+
+
+
+  // ===========================
+    // PRÉ-REMPLISSAGE
+    // ===========================
+// =========================== PRÉ-REMPLISSAGE (édition) ===========================
+{% if bon and bon.nom_demandeur %}
+(function () {
+  selectDem({
+    source: 'DEMANDEUR',
+    nom: "{{ bon.nom_demandeur|escapejs }}",
+    numero: '',
+    detail: 'Bon {{ bon.numero|escapejs }}',
+  });
+})();
+{% endif %}
 </script>
 {% endblock %}
