@@ -21,7 +21,7 @@
 .urg{flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;font-size:13px;font-weight:600;}
 .urg.on-NORMAL{border-color:var(--info);color:var(--info);}
 .urg.on-URGENT{border-color:var(--warning);color:var(--warning);}
-.urg.on-CRITIQUE{border-color:var(--danger);color:var(--danger);}
+.urg.on-TRES_URGENT{border-color:var(--danger);color:var(--danger);}
 .lecture{font-size:13px;white-space:pre-line;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:10px;}
 .lecture-l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-bottom:4px;}
 
@@ -173,7 +173,7 @@
       <div style="display:flex;gap:8px;">
         <div class="urg on-NORMAL" id="urg-NORMAL" onclick="setUrg('NORMAL')">🟢 Normal</div>
         <div class="urg" id="urg-URGENT" onclick="setUrg('URGENT')">🟡 Urgent</div>
-        <div class="urg" id="urg-CRITIQUE" onclick="setUrg('CRITIQUE')">🔴 Critique</div>
+        <div class="urg" id="urg-TRES_URGENT" onclick="setUrg('TRES_URGENT')">🔴 Très urgent</div>
       </div>
     </div>
 
@@ -198,7 +198,7 @@ function toggleAtelier(id) {
 
 function setUrg(v) {
   document.getElementById('urgence').value = v;
-  ['NORMAL', 'URGENT', 'CRITIQUE'].forEach(u => {
+  ['NORMAL', 'URGENT', 'TRES_URGENT'].forEach(u => {
     document.getElementById('urg-' + u).className = 'urg' + (u === v ? ' on-' + u : '');
   });
 }

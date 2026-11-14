@@ -68,7 +68,7 @@ class TypeOR(models.TextChoices):
 class UrgenceOR(models.TextChoices):
     NORMAL   = 'NORMAL',   'Normal'
     URGENT   = 'URGENT',   'Urgent'
-    CRITIQUE = 'CRITIQUE', 'Critique'
+    TRES_URGENT = 'TRES_URGENT', 'Très urgent'
 
 
 class MotifEntree(models.TextChoices):

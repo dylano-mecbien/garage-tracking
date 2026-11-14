@@ -37,7 +37,6 @@
     <h1>{{ atelier.nom }}</h1>
     <div class="breadcrumb">📍 {{ atelier.localisation|default:"—" }}</div>
   </div>
-  <span class="text-small text-muted">{{ today|date:"l d F Y" }}</span>
 </div>
 
 <div class="kpi-grid">
@@ -176,7 +175,7 @@
         </div>
       </div>
     
-      {% if o.urgence == 'CRITIQUE' %}<span class="badge badge-danger">🔴</span>
+      {% if o.urgence == 'TRES_URGENT' %}<span class="badge badge-danger">🔴</span>
       {% elif o.urgence == 'URGENT' %}<span class="badge badge-warning">🟡</span>{% endif %}
     </a>
     {% empty %}
