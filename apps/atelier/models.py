@@ -80,8 +80,8 @@ class OrdreReparation(models.Model):
         related_name='ordres_reparation',
     )
 
-    statut              = models.CharField(max_length=15, choices=StatutOR.choices, default=StatutOR.OUVERT)
-    urgence             = models.CharField(max_length=10, choices=UrgenceOR.choices, default=UrgenceOR.NORMAL)
+    statut              = models.CharField(max_length=20, choices=StatutOR.choices, default=StatutOR.OUVERT)
+    urgence             = models.CharField(max_length=20, choices=UrgenceOR.choices, default=UrgenceOR.NORMAL)
     description_travaux = models.TextField(blank=True)
 
     # Durées & dates
