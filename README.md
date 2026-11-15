@@ -384,9 +384,9 @@ docker run --rm -v ~/garage-tracking:/parent alpine \
 copier les images de minio vert labas
 scp -r ./ root@77.237.241.55:/home/deploy/garage-tracking/medias_import
 
-docker run --rm -v garage-tracking_media_volume_test:/media \
+docker run --rm -v garage-tracking_media_volume:/media \
   -v ~/garage-tracking/medias_import:/src alpine cp -a /src/. /media/
-docker run --rm -v garage-tracking_media_volume_test:/m alpine ls /m
+docker run --rm -v garage-tracking_media_volume:/m alpine ls /m
 
 docker volume rm garage-tracking_minio_data_test
 
